@@ -18,6 +18,3 @@ The following items are proposed for this development:
 <li>All scripts to characterize libraries.
 <li>Use of common benchmarks to assess standard-cell library characterization of  SkyWater Technology libraries.
 
-Further Development
-
-After the characterization library has been developed, additional funding could enable expansion of usage for memory characterization.
