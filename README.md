@@ -19,8 +19,8 @@ The following items are proposed for this development:
 <LI> Use of common benchmarks to assess standard-cell library characterization of  SkyWater Technology libraries.
 </OL>
   
-James Stine
-Oklahoma State University
-VLSI Computer Architecture Research Laboratory
-james.stine@okstate.edu
+James E. Stine, Jr.<br>
+Oklahoma State University<br>
+VLSI Computer Architecture Research Laboratory<br>
+james.stine@okstate.edu<br>
   
