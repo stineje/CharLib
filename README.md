@@ -1,4 +1,5 @@
-# CharLib
+# Google/Oklahoma State University CharLib
+This initiative is due to the many talented individuals who have worked to provide a complete open-source design flows and Process Design Kits.  We are also thankful to Goolge, Efabless, and Skywater Technology for helping push this initiative forward.
 
 Standard cell libraries are important for System on Chip design but they do not work well without good characterization of the library.  Characterization involves documenting important properties of the cell library into a central repository that other Electronic Design Automation tools utilize.  To make matters worse, many libraries require archaic and older formats that are now legacy information.  This proposal will involve creating a new python-based cell characterizer that can be used as an open-source tool. 
   
@@ -17,4 +18,9 @@ The following items are proposed for this development:
 <LI> All scripts to characterize libraries.
 <LI> Use of common benchmarks to assess standard-cell library characterization of  SkyWater Technology libraries.
 </OL>
+  
+James Stine
+Oklahoma State University
+VLSI Computer Architecture Research Laboratory
+james.stine@okstate.edu
   
