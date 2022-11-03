@@ -1,0 +1,261 @@
+library (OSD350){
+  delay_model : "table_lookup";
+  capacitive_load_unit (1,pF);
+  current_unit : "1mA";
+  leakage_power_unit : "1pW";
+  pulling_resistance_unit : "1Ohm";
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  voltage_map (VDD, 3.3);
+  voltage_map (VSS, 0.0);
+  voltage_map (GND , 0.0);
+  default_cell_leakage_power : 0;
+  default_fanout_load : 1;
+  default_max_transition : 1000;
+  default_input_pin_cap : 0;
+  default_inout_pin_cap : 0;
+  default_leakage_power_density : 0;
+  default_max_fanout : 100;
+  default_output_pin_cap : 0;
+  in_place_swap_mode : match_footprint;
+  input_threshold_pct_fall : 50.0;
+  input_threshold_pct_rise : 50.0;
+  nom_process : 1;
+  nom_temperature : "25.0";
+  nom_voltage : "3.3";
+  output_threshold_pct_fall : 50.0;
+  output_threshold_pct_rise : 50.0;
+  slew_derate_from_library : 1;
+  slew_lower_threshold_pct_fall : 20.0;
+  slew_lower_threshold_pct_rise : 20.0;
+  slew_upper_threshold_pct_fall : 80.0;
+  slew_upper_threshold_pct_rise : 80.0;
+  operating_conditions (PVT_3P5V_25C) {
+    process : 1;
+    temperature : 25.0;
+    voltage : 3.3;
+  }
+  default_operating_conditions : PVT_3P5V_25C;
+  lu_table_template (constraint_template) {
+    variable_1 : constrained_pin_transition;
+    variable_2 : related_pin_transition;
+    index_1 ("1.0, 4.0, 16.0, 64.0");
+    index_2 ("1.0, 4.0, 16.0, 64.0");
+  }
+  lu_table_template (delay_template) {
+    variable_1 : input_net_transition;
+    variable_2 : total_output_net_capacitance;
+    index_1 ("1.0, 4.0, 16.0, 64.0");
+    index_2 ("1.0, 4.0, 16.0, 64.0");
+  }
+  lu_table_template (recovery_template) {
+    variable_1 : related_pin_transition;    
+    variable_2 : constrained_pin_transition;
+    index_1 ("1.0, 4.0, 16.0, 64.0");
+    index_2 ("1.0, 4.0, 16.0, 64.0");
+  }
+  lu_table_template (removal_template) {
+    variable_1 : related_pin_transition;    
+    variable_2 : constrained_pin_transition;
+    index_1 ("1.0, 4.0, 16.0, 64.0");
+    index_2 ("1.0, 4.0, 16.0, 64.0");
+  }
+  lu_table_template (mpw_constraint_template) {
+    variable_1 : constrained_pin_transition;
+    index_1 ("1.0, 4.0, 16.0, 64.0");
+  }
+  power_lut_template (passive_power_template) {
+    variable_1 : input_transition_time;
+    index_1 ("1.0, 4.0, 16.0, 64.0");
+  }
+  power_lut_template (power_template) {
+    variable_1 : input_transition_time;
+    variable_2 : total_output_net_capacitance;
+    index_1 ("1.0, 4.0, 16.0, 64.0");
+    index_2 ("1.0, 4.0, 16.0, 64.0");
+  }
+  input_voltage (default_VDD_VSS_input) {
+    vil : 0.0;
+    vih : 3.3;
+    vimin : 0.0;
+    vimax : 3.3;
+  }
+  output_voltage (default_VDD_VSS_output) {
+    vol : 0.0;
+    voh : 3.3;
+    vomin : 0.0;
+    vomax : 3.3;
+  }
+  cell (AND2X1) {
+    area : 1.0;
+    cell_leakage_power : 75.27530999999998;
+    pg_pin (VDD){
+      pg_type : primary_power;
+      voltage_name : "VDD";
+    }
+    pg_pin (VSS){
+      pg_type : primary_ground;
+      voltage_name : "VSS";
+    }
+    pin (Y){
+      direction : output;
+      function : "((A&B))"
+      related_power_pin : "VDD";
+      related_ground_pin : "VSS";
+      max_capacitance : "64.0";
+      output_voltage : default_VDD_VSS_output;
+      timing () {
+        related_pin : "A";
+        timing_sense : "positive_unate";
+        timing_type : "combinational";
+        cell_rise (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "2.121033, 8.145266, 32.243370, 128.636100", \
+          "2.015523, 8.042477, 32.140340, 128.533000", \
+          "1.193462, 7.456015, 31.561710, 127.954200", \
+          "-3.123285, 3.906151, 29.049560, 125.472900" \
+          );
+        }
+        rise_transition (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "3.038284, 12.101430, 48.355950, 128.636100", \
+          "3.068819, 12.102040, 48.355960, 128.533000", \
+          "3.333995, 12.241230, 48.356810, 127.954200", \
+          "3.764089, 13.362240, 48.949820, 193.375400" \
+          );
+        }
+        cell_fall (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "2.076474, 7.313788, 28.263720, 112.063700", \
+          "2.624175, 7.861282, 28.810760, 112.610700", \
+          "4.449550, 9.894951, 30.841900, 114.640400", \
+          "10.386930, 16.947600, 38.832980, 122.618200" \
+          );
+        }
+        fall_transition (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "2.429810, 9.677461, 38.670860, 112.063700", \
+          "2.449390, 9.677369, 38.670900, 112.610700", \
+          "2.768375, 9.779925, 38.670890, 114.640400", \
+          "3.432621, 11.155080, 39.122760, 154.645300" \
+          );
+        }
+      }
+      timing () {
+        related_pin : "B";
+        timing_sense : "positive_unate";
+        timing_type : "combinational";
+        cell_rise (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "2.077888, 8.102009, 32.200060, 128.592800", \
+          "1.850999, 7.876856, 31.974660, 128.367300", \
+          "0.444511, 6.788814, 30.897910, 127.290500", \
+          "-6.462934, 0.825245, 26.330200, 122.776300" \
+          );
+        }
+        rise_transition (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "3.038263, 12.101470, 48.355990, 128.592800", \
+          "3.078538, 12.101800, 48.355980, 128.367300", \
+          "3.404792, 12.294520, 48.356500, 127.290500", \
+          "3.906701, 13.670000, 49.186660, 193.375000" \
+          );
+        }
+        cell_fall (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "2.147025, 7.384446, 28.334560, 112.134700", \
+          "2.838095, 8.074912, 29.024590, 112.824600", \
+          "5.303704, 10.665420, 31.612340, 115.411200", \
+          "13.855090, 20.254360, 41.796510, 125.582500" \
+          );
+        }
+        fall_transition (delay_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "2.429890, 9.677563, 38.670990, 112.134700", \
+          "2.440164, 9.677617, 38.671000, 112.824600", \
+          "2.702282, 9.728918, 38.671090, 115.411200", \
+          "3.334492, 10.910550, 38.903700, 154.645500" \
+          );
+        }
+      }
+      internal_power () {
+        related_pin : "A";
+        rise_power (power_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "11.151807, 43.495534, 172.868741, 690.362879" \
+          "12.244554, 44.583118, 173.955346, 691.447523" \
+          "16.698684, 48.994549, 178.353709, 695.841638" \
+          "34.839946, 66.847073, 196.060851, 713.503043" \
+          );
+        }
+        fall_power (power_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "0.370578, 0.370838, 0.370917, 0.370975" \
+          "1.462410, 1.460304, 1.459838, 1.459775" \
+          "5.904251, 5.873213, 5.864452, 5.862239" \
+          "23.931260, 23.676563, 23.560154, 23.521285" \
+          );
+        }
+      }
+      internal_power () {
+        related_pin : "B";
+        rise_power (power_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "11.178238, 43.520691, 172.893903, 690.385771" \
+          "12.363309, 44.700732, 174.072310, 691.565158" \
+          "17.264137, 49.556475, 178.913352, 696.403586" \
+          "37.158864, 69.176447, 198.392843, 715.832439" \
+          );
+        }
+        fall_power (power_template) {
+          index_1("1.0, 4.0, 16.0, 64.0");
+          index_2("1.0, 4.0, 16.0, 64.0");
+          values ( \
+          "0.379213, 0.379336, 0.379418, 0.379483" \
+          "1.580136, 1.576760, 1.576156, 1.576067" \
+          "6.466208, 6.430988, 6.421639, 6.419393" \
+          "26.256743, 25.995087, 25.881194, 25.845233" \
+          );
+        }
+      }
+    }
+    pin (A){
+      direction : input; 
+      related_power_pin : VDD;
+      related_ground_pin : VSS;
+      max_transition : 64.0;
+      capacitance : "0.017721167613636367";
+      input_voltage : default_VDD_VSS_input;
+    }
+    pin (B){
+      direction : input; 
+      related_power_pin : VDD;
+      related_ground_pin : VSS;
+      max_transition : 64.0;
+      capacitance : "0.017658673295454546";
+      input_voltage : default_VDD_VSS_input;
+    }
+  }
+}

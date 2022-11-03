@@ -1,0 +1,14 @@
+.subckt OR2X1 Y B vdd gnd A
+M0 a_9_54# A a_2_54# vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M1 vdd B a_9_54# vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M2 Y a_2_54# vdd vdd pfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M3 a_2_54# A gnd Gnd nfet w=2u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M4 gnd B a_2_54# Gnd nfet w=2u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M5 Y a_2_54# gnd Gnd nfet w=2u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+.ends OR2X1
