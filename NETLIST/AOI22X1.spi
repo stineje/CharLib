@@ -1,4 +1,4 @@
-.subckt AOI22X1 gnd vdd C D Y A B
+.subckt AOI22X1 vss vdd C D Y A B
 M0 vdd A a_2_54# vdd pfet w=8u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
 M1 a_2_54# B vdd vdd pfet w=8u l=0.4u
@@ -7,12 +7,12 @@ M2 Y D a_2_54# vdd pfet w=8u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
 M3 a_2_54# C Y vdd pfet w=8u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
-M4 a_11_6# A gnd Gnd nfet w=4u l=0.4u
+M4 a_11_6# A vss Gnd nfet w=4u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
 M5 Y B a_11_6# Gnd nfet w=4u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
 M6 a_28_6# D Y Gnd nfet w=4u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
-M7 gnd C a_28_6# Gnd nfet w=4u l=0.4u
+M7 vss C a_28_6# Gnd nfet w=4u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
 .ends AOI22X1

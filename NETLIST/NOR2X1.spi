@@ -1,10 +1,10 @@
-.subckt NOR2X1 vdd B gnd Y A
+.subckt NOR2X1 vdd B vss Y A
 M0 a_9_54# A vdd vdd pfet w=8u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
 M1 Y B a_9_54# vdd pfet w=8u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
-M2 Y A gnd Gnd nfet w=2u l=0.4u
+M2 Y A vss Gnd nfet w=2u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
-M3 gnd B Y Gnd nfet w=2u l=0.4u
+M3 vss B Y Gnd nfet w=2u l=0.4u
 + ad=0p pd=0u as=0p ps=0u 
 .ends NOR2X1

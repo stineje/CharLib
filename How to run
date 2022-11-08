@@ -1,0 +1,9 @@
+ To Run the python fie
+ 
+ python3 libretto.py -b libretto.cmd
+ 
+ 
+ Before running the code
+ In libretto.cmd
+ 
+ replace from ## add circuit line till export for any desired cell given in cmd.txt 

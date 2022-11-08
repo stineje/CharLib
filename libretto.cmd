@@ -40,11 +40,11 @@ set_operating_conditions PVT_3P5V_25C
 initialize
 
 ## add circuit
-add_cell -n AND2X1 -l AND2 -i A B -o Y -f Y=(A&B) 
-add_slope {1 4 16 64} 
-add_load  {1 4 16 64} 
+add_cell -n NAND2X1 -l NAND2 -i A B -o YB -f YB=!(A&B) 
+add_slope {0.1 0.7 4.9} 
+add_load  {0.01 0.1 1.0} 
 add_area 1
-add_netlist NETLIST/AND2X1.spi
+add_netlist NETLIST/NAND2X1.spi
 add_model NETLIST/model.sp
 add_simulation_timestep auto
 characterize
