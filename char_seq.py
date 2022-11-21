@@ -936,8 +936,8 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
 
 			targetLib.print_msg_sim("Min. D2Q found. Break loop at dHold: "+str(f'{thold:,.4f}'))
 
-			#return ( float(thold + thold_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
-			return ( float(thold + thold_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out, float(res_setup), tmp_min_hold, tmp_min_trans_out, \
+			return ( float(thold + thold_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
+			#return ( float(thold + thold_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out, float(res_setup), tmp_min_hold, tmp_min_trans_out, \
 							tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
 							tmp_q_in_dyn, tmp_q_out_dyn, tmp_q_clk_dyn,  tmp_q_vdd_dyn, tmp_q_vss_dyn, \
 							tmp_i_in_leak, tmp_i_vdd_leak, tmp_i_vss_leak)
