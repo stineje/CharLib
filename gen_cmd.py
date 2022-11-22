@@ -14,7 +14,7 @@ def main_350():
 	gen_comb("OSU350", cmd_file, "NOR3X1",  "NOR3",  ['A','B','C'],     ['Y'], ['Y=!(A|B|C)'],   '1', 'NETLIST/NOR3X1.spi')
 #	gen_comb("OSU350", cmd_file, "NOR4X1",  "NOR4",  ['A','B','C','D'], ['Y'], ['Y=!(A|B|C|D)'], '1', 'NETLIST/NOR4X1.spi')
 	gen_comb("OSU350", cmd_file, "AND2X1",  "AND2",  ['A','B'],         ['Y'],  ['Y=(A&B)'],       '1', 'NETLIST/AND2X1.spi')
-	gen_comb("OSU350", cmd_file, "AND3X1",  "AND3",  ['A','B','C'],     ['Y'],  ['Y=(A&B&C)'],     '1', 'NETLIST/AND3X1.spi')
+#	gen_comb("OSU350", cmd_file, "AND3X1",  "AND3",  ['A','B','C'],     ['Y'],  ['Y=(A&B&C)'],     '1', 'NETLIST/AND3X1.spi')
 #	gen_comb("OSU350", cmd_file, "AND4X1",  "AND4",  ['A','B','C','D'], ['Y'],  ['Y=(A&B&C&D)'],   '1', 'NETLIST/AND4X1.spi')
 	gen_comb("OSU350", cmd_file, "OR2X1",   "OR2",   ['A','B'],         ['Y'],  ['Y=(A|B)'],       '1', 'NETLIST/OR2X1.spi')
 #	gen_comb("OSU350", cmd_file, "OR3X1",   "OR3",   ['A','B','C'],     ['Y'],  ['Y=(A|B|C)'],     '1', 'NETLIST/OR3X1.spi')
