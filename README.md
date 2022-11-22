@@ -93,7 +93,7 @@ Combinational cells and sequential cells requires different
 | Command | Argument example | Description |
 |:-----------|------------:|:------------|
 | add_cell |  | add cell for characterize | 
-| -n cell_name | -n NAND2_1X | cell name in netlist|
+| -n cell_name | -n NAND2X1 | cell name in netlist|
 | -l logic_def. | -l NAND2 | logic of target cell (\*) |
 | -i inport | -i A B | inport list |
 | -o outport | -o YB | outport list |
@@ -126,7 +126,7 @@ Other **add command**(s) for combinational cells
 | add_slope | {1 4 16 64} | slope index (unit in set_time_unit) | 
 | add_load  | {1 4 16 64}  | slope index (unit in set_capacitance_unit) | 
 | add_area  | 1 | area (real val, no unit) | 
-| add_netlist | NETLIST/INV_1X.spi | location of netlist | 
+| add_netlist | NETLIST/INVX1.spi | location of netlist | 
 | add_model | NETLIST/model.sp | location of model file (include simulation options) | 
 | add_simulation_timestep | real val/auto | simulation timestep. If **auto** is selected then simulator automatically define timestep from min. slope | 
 
@@ -142,12 +142,12 @@ Other **add command**(s) for combinational cells
 | Command | Argument example | Description |
 |:-----------|------------:|:------------|
 | add_cell |  | add cell for characterize | 
-| -n cell_name | -n DFF_ARAS_1X | cell name in netlist|
+| -n cell_name | -n DFFSR | cell name in netlist|
 | -l logic_def. | -l DFF_PCPU_NRNS | logic of target cell (\*) |
 | -i inport | -i DATA | inport |
 | -c clock port | -c CLK | clock port |
-| -s set inport | -s NSET | set port (optional) |
-| -r reset inport | -r NRST | reset port (optional) |
+| -s set inport | -s SET | set port (optional) |
+| -r reset inport | -r RST | reset port (optional) |
 | -o outport | -o Q | outport |
 | -q storage | -q IQ IQN | storage elements |
 | -f func| Q=IQ QN=IQN | operation function | 
