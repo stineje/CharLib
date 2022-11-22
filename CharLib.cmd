@@ -41,7 +41,7 @@ set_operating_conditions PVT_3P5V_25C
 initialize
 
 ## add circuit
-add_cell -n INV1X -l INV -i A -o YB -f YB=!A 
+add_cell -n INV_1X -l INV -i A -o YB -f YB=!A 
 add_slope {0.1 4.9} 
 add_load  {0.01 0.49} 
 add_area 1
