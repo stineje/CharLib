@@ -6,10 +6,10 @@ Current version support timing characterization and power
 characterization of combinational cells and sequential cells.  This
 open-source characterization tool is modified from the  libretto
 characterization tool found here :
-https://github.com/snishizawa/libretto.  
+https://github.com/snishizawa/libretto.  We are currently working on expanding the characterization profile as well as scope of parameters.  
 
 ## Preconditions
-Make sure you change location of ngspice in gen_cmd.py
+Make sure you change location of ngspice in gen_cmd.py.  Also, uses OSU 0.35um SCMOS library for testing.  Will be expanded to SKY130 and GF180 shortly.
 
 ## How to use
 make
