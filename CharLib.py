@@ -599,5 +599,5 @@ def characterizeFiles(targetLib, targetCell):
 		my_exit()
 
 if __name__ == '__main__':
- main()
+	main()
 
