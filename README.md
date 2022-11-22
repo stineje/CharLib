@@ -119,7 +119,6 @@ Supported logic functions (\*) are listed as follow,
 | NOR4 | 4-input 1-output NOR | 
 | XOR2 | 2-input 1-output XOR | 
 | XNOR2 | 2-input 1-output XNOR | 
-| SEL2 | 2-input 1-select 1-output selector | 
 
 Other **add command**(s) for combinational cells
 | Command | Argument example | Description |
@@ -152,17 +151,6 @@ Other **add command**(s) for combinational cells
 | -o outport | -o Q | outport |
 | -q storage | -q IQ IQN | storage elements |
 | -f func| Q=IQ QN=IQN | operation function | 
-
-Supported sequential functions (\*) are listed as follow,
-(Dec. 2021)
-| logic def |  Description |
-|:-----------|:------------|
-| DFF_PCPU | D-Flip-Flop with pos-edge clock and positive unate output | 
-| DFF_PCNU | D-Flip-Flop with pos-edge clock and negative unate output | 
-| DFF_NCPU | D-Flip-Flop with neg-edge clock and positive unate output | 
-| DFF_NCNU | D-Flip-Flop with neg-edge clock and negative unate output | 
-| DFF_PCPU_NR | D-Flip-Flop with pos-edge clock, positive unate output, async. neg-edge reset | 
-| DFF_PCPU_NRNS | D-Flip-Flop with pos-edge clock, positive unate output, async. neg-edge reset, async. neg-edge set | 
 
 Other **add command**(s) for sequential cells
 | Command | Argument example | Description |
