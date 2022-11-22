@@ -8,12 +8,11 @@ open-source characterization tool is modified from the  libretto
 characterization tool found here :
 https://github.com/snishizawa/libretto.  
 
+## Preconditions
+Make sure you change location of ngspice in gen_cmd.py
+
 ## How to use
-Prepare .cmd file 
-Type 
-```sh CharLib.sh
-python3 CharLib.py -b [.cmd file]
-```
+make
 
 ## How to prepare .cmd file
 .cmd file composes three blocks.
