@@ -22,13 +22,13 @@ def main():
 
 	num_gen_file = 0
 
-#	# file open
+	# file open
 	with open(args.batch, 'r') as f:
 		lines = f.readlines()
 		
 		for line in lines:
 			line = line.strip('\n')
-##-- set function : common settings--#
+			##-- set function : common settings--#
 			## set_lib_name
 			if(line.startswith('set_lib_name')):
 				targetLib.set_lib_name(line) 
@@ -93,7 +93,7 @@ def main():
 			elif(line.startswith('set_nwell_name')):
 				targetLib.set_nwell_name(line) 
 
-##-- set function : characterization settings--#
+			##-- set function : characterization settings--#
 			## set_process
 			elif(line.startswith('set_process')):
 				targetLib.set_process(line) 
@@ -178,7 +178,7 @@ def main():
 			elif(line.startswith('set_operating_conditions')):
 				targetLib.set_operating_conditions(line) 
 
-##-- add function : common for comb. and seq. --#
+			##-- add function : common for comb. and seq. --#
 			## add_cell
 			elif(line.startswith('add_cell')):
 				targetCell = mlc.MyLogicCell()
@@ -208,7 +208,7 @@ def main():
 			elif(line.startswith('add_simulation_timestep')):
 				targetCell.add_simulation_timestep(line) 
 
-##-- add function : for seq. cell --#
+			##-- add function : for seq. cell --#
 			## add_flop
 			elif(line.startswith('add_flop')):
 				targetCell = mlc.MyLogicCell()
@@ -254,7 +254,7 @@ def main():
 			elif(line.startswith('add_simulation_hold_timestep')):
 				targetCell.add_simulation_hold_timestep(line) 
 
-##-- execution --#
+			##-- execution --#
 			## initialize
 			elif(line.startswith('create')):
 				initializeFiles(targetLib, targetCell) 
@@ -273,7 +273,6 @@ def main():
 			## exit
 			elif(line.startswith('quit') or line.startswith('exit')):
 				me.exitFiles(targetLib, num_gen_file) 
-
 
 
 def initializeFiles(targetLib, targetCell):
@@ -598,8 +597,6 @@ def characterizeFiles(targetLib, targetCell):
 		print ("Target logic:"+targetCell.logic+" is not registered for characterization!\n")
 		print ("Add characterization function for this program! -> die\n")
 		my_exit()
-
-
 
 if __name__ == '__main__':
  main()

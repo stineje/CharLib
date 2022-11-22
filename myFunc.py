@@ -1,4 +1,3 @@
-
 import sys, inspect 
 
 def my_exit():

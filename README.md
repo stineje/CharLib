@@ -1,13 +1,18 @@
-# libretto
+# CharLib
+
 ## Introduction
 An open cell library characterizer.
-Current version support timing characterization and power characterization of combinational cells and sequential cells.
+Current version support timing characterization and power
+characterization of combinational cells and sequential cells.  This
+open-source characterization tool is modified from the  libretto
+characterization tool found here :
+https://github.com/snishizawa/libretto.  
 
 ## How to use
 Prepare .cmd file 
 Type 
-```sh libretto.sh
-python3 libretto.py -b [.cmd file]
+```sh CharLib.sh
+python3 CharLib.py -b [.cmd file]
 ```
 
 ## How to prepare .cmd file
@@ -192,7 +197,7 @@ use **exit** command to return into shell.
 | exit | n/a | exit |
 
 ### sample
-```txt libretto.cmd
+```txt CharLib.cmd
 # common settings for library
 set_lib_name OSU035
 set_dotlib_name OSU035.lib

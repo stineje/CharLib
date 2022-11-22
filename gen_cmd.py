@@ -1,7 +1,7 @@
 #!/bin/python3
 
 def main_350():
-	cmd_file = 'libretto.cmd'
+	cmd_file = 'CharLib.cmd'
 	gen_lib_common("OSU350", cmd_file)
 	gen_char_cond("3.3", cmd_file)
 	gen_comb("OSU350", cmd_file, "SEL2_1X",  "SEL2",  ['IN0','IN1','SEL'],     ['Y'],  ['Y=((IN0&!SEL)&(IN1&SEL))'],    '1', 'NETLIST/SEL2_1X.spi')
@@ -31,49 +31,7 @@ def main_350():
 	gen_comb("OSU350", cmd_file, "XNOR2_1X", "XNOR2", ['A','B'],               ['Y'],  ['Y=((!A&!B)&(A&B))'],    '1', 'NETLIST/XNOR2_1X.spi')
 #	gen_seq ("OSU350", cmd_file, "DFF_1X", "DFF_PCPU", ['DATA','CLK'], ['Q'], ['Q','QN'], ['Q=IQ','QN=IQN'], '1', 'NETLIST/DFF_1X.spi')
 #	gen_seq ("OSU350", cmd_file, "DFFARAS_1X", "DFF_PCPU_NRNS", ['DATA','CLK','NSET','NRST'], ['Q'], ['IQ','IQN'], ['Q=IQ','QN=IQN'], '1', 'NETLIST/DFFARAS_1X.spi')
-	exit_libretto(cmd_file)
-
-def main_180():
-	cmd_file = 'libretto.cmd'
-	gen_lib_common("ROHM180", cmd_file)
-	gen_char_cond("1.8", cmd_file)
-	gen_seq ("ROHM180", cmd_file, "ROHM18DFP010", "DFF_PCPU", ['DATA','CLK'], ['Q'], ['Q','QN'], ['Q=IQ','QN=IQN'], '1', 'rohmlib/ROHM18DFP010.sp')
-	gen_comb("ROHM180", cmd_file, "ROHM18INVP010", "INV", ['A'], ['Y'], ['Y=!A'], '1', 'rohmlib/ROHM18INVP010.sp')
-#	#gen_comb(cmd_file, "BUF_1X", "BUF", ['A'], ['B'], ['Y=A'], '1', 'NETLIST/BUF_1X.spi')
-#	gen_comb(cmd_file, "NAND2_1X", "NAND2", ['A','B'],         ['YB'], ['YB=!(A&B)'],     '1', 'NETLIST/NAND2_1X.spi')
-#	gen_comb(cmd_file, "NAND3_1X", "NAND3", ['A','B','C'],     ['YB'], ['YB=!(A&B&C)'],   '1', 'NETLIST/NAND3_1X.spi')
-#	gen_comb(cmd_file, "NAND4_1X", "NAND4", ['A','B','C','D'], ['YB'], ['YB=!(A&B&C&D)'], '1', 'NETLIST/NAND4_1X.spi')
-#	gen_comb(cmd_file, "NOR2_1X",  "NOR2",  ['A','B'],         ['YB'], ['YB=!(A|B)'],     '1', 'NETLIST/NOR2_1X.spi')
-#	gen_comb(cmd_file, "NOR3_1X",  "NOR3",  ['A','B','C'],     ['YB'], ['YB=!(A|B|C)'],   '1', 'NETLIST/NOR3_1X.spi')
-#	gen_comb(cmd_file, "NOR4_1X",  "NOR4",  ['A','B','C','D'], ['YB'], ['YB=!(A|B|C|D)'], '1', 'NETLIST/NOR4_1X.spi')
-#	gen_comb(cmd_file, "AND2_1X",  "AND2",  ['A','B'],         ['Y'],  ['Y=(A&B)'],       '1', 'NETLIST/AND2_1X.spi')
-#	gen_comb(cmd_file, "AND3_1X",  "AND3",  ['A','B','C'],     ['Y'],  ['Y=(A&B&C)'],     '1', 'NETLIST/AND3_1X.spi')
-#	gen_comb(cmd_file, "AND4_1X",  "AND4",  ['A','B','C','D'], ['Y'],  ['Y=(A&B&C&D)'],   '1', 'NETLIST/AND4_1X.spi')
-#	gen_comb(cmd_file, "OR2_1X",   "OR2",   ['A','B'],         ['Y'],  ['Y=(A|B)'],       '1', 'NETLIST/OR2_1X.spi')
-#	gen_comb(cmd_file, "OR3_1X",   "OR3",   ['A','B','C'],     ['Y'],  ['Y=(A|B|C)'],     '1', 'NETLIST/OR3_1X.spi')
-#	gen_comb(cmd_file, "OR4_1X",   "OR4",   ['A','B','C','D'], ['Y'],  ['Y=(A|B|C|D)'],   '1', 'NETLIST/OR4_1X.spi')
-#	gen_comb(cmd_file, "AOI21_1X", "AOI21", ['A1','A2','B'],         ['YB'], ['YB=!(B|(A1&A2))'],      '1', 'NETLIST/AOI21_1X.spi')
-#	gen_comb(cmd_file, "AOI22_1X", "AOI22", ['A1','A2','B1','B2'],   ['YB'], ['YB=!((B1&B2)|(A1&A2))'],'1', 'NETLIST/AOI22_1X.spi')
-#	gen_comb(cmd_file, "OAI21_1X", "OAI21", ['A1','A2','B'],         ['YB'], ['YB=!(B&(A1|A2))'],      '1', 'NETLIST/OAI21_1X.spi')
-#	gen_comb(cmd_file, "OAI22_1X", "OAI22", ['A1','A2','B1','B2'],   ['YB'], ['YB=!((B1|B2)&(A1|A2))'],'1', 'NETLIST/OAI22_1X.spi')
-##	gen_comb(cmd_file, "AO21_1X",  "AO21",  ['A1','A2','B'],         ['Y'],  ['Y=(B|(A1&A2))'],        '1', 'NETLIST/AO21_1X.spi')
-##	gen_comb(cmd_file, "AO22_1X",  "AO22",  ['A1','A2','B1','B2'],   ['Y'],  ['Y=((B1&B2)|(A1&A2))'],  '1', 'NETLIST/AO22_1X.spi')
-##	gen_comb(cmd_file, "OA21_1X",  "OA21",  ['A1','A2','B'],         ['Y'],  ['Y=(B&(A1|A2))'],        '1', 'NETLIST/OA21_1X.spi')
-##	gen_comb(cmd_file, "OA22_1X",  "OA22",  ['A1','A2','B1','B2'],   ['Y'],  ['Y=((B1|B2)&(A1|A2))'],  '1', 'NETLIST/OA22_1X.spi')
-#	gen_comb(cmd_file, "XOR2_1X",  "XOR2",  ['A','B'],               ['Y'],  ['Y=((A&!B)&(!A&B))'],    '1', 'NETLIST/XOR2_1X.spi')
-#	gen_comb(cmd_file, "XNOR2_1X", "XNOR2", ['A','B'],               ['Y'],  ['Y=((!A&!B)&(A&B))'],    '1', 'NETLIST/XNOR2_1X.spi')
-#	gen_comb(cmd_file, "SEL2_1X",  "SEL2",  ['IN1','IN2','SEL'],     ['Y'],  ['Y=((A&!B)&(!A&B))'],    '1', 'NETLIST/XOR2_1X.spi')
-#	gen_seq(cmd_file, "DFF_ARAS_1X", "DFF_PCPU_NRNS", ['DATA','CLK','NSET','NRST'], ['Q'], ['Q=IQ','QN=IQN'], '1', 'NETLIST/DFF_ARAS_1X.spi')
-
-#	gen_comb(cmd_file, "ROHM18INVP010", "INV", ['A'], ['Y'], ['Y=!A'], '1', 'rohmlib/ROHM18INVP010.sp')
-	#gen_comb(cmd_file, "BUF_1X", "BUF", ['A'], ['B'], ['Y=A'], '1', 'rohmlib/BUF_1X.spi')
-#	gen_comb(cmd_file, "ROHM18NAND2P010", "NAND2", ['A','B'],         ['Y'], ['Y=!(A&B)'],     '1', 'rohmlib/ROHM18NAND2P010.sp')
-#	gen_comb(cmd_file, "ROHM18NAND3P010", "NAND3", ['A','B','C'],     ['Y'], ['Y=!(A&B&C)'],   '1', 'rohmlib/ROHM18NAND3P010.sp')
-#	gen_comb(cmd_file, "ROHM18NAND4P010", "NAND4", ['A','B','C','D'], ['Y'], ['Y=!(A&B&C&D)'], '1', 'rohmlib/ROHM18NAND4P010.sp')
-#	gen_comb(cmd_file, "ROHM18NOR2P010",  "NOR2",  ['A','B'],         ['Y'], ['Y=!(A|B)'],     '1', 'rohmlib/ROHM18NOR2P010.sp')
-#	gen_comb(cmd_file, "ROHM18NOR3P010",  "NOR3",  ['A','B','C'],     ['Y'], ['Y=!(A|B|C)'],   '1', 'rohmlib/ROHM18NOR3P010.sp')
-#	gen_comb(cmd_file, "ROHM18NOR4P010",  "NOR4",  ['A','B','C','D'], ['Y'], ['Y=!(A|B|C|D)'], '1', 'rohmlib/ROHM18NOR4P010.sp')
-	exit_libretto(cmd_file)
+	exit_CharLib(cmd_file)
 
 def gen_lib_common(name, cmd_file):
 	with open(cmd_file,'w') as f:
@@ -236,7 +194,7 @@ def gen_seq(target, cmd_file, cell_name, logic, inports, outports, storage, func
 		f.writelines(outlines)
 	f.close()
 
-def exit_libretto(cmd_file):
+def exit_CharLib(cmd_file):
 	with open(cmd_file,'a') as f:
 		outlines = []
 		outlines.append("exit\n")
@@ -244,6 +202,5 @@ def exit_libretto(cmd_file):
 	f.close()
 
 if __name__ == '__main__':
-	#main_350()
-	main_180()
+	main_350()
 
