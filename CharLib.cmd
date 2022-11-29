@@ -45,8 +45,8 @@ add_cell -n INVX1 -l INV -i A -o Y -f Y=!A
 add_slope {0.1 4.9} 
 add_load  {0.01 0.49} 
 add_area 1
-add_netlist NETLIST/INVX1.spi
-add_model NETLIST/model.sp
+add_netlist spice_osu350/INVX1.spi
+add_model spice_osu350/model.sp
 add_simulation_timestep auto
 characterize
 export

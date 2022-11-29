@@ -1,7 +1,7 @@
 *title: delay meas.
 .option brief nopage nomod post=1 ingold=2 autostop
-.inc '../NETLIST/model.sp'
-.inc '../NETLIST/INVX1.spi'
+.inc '../spice_osu350/model.sp'
+.inc '../spice_osu350/INVX1.spi'
 .temp 25.0
 .param _vdd = 3.3
 .param _vss = 0.0

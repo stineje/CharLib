@@ -65,9 +65,9 @@ Total analysis time (seconds) = 0.787
 Total elapsed time (seconds) = 0.795 
 
 Total DRAM available = 128432.770 MB.
-DRAM currently available = 51909.379 MB.
+DRAM currently available = 51920.297 MB.
 Maximum ngspice program size =   86.906 MB.
-Current ngspice program size =   14.387 MB.
+Current ngspice program size =   14.383 MB.
 
 Shared ngspice pages =    4.039 MB.
 Text (code) pages =    7.465 MB.
