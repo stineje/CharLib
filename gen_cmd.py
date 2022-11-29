@@ -7,7 +7,7 @@ def main_350():
 #	gen_comb("OSU350", cmd_file, "SEL2X1",  "SEL2",  ['IN0','IN1','SEL'],     ['Y'],  ['Y=((IN0&!SEL)&(IN1&SEL))'],    '1', 'spice_osu350/SEL2X1.spi')
 #	gen_seq ("OSU350", cmd_file, "DFFARX1", "DFF_PCPU_NR", ['DATA','CLK','NRST'], ['Q'], ['IQ','IQN'], ['Q=IQ','QN=IQN'], '1', 'spice_osu350/DFFARX1.spi')
 	gen_comb("OSU350", cmd_file, "INVX1",   "INV",   ['A'],             ['Y'], ['Y=!A'],         '1', 'spice_osu350/INVX1.spi')
-#	gen_comb("OSU350", cmd_file, "NAND2X1", "NAND2", ['A','B'],         ['Y'], ['Y=!(A&B)'],     '1', 'spice_osu350/NAND2X1.spi')
+	gen_comb("OSU350", cmd_file, "NAND2X1", "NAND2", ['A','B'],         ['Y'], ['Y=!(A&B)'],     '1', 'spice_osu350/NAND2X1.spi')
 #	gen_comb("OSU350", cmd_file, "NAND3X1", "NAND3", ['A','B','C'],     ['Y'], ['Y=!(A&B&C)'],   '1', 'spice_osu350/NAND3X1.spi')
 #	gen_comb("OSU350", cmd_file, "NAND4X1", "NAND4", ['A','B','C','D'], ['Y'], ['Y=!(A&B&C&D)'], '1', 'spice_osu350/NAND4X1.spi')
 #	gen_comb("OSU350", cmd_file, "NOR2X1",  "NOR2",  ['A','B'],         ['Y'], ['Y=!(A|B)'],     '1', 'spice_osu350/NOR2X1.spi')
@@ -32,6 +32,13 @@ def main_350():
 #	gen_seq ("OSU350", cmd_file, "DFFX1", "DFF_PCPU", ['DATA','CLK'], ['Q'], ['Q','QN'], ['Q=IQ','QN=IQN'], '1', 'spice_osu350/DFFX1.spi')
 #	gen_seq ("OSU350", cmd_file, "DFFSR", "DFF_PCPU_NRNS", ['DATA','CLK','NSET','NRST'], ['Q'], ['IQ','IQN'], ['Q=IQ','QN=IQN'], '1', 'spice_osu350/DFFARASX1.spi')
 	exit_CharLib(cmd_file)
+
+def main_gf180mcu():
+	cmd_file = 'CharLib.cmd'
+	gen_lib_common("GF180MCU", cmd_file)
+	gen_char_cond("3.3", cmd_file)
+	gen_comb("GF180MCU", cmd_file, "gf180mcu_osu_sc_12T_inv_1",   "INV",   ['A'],             ['Y'], ['Y=!A'],         '1', 'spice_gf180mcu/gf180mcu_osu_sc_12T_inv_1.spice')
+	exit_CharLib(cmd_file)	
 
 def gen_lib_common(name, cmd_file):
 	with open(cmd_file,'w') as f:
@@ -106,7 +113,7 @@ def gen_comb(target, cmd_file, cell_name, logic, inports, outports, funcs, area,
 		outlines.append(line_add_cell)
 #		outlines.append("add_slope {0.1 0.4 1.6 6.4} \n")
 #		outlines.append("add_load  {0.01 0.04 0.16 0.64} \n")
-		if(target == "ROHM180"):
+		if(target == "GF180MCU"):
 			outlines.append("add_slope {0.1 0.7 4.9} \n")
 			outlines.append("add_load  {0.01 0.1 1.0} \n")
 			#outlines.append("add_slope {0.1 } \n")
@@ -122,8 +129,8 @@ def gen_comb(target, cmd_file, cell_name, logic, inports, outports, funcs, area,
 		outlines.append(line_add_area)
 		line_add_netlist = 'add_netlist '+str(netlist)+'\n'
 		outlines.append(line_add_netlist)
-		if(target == "ROHM180"):
-			outlines.append("add_model rohmlib/model_rohm180.sp\n")
+		if(target == "GF180MCU"):
+			outlines.append("add_model spice_gf180mcu/model_gf180mcu.sp\n")
 		elif(target == "OSU350"):
 			outlines.append("add_model spice_osu350/model.sp\n")
 		else:
@@ -161,7 +168,7 @@ def gen_seq(target, cmd_file, cell_name, logic, inports, outports, storage, func
 			line_add_flop += str(w1)+' '
 		line_add_flop += '\n'
 		outlines.append(line_add_flop)
-		if(target == "ROHM180"):
+		if(target == "GF180MCU"):
 			outlines.append("add_slope {0.1 0.7 4.9} \n")
 			outlines.append("add_load  {0.01 0.1 1.0} \n")
 			#outlines.append("add_slope {0.1 } \n")
@@ -178,7 +185,7 @@ def gen_seq(target, cmd_file, cell_name, logic, inports, outports, storage, func
 		outlines.append(line_add_area)
 		line_add_netlist = 'add_netlist '+str(netlist)+'\n'
 		outlines.append(line_add_netlist)
-		if(target == "GF180"):
+		if(target == "GF180MCU"):
 			outlines.append("add_model spice_gf180mcu/model.sp\n")
 		elif(target == "OSU350"):
 			outlines.append("add_model spice_osu350/model.sp\n")

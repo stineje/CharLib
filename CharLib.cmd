@@ -51,4 +51,16 @@ add_simulation_timestep auto
 characterize
 export
 
+
+## add circuit
+add_cell -n NAND2X1 -l NAND2 -i A B -o Y -f Y=!(A&B) 
+add_slope {0.1 4.9} 
+add_load  {0.01 0.49} 
+add_area 1
+add_netlist spice_osu350/NAND2X1.spi
+add_model spice_osu350/model.sp
+add_simulation_timestep auto
+characterize
+export
+
 exit

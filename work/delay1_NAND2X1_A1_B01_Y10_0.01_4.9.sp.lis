@@ -41,36 +41,36 @@ vin#branch                                   0
 vocap#branch                                 0
 vpw_dyn#branch                               0
 vnw_dyn#branch                               0
-vss_dyn#branch                    -3.05898e-12
-vdd_dyn#branch                    -1.01411e-11
+vss_dyn#branch                    -3.00745e-12
+vdd_dyn#branch                     -1.4777e-11
 
 
 No. of Data Rows : 8166688
 
   Measurements for Transient Analysis
 
-prop_in_out         =  -5.818814e-11 targ=  1.219181e-08 trig=  1.225000e-08
-trans_out           =  6.041721e-10 targ=  1.239868e-08 trig=  1.179451e-08
-q_in_dyn            =   -3.61606e-14 from=  8.24833e-09 to=  1.39774e-08
-q_out_dyn           =   -3.30300e-14 from=  8.24833e-09 to=  1.39774e-07
-q_vdd_dyn           =   -4.32607e-13 from=  8.24833e-09 to=  1.39774e-07
-q_vss_dyn           =   4.79202e-13 from=  8.24833e-09 to=  1.39774e-07
-i_vdd_leak          =  -1.014101e-11 from=  8.166667e-10 to=  8.167667e-09
-i_vss_leak          =  -3.058984e-12 from=  8.166667e-10 to=  8.167667e-09
-i_in_leak           =  0.000000e+00 from=  8.166667e-10 to=  8.167667e-09
+prop_in_out         =  -3.059927e-10 targ=  1.194401e-08 trig=  1.225000e-08
+trans_out           =  6.392536e-10 targ=  1.215443e-08 trig=  1.151517e-08
+q_in_dyn            =   -4.72447e-14 from=  8.24833e-09 to=  1.39786e-08
+q_out_dyn           =   -3.30326e-14 from=  8.24833e-09 to=  1.39786e-07
+q_vdd_dyn           =   -5.07281e-13 from=  8.24833e-09 to=  1.39786e-07
+q_vss_dyn           =   5.74892e-13 from=  8.24833e-09 to=  1.39786e-07
+i_vdd_leak          =  -1.477701e-11 from=  8.166667e-10 to=  8.167667e-09
+i_vss_leak          =  -3.007447e-12 from=  8.166667e-10 to=  8.167667e-09
+i_in_leak           =  3.242569e-19 from=  8.166667e-10 to=  8.167667e-09
 
 
-Total analysis time (seconds) = 38.31
+Total analysis time (seconds) = 57.562
 
-Total elapsed time (seconds) = 38.317 
+Total elapsed time (seconds) = 57.570 
 
 Total DRAM available = 128432.770 MB.
-DRAM currently available = 51053.367 MB.
-Maximum ngspice program size =  514.152 MB.
-Current ngspice program size =  441.508 MB.
+DRAM currently available = 51482.754 MB.
+Maximum ngspice program size =  514.156 MB.
+Current ngspice program size =  441.512 MB.
 
 Shared ngspice pages =    4.039 MB.
 Text (code) pages =    7.465 MB.
 Stack = 0 bytes.
-Library pages =  437.598 MB.
+Library pages =  437.602 MB.
 

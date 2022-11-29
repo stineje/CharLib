@@ -30,9 +30,9 @@ vdd_dyn                                    3.3
 vss_dyn                                      0
 vnw_dyn                                    3.3
 vpw_dyn                                      0
-vout                                       3.3
-wout                                       3.3
-vin                                          0
+vout                               1.06893e-08
+wout                               1.06893e-08
+vin                                        3.3
 vhigh                                      3.3
 vlow                                         0
 vlow#branch                                  0
@@ -41,36 +41,36 @@ vin#branch                                   0
 vocap#branch                                 0
 vpw_dyn#branch                               0
 vnw_dyn#branch                               0
-vss_dyn#branch                    -3.05898e-12
-vdd_dyn#branch                    -1.01411e-11
+vss_dyn#branch                     1.01885e-11
+vdd_dyn#branch                    -1.34885e-11
 
 
-No. of Data Rows : 8166688
+No. of Data Rows : 166688
 
   Measurements for Transient Analysis
 
-prop_in_out         =  -5.818814e-11 targ=  1.219181e-08 trig=  1.225000e-08
-trans_out           =  6.041721e-10 targ=  1.239868e-08 trig=  1.179451e-08
-q_in_dyn            =   -3.61606e-14 from=  8.24833e-09 to=  1.39774e-08
-q_out_dyn           =   -3.30300e-14 from=  8.24833e-09 to=  1.39774e-07
-q_vdd_dyn           =   -4.32607e-13 from=  8.24833e-09 to=  1.39774e-07
-q_vss_dyn           =   4.79202e-13 from=  8.24833e-09 to=  1.39774e-07
-i_vdd_leak          =  -1.014101e-11 from=  8.166667e-10 to=  8.167667e-09
-i_vss_leak          =  -3.058984e-12 from=  8.166667e-10 to=  8.167667e-09
-i_in_leak           =  0.000000e+00 from=  8.166667e-10 to=  8.167667e-09
+prop_in_out         =  8.101817e-11 targ=  3.310182e-10 trig=  2.500000e-10
+trans_out           =  5.976740e-11 targ=  3.637207e-10 trig=  3.039533e-10
+q_in_dyn            =   6.09304e-14 from=  1.68333e-10 to=  4.57161e-10
+q_out_dyn           =   3.30831e-14 from=  1.68333e-10 to=  4.57161e-09
+q_vdd_dyn           =   -8.42956e-14 from=  1.68333e-10 to=  4.57161e-09
+q_vss_dyn           =   1.67063e-14 from=  1.68333e-10 to=  4.57161e-09
+i_vdd_leak          =  -1.348849e-11 from=  1.666667e-11 to=  1.676667e-10
+i_vss_leak          =  1.018849e-11 from=  1.666667e-11 to=  1.676667e-10
+i_in_leak           =  -1.706031e-18 from=  1.666667e-11 to=  1.676667e-10
 
 
-Total analysis time (seconds) = 38.31
+Total analysis time (seconds) = 1.196
 
-Total elapsed time (seconds) = 38.317 
+Total elapsed time (seconds) = 1.205 
 
 Total DRAM available = 128432.770 MB.
-DRAM currently available = 51053.367 MB.
-Maximum ngspice program size =  514.152 MB.
-Current ngspice program size =  441.508 MB.
+DRAM currently available = 51880.500 MB.
+Maximum ngspice program size =   86.906 MB.
+Current ngspice program size =   14.387 MB.
 
 Shared ngspice pages =    4.039 MB.
 Text (code) pages =    7.465 MB.
 Stack = 0 bytes.
-Library pages =  437.598 MB.
+Library pages =   10.352 MB.
 

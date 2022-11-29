@@ -170,4 +170,152 @@ library (OSU350){
       input_voltage : default_VDD_VSS_input;
     }
   }
+  cell (NAND2X1) {
+    area : 1.0;
+    cell_leakage_power : 94.13099849999999;
+    pg_pin (VDD){
+      pg_type : primary_power;
+      voltage_name : "VDD";
+    }
+    pg_pin (VSS){
+      pg_type : primary_ground;
+      voltage_name : "VSS";
+    }
+    pin (Y){
+      direction : output;
+      function : "(!(A&B))"
+      related_power_pin : "VDD";
+      related_ground_pin : "VSS";
+      max_capacitance : "0.49";
+      output_voltage : default_VDD_VSS_output;
+      timing () {
+        related_pin : "A";
+        timing_sense : "negative_unate";
+        timing_type : "combinational";
+        cell_fall (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.053674, 0.780464", \
+          "-0.560615, 0.943802" \
+          );
+        }
+        fall_transition (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.053384, 0.780464", \
+          "0.655899, 1.796873" \
+          );
+        }
+        cell_rise (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.100352, 1.067167", \
+          "1.088694, 2.634378" \
+          );
+        }
+        rise_transition (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.081120, 1.067167", \
+          "0.589617, 2.133882" \
+          );
+        }
+      }
+      timing () {
+        related_pin : "B";
+        timing_sense : "negative_unate";
+        timing_type : "combinational";
+        cell_fall (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.056302, 0.783403", \
+          "-0.305993, 1.439657" \
+          );
+        }
+        fall_transition (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.056980, 0.783403", \
+          "0.639254, 1.975738" \
+          );
+        }
+        cell_rise (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.081018, 1.052807", \
+          "0.778950, 2.547033" \
+          );
+        }
+        rise_transition (delay_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.059767, 1.052807", \
+          "0.539895, 2.144703" \
+          );
+        }
+      }
+      internal_power () {
+        related_pin : "A";
+        fall_power (power_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.041286, 0.029704" \
+          "1.810543, 1.038538" \
+          );
+        }
+        rise_power (power_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.045942, 5.225697" \
+          "1.922730, 6.462975" \
+          );
+        }
+      }
+      internal_power () {
+        related_pin : "B";
+        fall_power (power_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.036971, 0.029518" \
+          "1.657287, 0.917351" \
+          );
+        }
+        rise_power (power_template) {
+          index_1("0.1, 4.9");
+          index_2("0.01, 0.49");
+          values ( \
+          "0.054579, 5.252421" \
+          "1.770037, 6.355719" \
+          );
+        }
+      }
+    }
+    pin (A){
+      direction : input; 
+      related_power_pin : VDD;
+      related_ground_pin : VSS;
+      max_transition : 4.9;
+      capacitance : "0.017236181818181817";
+      input_voltage : default_VDD_VSS_input;
+    }
+    pin (B){
+      direction : input; 
+      related_power_pin : VDD;
+      related_ground_pin : VSS;
+      max_transition : 4.9;
+      capacitance : "0.017589098484848485";
+      input_voltage : default_VDD_VSS_input;
+    }
+  }
 }
