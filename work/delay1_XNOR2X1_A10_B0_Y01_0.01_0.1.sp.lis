@@ -1,0 +1,76 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: *title: delay meas.
+
+Warning: Model issue on line 3 :
+  .model nfet nmos ( level=49 version=3.1 tnom=27 tox=7.6e-9 xj=1.5e-7 nch ...
+unrecognized parameter (xl) - ignored
+unrecognized parameter (xw) - ignored
+Warning: Model issue on line 5 :
+  .model pfet pmos ( level=49 version=3.1 tnom=27 tox=7.6e-9 xj=1.5e-7 nch ...
+unrecognized parameter (xl) - ignored
+unrecognized parameter (xw) - ignored
+Warning: .OPTION AUTOSTOP will not be effective because one of 'max|min|avg|rms|integ' is used in .meas
+         AUTOSTOP being disabled...
+Doing analysis at TEMP = 25.000000 and TNOM = 27.000000
+
+Warning: Pd = 0 is less than W.
+Warning: Ps = 0 is less than W.
+Warning: Pd = 0 is less than W.
+Warning: Ps = 0 is less than W.
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+vdd_dyn                                    3.3
+vss_dyn                                      0
+vnw_dyn                                    3.3
+vpw_dyn                                      0
+vout                               2.10259e-08
+wout                               2.10259e-08
+vin                                        3.3
+vhigh                                      3.3
+vlow                                         0
+vlow#branch                                  0
+vhigh#branch                                 0
+vin#branch                                   0
+vocap#branch                       2.58494e-26
+vpw_dyn#branch                               0
+vnw_dyn#branch                               0
+vss_dyn#branch                     1.94471e-11
+vdd_dyn#branch                    -4.70227e-11
+
+
+No. of Data Rows : 166688
+
+  Measurements for Transient Analysis
+
+prop_in_out         =  6.812821e-11 targ=  3.181282e-10 trig=  2.500000e-10
+trans_out           =  7.615805e-11 targ=  3.691705e-10 trig=  2.930124e-10
+q_in_dyn            =   1.85540e-13 from=  1.68333e-10 to=  5.23677e-10
+q_out_dyn           =   3.32853e-14 from=  1.68333e-10 to=  5.23677e-09
+q_vdd_dyn           =   -1.91327e-13 from=  1.68333e-10 to=  5.23677e-09
+q_vss_dyn           =   5.61267e-16 from=  1.68333e-10 to=  5.23677e-09
+i_vdd_leak          =  -4.702269e-11 from=  1.666667e-11 to=  1.676667e-10
+i_vss_leak          =  1.944707e-11 from=  1.666667e-11 to=  1.676667e-10
+i_in_leak           =  2.168026e-19 from=  1.666667e-11 to=  1.676667e-10
+
+
+Total analysis time (seconds) = 2.661
+
+Total elapsed time (seconds) = 2.670 
+
+Total DRAM available = 128432.770 MB.
+DRAM currently available = 46495.867 MB.
+Maximum ngspice program size =   86.934 MB.
+Current ngspice program size =   14.410 MB.
+
+Shared ngspice pages =    4.039 MB.
+Text (code) pages =    7.465 MB.
+Stack = 0 bytes.
+Library pages =   10.379 MB.
+

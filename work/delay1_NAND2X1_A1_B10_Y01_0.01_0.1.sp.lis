@@ -60,12 +60,12 @@ i_vss_leak          =  1.018849e-11 from=  1.666667e-11 to=  1.676667e-10
 i_in_leak           =  -1.706031e-18 from=  1.666667e-11 to=  1.676667e-10
 
 
-Total analysis time (seconds) = 1.196
+Total analysis time (seconds) = 1.195
 
-Total elapsed time (seconds) = 1.205 
+Total elapsed time (seconds) = 1.204 
 
 Total DRAM available = 128432.770 MB.
-DRAM currently available = 51880.500 MB.
+DRAM currently available = 46619.805 MB.
 Maximum ngspice program size =   86.906 MB.
 Current ngspice program size =   14.387 MB.
 

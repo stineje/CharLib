@@ -1,0 +1,1 @@
+/import/programs/ngspice/bin/ngspice -b delay1_NAND3X1_A1_B10_C1_Y01_0.49_0.1.sp 1> delay1_NAND3X1_A1_B10_C1_Y01_0.49_0.1.sp.lis 2> /dev/null 
