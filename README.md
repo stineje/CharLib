@@ -4,15 +4,20 @@
 An open cell library characterizer.
 Current version support timing characterization and power
 characterization of combinational cells and sequential cells.  This
-open-source characterization tool is modified from the  libretto
+open-source characterization tool is modified from the libretto
 characterization tool found here :
-https://github.com/snishizawa/libretto.  We are currently working on expanding the characterization profile as well as scope of parameters.  
+https://github.com/snishizawa/libretto.  We are currently working on
+expanding the characterization profile as well as scope of parameters.
 
 ## Preconditions
-Make sure you change location of ngspice in gen_cmd.py.  Also, uses OSU 0.35um SCMOS library for testing.  Will be expanded to SKY130 and GF180 shortly.
+Make sure you change location of ngspice in gen_cmd.py.  Also, uses
+OSU 0.35um SCMOS library for testing.  Will be expanded to SKY130 and
+GF180 shortly.
 
 ## How to use
-make
+There is a simple Makefile that can run the characterization.  The
+current characterization could be sped up with parallelization which
+is on the list to be implemented shortly.
 
 ## How to prepare .cmd file
 .cmd file composes three blocks.
