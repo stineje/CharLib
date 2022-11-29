@@ -27,7 +27,7 @@ set_logic_threshold_low 0.2
 set_logic_high_to_low_threshold 0.5
 set_logic_low_to_high_threshold 0.5
 set_work_dir work
-set_simulator /cad/synopsys/hspice/P-2019.06-1/hspice/bin/hspice -CC -port 2990wx:25000 -i 
+set_simulator /import/programs/ngspice/bin/ngspice 
 set_run_sim true
 set_mt_sim true
 set_supress_message false
@@ -41,107 +41,11 @@ set_operating_conditions PVT_3P5V_25C
 initialize
 
 ## add circuit
-add_cell -n INV_1X -l INV -i A -o YB -f YB=!A 
+add_cell -n INVX1 -l INV -i A -o Y -f Y=!A 
 add_slope {0.1 4.9} 
 add_load  {0.01 0.49} 
 add_area 1
-add_netlist NETLIST/INV_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n NAND2_1X -l NAND2 -i A B -o YB -f YB=!(A&B) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/NAND2_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n NAND3_1X -l NAND3 -i A B C -o YB -f YB=!(A&B&C) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/NAND3_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n NAND4_1X -l NAND4 -i A B C D -o YB -f YB=!(A&B&C&D) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/NAND4_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n NOR2_1X -l NOR2 -i A B -o YB -f YB=!(A|B) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/NOR2_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n NOR3_1X -l NOR3 -i A B C -o YB -f YB=!(A|B|C) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/NOR3_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n NOR4_1X -l NOR4 -i A B C D -o YB -f YB=!(A|B|C|D) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/NOR4_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n XOR2_1X -l XOR2 -i A B -o Y -f Y=((A&!B)&(!A&B)) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/XOR2_1X.spi
-add_model NETLIST/model.sp
-add_simulation_timestep auto
-characterize
-export
-
-
-## add circuit
-add_cell -n XNOR2_1X -l XNOR2 -i A B -o Y -f Y=((!A&!B)&(A&B)) 
-add_slope {0.1 4.9} 
-add_load  {0.01 0.49} 
-add_area 1
-add_netlist NETLIST/XNOR2_1X.spi
+add_netlist NETLIST/INVX1.spi
 add_model NETLIST/model.sp
 add_simulation_timestep auto
 characterize
