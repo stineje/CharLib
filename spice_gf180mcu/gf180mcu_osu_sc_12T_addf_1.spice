@@ -1,0 +1,54 @@
+* Copyright 2022 Google LLC
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+
+.inc "/import/yukari1/lrburle/OSU_180/char/techfiles/design.hspice"
+.lib "/import/yukari1/lrburle/OSU_180/char/techfiles/sm141064.hspice" typical
+
+.GLOBAL VDD
+.GLOBAL VSS
+
+.option scale=0.05u
+
+.subckt gf180mcu_osu_sc_12T_addf_1 A B CI CO S
+X0 a_110_109 A VDD VDD pmos_3p3 w=34 l=6
+X1 S a_161_19 VDD VDD pmos_3p3 w=34 l=6
+X2 S a_161_19 VSS VSS nmos_3p3 w=17 l=6
+X3 VDD CI a_195_109 VDD pmos_3p3 w=34 l=6
+X4 a_195_19 B a_178_19 VSS nmos_3p3 w=17 l=6
+X5 a_76_109 B a_59_19 VDD pmos_3p3 w=34 l=6
+X6 VDD A a_76_109 VDD pmos_3p3 w=34 l=6
+X7 a_59_19 CI a_9_109 VDD pmos_3p3 w=34 l=6
+X8 a_178_19 A a_161_19 VSS nmos_3p3 w=17 l=6
+X9 a_9_109 B VDD VDD pmos_3p3 w=34 l=6
+X10 a_110_19 CI VSS VSS nmos_3p3 w=17 l=6
+X11 VDD A a_9_109 VDD pmos_3p3 w=34 l=6
+X12 a_59_19 CI a_9_19 VSS nmos_3p3 w=17 l=6
+X13 VSS B a_110_19 VSS nmos_3p3 w=17 l=6
+X14 VSS A a_9_19 VSS nmos_3p3 w=17 l=6
+X15 CO a_59_19 VSS VSS nmos_3p3 w=17 l=6
+X16 VSS CI a_195_19 VSS nmos_3p3 w=17 l=6
+X17 CO a_59_19 VDD VDD pmos_3p3 w=34 l=6
+X18 VSS A a_76_19 VSS nmos_3p3 w=17 l=6
+X19 a_161_19 a_59_19 a_110_19 VSS nmos_3p3 w=17 l=6
+X20 a_76_19 B a_59_19 VSS nmos_3p3 w=17 l=6
+X21 a_178_109 A a_161_19 VDD pmos_3p3 w=34 l=6
+X22 a_195_109 B a_178_109 VDD pmos_3p3 w=34 l=6
+X23 a_9_19 B VSS VSS nmos_3p3 w=17 l=6
+X24 a_110_19 A VSS VSS nmos_3p3 w=17 l=6
+X25 a_161_19 a_59_19 a_110_109 VDD pmos_3p3 w=34 l=6
+X26 VDD B a_110_109 VDD pmos_3p3 w=34 l=6
+X27 a_110_109 CI VDD VDD pmos_3p3 w=34 l=6
+.ends
+
+** hspice subcircuit dictionary
