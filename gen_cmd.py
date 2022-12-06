@@ -29,8 +29,8 @@ def main_350():
 #	gen_comb("OSU350", cmd_file, "OA22X1",  "OA22",  ['A1','A2','B1','B2'],   ['Y'],  ['Y=((B1|B2)&(A1|A2))'],  '1', 'spice_osu350/OA22X1.spi')
 	gen_comb("OSU350", cmd_file, "XOR2X1",  "XOR2",  ['A','B'],               ['Y'],  ['Y=((A&!B)&(!A&B))'],    '1', 'spice_osu350/XOR2X1.spi')
 	gen_comb("OSU350", cmd_file, "XNOR2X1", "XNOR2", ['A','B'],               ['Y'],  ['Y=((!A&!B)&(A&B))'],    '1', 'spice_osu350/XNOR2X1.spi')
-#	gen_seq ("OSU350", cmd_file, "DFFX1", "DFF_PCPU", ['DATA','CLK'], ['Q'], ['Q','QN'], ['Q=IQ','QN=IQN'], '1', 'spice_osu350/DFFX1.spi')
-#	gen_seq ("OSU350", cmd_file, "DFFSR", "DFF_PCPU_NRNS", ['DATA','CLK','NSET','NRST'], ['Q'], ['IQ','IQN'], ['Q=IQ','QN=IQN'], '1', 'spice_osu350/DFFARASX1.spi')
+#	gen_seq ("OSU350", cmd_file, "DFFPOSX1", "DFF_PCPU", ['DATA','CLK'], ['Q'], ['Q','QN'], ['Q=IQ','QN=IQN'], '1', 'spice_osu350/DFFPOSX1.spi')
+#	gen_seq ("OSU350", cmd_file, "DFFSR", "DFF_PCPU_NRNS", ['DATA','CLK','NSET','NRST'], ['Q'], ['IQ','IQN'], ['Q=IQ','QN=IQN'], '1', 'spice_osu350/DFFSR.spi')
 	exit_CharLib(cmd_file)
 
 def main_gf180mcu():
