@@ -1,4 +1,5 @@
 #!/bin/python3
+import json
 
 def main_350():
 	cmd_file = 'CharLib.cmd'
@@ -39,6 +40,23 @@ def main_gf180mcu():
 	gen_char_cond("3.3", cmd_file)
 	gen_comb("GF180MCU", cmd_file, "gf180mcu_osu_sc_12T_inv_1",   "INV",   ['A'],             ['Y'], ['Y=!A'],         '1', 'spice_gf180mcu/gf180mcu_osu_sc_12T_inv_1.spice')
 	exit_CharLib(cmd_file)	
+
+def gen_from_json(json_file = 'char_settings.json', *args, **kwargs):
+	json.load(json_file)
+	
+	if 'cmd_file' in kwargs:
+		cmd_file = kwargs['cmd_file']
+	else:
+		cmd_file = 'default.cmd'
+
+	# TODO
+	# load lib name
+	# load cell name prefix
+	# load cell name suffix
+	# load units (voltage, capacitance, resistance, current, leakage power, energy, time)
+	# load vdd_name and vss_name
+	# load pwell_name and nwell_name
+	# load... everything else
 
 def gen_lib_common(name, cmd_file):
 	with open(cmd_file,'w') as f:
