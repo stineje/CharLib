@@ -41,22 +41,34 @@ def main_gf180mcu():
 	gen_comb("GF180MCU", cmd_file, "gf180mcu_osu_sc_12T_inv_1",   "INV",   ['A'],             ['Y'], ['Y=!A'],         '1', 'spice_gf180mcu/gf180mcu_osu_sc_12T_inv_1.spice')
 	exit_CharLib(cmd_file)	
 
-def gen_from_json(json_file = 'char_settings.json', *args, **kwargs):
-	json.load(json_file)
-	
-	if 'cmd_file' in kwargs:
-		cmd_file = kwargs['cmd_file']
-	else:
-		cmd_file = 'default.cmd'
+def gen_from_json(json_file = 'char_settings.json'):
+	char_settings = json.load(json_file)
 
-	# TODO
-	# load lib name
-	# load cell name prefix
-	# load cell name suffix
-	# load units (voltage, capacitance, resistance, current, leakage power, energy, time)
-	# load vdd_name and vss_name
-	# load pwell_name and nwell_name
-	# load... everything else
+	# Load cmd filename
+	cmd_file = char_settings.get('cmd_file', 'default.cmd')
+
+	# Check all required keys and exit gracefully if missing any
+	try:
+		# load lib data
+		lib_name = char_settings['lib']['name']
+		lib_dir = char_settings['lib']['dir']
+		# load cell name prefix & suffix
+		cell_name_prefix = char_settings['cell_name_prefix']
+		cell_name_suffix = char_settings['cell_name_suffix']
+		# load units
+		units = char_settings['units']
+		for unit_type in ('voltage', 'capacitance', 'resistance', 'current', 'leakage_power', 'energy', 'time'):
+			if unit_type not in units:
+				raise KeyError(f'Missing units for {unit_type}') # Tell user what we're missing
+		# load vdd, vss, pwell, and nwell
+		
+		
+		# load pwell_name and nwell_name
+		# load... everything else
+	except KeyError as e:
+		pass # TODO: print an error message and exit
+	
+	# Use the loaded data to generate commands
 
 def gen_lib_common(name, cmd_file):
 	with open(cmd_file,'w') as f:
