@@ -1,1 +1,0 @@
-/import/programs/ngspice/bin/ngspice -b delay1_XOR2X1_A01_B1_Y10_0.01_0.1.sp 1> delay1_XOR2X1_A01_B1_Y10_0.01_0.1.sp.lis 2> /dev/null 

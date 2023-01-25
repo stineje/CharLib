@@ -1,5 +1,0 @@
-BSIM3V3.1 Parameter Check
-Model = pfet
-W = 8e-06, L = 4e-07
-Warning: Pd = 0 is less than W.
-Warning: Ps = 0 is less than W.

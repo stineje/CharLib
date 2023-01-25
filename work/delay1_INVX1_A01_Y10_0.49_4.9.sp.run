@@ -1,1 +1,0 @@
-/import/programs/ngspice/bin/ngspice -b delay1_INVX1_A01_Y10_0.49_4.9.sp 1> delay1_INVX1_A01_Y10_0.49_4.9.sp.lis 2> /dev/null 
