@@ -7,4 +7,5 @@ work
 # Ignored file types
 *.cmd
 *.lib
+*.txt
 *.v
