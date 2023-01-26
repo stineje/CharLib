@@ -56,249 +56,7 @@ def execute_batch(batchfile):
 		line = line.strip('\n')
 		##-- set function : common settings--#
 		## set_lib_name
-		if(line.startswith('set_lib_name')):
-			targetLib.set_lib_name(line) 
-
-		if(line.startswith('set_dotlib_name')):
-			targetLib.set_dotlib_name(line) 
-
-		if(line.startswith('set_verilog_name')):
-			targetLib.set_verilog_name(line) 
-
-		## set_cell_name_suffix
-		elif(line.startswith('set_cell_name_suffix')):
-			targetLib.set_cell_name_suffix(line) 
-
-		## set_cell_name_prefix
-		elif(line.startswith('set_cell_name_prefix')):
-			targetLib.set_cell_name_prefix(line) 
-
-		## set_voltage_unit
-		elif(line.startswith('set_voltage_unit')):
-			targetLib.set_voltage_unit(line) 
-
-		## set_capacitance_unit
-		elif(line.startswith('set_capacitance_unit')):
-			targetLib.set_capacitance_unit(line) 
-
-		## set_resistance_unit
-		elif(line.startswith('set_resistance_unit')):
-			targetLib.set_resistance_unit(line) 
-
-		## set_time_unit
-		elif(line.startswith('set_time_unit')):
-			targetLib.set_time_unit(line) 
-
-		## set_current_unit
-		elif(line.startswith('set_current_unit')):
-			targetLib.set_current_unit(line) 
-
-		## set_leakage_power_unit
-		elif(line.startswith('set_leakage_power_unit')):
-			targetLib.set_leakage_power_unit(line) 
-
-		## set_energy_unit
-		elif(line.startswith('set_energy_unit')):
-			targetLib.set_energy_unit(line) 
-
-		## set_vdd_name
-		elif(line.startswith('set_vdd_name')):
-			targetLib.set_vdd_name(line) 
-
-		## set_vss_name
-		elif(line.startswith('set_vss_name')):
-			#print(line)
-			targetLib.set_vss_name(line) 
-
-		## set_pwell_name
-		elif(line.startswith('set_pwell_name')):
-			#print(line)
-			targetLib.set_pwell_name(line) 
-
-		## set_nwell_name
-		elif(line.startswith('set_nwell_name')):
-			targetLib.set_nwell_name(line) 
-
-		##-- set function : characterization settings--#
-		## set_process
-		elif(line.startswith('set_process')):
-			targetLib.set_process(line) 
-
-		## set_temperature
-		elif(line.startswith('set_temperature')):
-			targetLib.set_temperature(line) 
-
-		## set_vdd_voltage
-		elif(line.startswith('set_vdd_voltage')):
-			targetLib.set_vdd_voltage(line) 
-
-		## set_vss_voltage
-		elif(line.startswith('set_vss_voltage')):
-			targetLib.set_vss_voltage(line) 
-
-		## set_pwell_voltage
-		elif(line.startswith('set_pwell_voltage')):
-			targetLib.set_pwell_voltage(line) 
-
-		## set_nwell_voltage
-		elif(line.startswith('set_nwell_voltage')):
-			targetLib.set_nwell_voltage(line) 
-
-		## set_logic_threshold_high
-		elif(line.startswith('set_logic_threshold_high')):
-			targetLib.set_logic_threshold_high(line) 
-
-		## set_logic_threshold_low
-		elif(line.startswith('set_logic_threshold_low')):
-			targetLib.set_logic_threshold_low(line) 
-
-		## set_logic_high_to_low_threshold
-		elif(line.startswith('set_logic_high_to_low_threshold')):
-			targetLib.set_logic_high_to_low_threshold(line) 
-
-		## set_logic_low_to_high_threshold
-		elif(line.startswith('set_logic_low_to_high_threshold')):
-			targetLib.set_logic_low_to_high_threshold(line) 
-
-		## set_work_dir
-		elif(line.startswith('set_work_dir')):
-			targetLib.set_work_dir(line) 
-
-		## set_simulator
-		elif(line.startswith('set_simulator')):
-			targetLib.set_simulator(line) 
-
-		## set_runsim_option
-		elif(line.startswith('set_run_sim')):
-			targetLib.set_run_sim(line) 
-
-		## set_multithread_option
-		elif(line.startswith('set_mt_sim')):
-			targetLib.set_mt_sim(line) 
-
-		## set_supress_message
-		elif(line.startswith('set_supress_message')):
-			targetLib.set_supress_message(line) 
-
-		## set_supress_sim_message
-		elif(line.startswith('set_supress_sim_message')):
-			targetLib.set_supress_sim_message(line) 
-
-		## set_supress_debug_message
-		elif(line.startswith('set_supress_debug_message')):
-			targetLib.set_supress_debug_message(line) 
-
-		## set_energy_meas_low_threshold
-		elif(line.startswith('set_energy_meas_low_threshold')):
-			targetLib.set_energy_meas_low_threshold(line) 
-
-		## set_energy_meas_high_threshold
-		elif(line.startswith('set_energy_meas_high_threshold')):
-			targetLib.set_energy_meas_high_threshold(line) 
-
-		## set_energy_meas_time_extent
-		elif(line.startswith('set_energy_meas_time_extent')):
-			targetLib.set_energy_meas_time_extent(line) 
-
-		## set_energy_meas_time_extent
-		elif(line.startswith('set_operating_conditions')):
-			targetLib.set_operating_conditions(line) 
-
-		##-- add function : common for comb. and seq. --#
-		## add_cell
-		elif(line.startswith('add_cell')):
-			targetCell = LogicCell()
-			targetCell.add_cell(line) 
-
-		## add_slope
-		elif(line.startswith('add_slope')):
-			targetCell.add_slope(line) 
-
-		## add_load
-		elif(line.startswith('add_load')):
-			targetCell.add_load(line) 
-
-		## add_area
-		elif(line.startswith('add_area')):
-			targetCell.add_area(line) 
-
-		## add_netlist
-		elif(line.startswith('add_netlist')):
-			targetCell.add_netlist(line) 
-
-		## add_model
-		elif(line.startswith('add_model')):
-			targetCell.add_model(line) 
-
-		## add_simulation_timestep
-		elif(line.startswith('add_simulation_timestep')):
-			targetCell.add_simulation_timestep(line) 
-
-		##-- add function : for seq. cell --#
-		## add_flop
-		elif(line.startswith('add_flop')):
-			targetCell = LogicCell()
-			targetCell.add_flop(line) 
-
-		## add_clock_slope
-		elif(line.startswith('add_clock_slope')):
-			targetCell.add_clock_slope(line) 
-
-		## add_simulation_setup_auto
-		elif(line.startswith('add_simulation_setup_auto')):
-			targetCell.add_simulation_setup_lowest('add_simulation_setup_lowest auto') 
-			targetCell.add_simulation_setup_highest('add_simulation_setup_highest auto') 
-			targetCell.add_simulation_setup_timestep('add_simulation_setup_timestep auto') 
-
-		## add_simulation_setup_lowest
-		elif(line.startswith('add_simulation_setup_lowest')):
-			targetCell.add_simulation_setup_lowest(line) 
-
-		## add_simulation_setup_highest
-		elif(line.startswith('add_simulation_setup_highest')):
-			targetCell.add_simulation_setup_highest(line) 
-
-		## add_simulation_setup_timestep
-		elif(line.startswith('add_simulation_setup_timestep')):
-			targetCell.add_simulation_setup_timestep(line) 
-
-		## add_simulation_hold_auto
-		elif(line.startswith('add_simulation_hold_auto')):
-			targetCell.add_simulation_hold_lowest('add_simulation_hold_lowest auto') 
-			targetCell.add_simulation_hold_highest('add_simulation_hold_highest auto') 
-			targetCell.add_simulation_hold_timestep('add_simulation_hold_timestep auto') 
-
-		## add_simulation_hold_lowest
-		elif(line.startswith('add_simulation_hold_lowest')):
-			targetCell.add_simulation_hold_lowest(line) 
-
-		## add_simulation_hold_highest
-		elif(line.startswith('add_simulation_hold_highest')):
-			targetCell.add_simulation_hold_highest(line) 
-
-		## add_simulation_hold_timestep
-		elif(line.startswith('add_simulation_hold_timestep')):
-			targetCell.add_simulation_hold_timestep(line) 
-
-		##-- execution --#
-		## initialize
-		elif(line.startswith('create')):
-			initializeFiles(targetLib, targetCell) 
-
-		## create
-		elif(line.startswith('characterize')):
-			harnessList2 = characterizeFiles(targetLib, targetCell) 
-			os.chdir("../")
-			#print(len(harnessList))
-
-		## export
-		elif(line.startswith('export')):
-			exportFiles(targetLib, targetCell, harnessList2) 
-			num_gen_file += 1
-
-		## exit
-		elif(line.startswith('quit') or line.startswith('exit')):
-			exitFiles(targetLib, num_gen_file) 
+		num_gen_file = execute_single_command(line, targetLib, num_gen_file)
 
 
 def execute_lib(library_dir):
@@ -312,9 +70,273 @@ def execute_lib(library_dir):
 def execute_shell():
 	"""Enter CharLib shell"""
 
-	# TODO
 	print("Entering CharLib shell")
-	pass
+	
+	targetLib = LibrarySettings()
+	num_gen_file = 0
+	exit_flag = False
+	while not exit_flag:
+		command = input("CharLib > ")
+		try:
+			num_gen_file = execute_single_command(command, targetLib, num_gen_file)
+		except ValueError:
+			print("ERROR: Invalid command")
+		if command == "exit":
+			exit_flag = True
+	
+	my_exit()
+
+
+def execute_single_command(command, targetLib, num_gen_file):
+	if(command.startswith('set_lib_name')):
+			targetLib.set_lib_name(command) 
+
+	if(command.startswith('set_dotlib_name')):
+		targetLib.set_dotlib_name(command) 
+
+	if(command.startswith('set_verilog_name')):
+		targetLib.set_verilog_name(command) 
+
+	## set_cell_name_suffix
+	elif(command.startswith('set_cell_name_suffix')):
+		targetLib.set_cell_name_suffix(command) 
+
+	## set_cell_name_prefix
+	elif(command.startswith('set_cell_name_prefix')):
+		targetLib.set_cell_name_prefix(command) 
+
+	## set_voltage_unit
+	elif(command.startswith('set_voltage_unit')):
+		targetLib.set_voltage_unit(command) 
+
+	## set_capacitance_unit
+	elif(command.startswith('set_capacitance_unit')):
+		targetLib.set_capacitance_unit(command) 
+
+	## set_resistance_unit
+	elif(command.startswith('set_resistance_unit')):
+		targetLib.set_resistance_unit(command) 
+
+	## set_time_unit
+	elif(command.startswith('set_time_unit')):
+		targetLib.set_time_unit(command) 
+
+	## set_current_unit
+	elif(command.startswith('set_current_unit')):
+		targetLib.set_current_unit(command) 
+
+	## set_leakage_power_unit
+	elif(command.startswith('set_leakage_power_unit')):
+		targetLib.set_leakage_power_unit(command) 
+
+	## set_energy_unit
+	elif(command.startswith('set_energy_unit')):
+		targetLib.set_energy_unit(command) 
+
+	## set_vdd_name
+	elif(command.startswith('set_vdd_name')):
+		targetLib.set_vdd_name(command) 
+
+	## set_vss_name
+	elif(command.startswith('set_vss_name')):
+		#print(command)
+		targetLib.set_vss_name(command) 
+
+	## set_pwell_name
+	elif(command.startswith('set_pwell_name')):
+		#print(command)
+		targetLib.set_pwell_name(command) 
+
+	## set_nwell_name
+	elif(command.startswith('set_nwell_name')):
+		targetLib.set_nwell_name(command) 
+
+	##-- set function : characterization settings--#
+	## set_process
+	elif(command.startswith('set_process')):
+		targetLib.set_process(command) 
+
+	## set_temperature
+	elif(command.startswith('set_temperature')):
+		targetLib.set_temperature(command) 
+
+	## set_vdd_voltage
+	elif(command.startswith('set_vdd_voltage')):
+		targetLib.set_vdd_voltage(command) 
+
+	## set_vss_voltage
+	elif(command.startswith('set_vss_voltage')):
+		targetLib.set_vss_voltage(command) 
+
+	## set_pwell_voltage
+	elif(command.startswith('set_pwell_voltage')):
+		targetLib.set_pwell_voltage(command) 
+
+	## set_nwell_voltage
+	elif(command.startswith('set_nwell_voltage')):
+		targetLib.set_nwell_voltage(command) 
+
+	## set_logic_threshold_high
+	elif(command.startswith('set_logic_threshold_high')):
+		targetLib.set_logic_threshold_high(command) 
+
+	## set_logic_threshold_low
+	elif(command.startswith('set_logic_threshold_low')):
+		targetLib.set_logic_threshold_low(command) 
+
+	## set_logic_high_to_low_threshold
+	elif(command.startswith('set_logic_high_to_low_threshold')):
+		targetLib.set_logic_high_to_low_threshold(command) 
+
+	## set_logic_low_to_high_threshold
+	elif(command.startswith('set_logic_low_to_high_threshold')):
+		targetLib.set_logic_low_to_high_threshold(command) 
+
+	## set_work_dir
+	elif(command.startswith('set_work_dir')):
+		targetLib.set_work_dir(command) 
+
+	## set_simulator
+	elif(command.startswith('set_simulator')):
+		targetLib.set_simulator(command) 
+
+	## set_runsim_option
+	elif(command.startswith('set_run_sim')):
+		targetLib.set_run_sim(command) 
+
+	## set_multithread_option
+	elif(command.startswith('set_mt_sim')):
+		targetLib.set_mt_sim(command) 
+
+	## set_supress_message
+	elif(command.startswith('set_supress_message')):
+		targetLib.set_supress_message(command) 
+
+	## set_supress_sim_message
+	elif(command.startswith('set_supress_sim_message')):
+		targetLib.set_supress_sim_message(command) 
+
+	## set_supress_debug_message
+	elif(command.startswith('set_supress_debug_message')):
+		targetLib.set_supress_debug_message(command) 
+
+	## set_energy_meas_low_threshold
+	elif(command.startswith('set_energy_meas_low_threshold')):
+		targetLib.set_energy_meas_low_threshold(command) 
+
+	## set_energy_meas_high_threshold
+	elif(command.startswith('set_energy_meas_high_threshold')):
+		targetLib.set_energy_meas_high_threshold(command) 
+
+	## set_energy_meas_time_extent
+	elif(command.startswith('set_energy_meas_time_extent')):
+		targetLib.set_energy_meas_time_extent(command) 
+
+	## set_energy_meas_time_extent
+	elif(command.startswith('set_operating_conditions')):
+		targetLib.set_operating_conditions(command) 
+
+	##-- add function : common for comb. and seq. --#
+	## add_cell
+	elif(command.startswith('add_cell')):
+		targetCell = LogicCell()
+		targetCell.add_cell(command) 
+
+	## add_slope
+	elif(command.startswith('add_slope')):
+		targetCell.add_slope(command) 
+
+	## add_load
+	elif(command.startswith('add_load')):
+		targetCell.add_load(command) 
+
+	## add_area
+	elif(command.startswith('add_area')):
+		targetCell.add_area(command) 
+
+	## add_netlist
+	elif(command.startswith('add_netlist')):
+		targetCell.add_netlist(command) 
+
+	## add_model
+	elif(command.startswith('add_model')):
+		targetCell.add_model(command) 
+
+	## add_simulation_timestep
+	elif(command.startswith('add_simulation_timestep')):
+		targetCell.add_simulation_timestep(command) 
+
+	##-- add function : for seq. cell --#
+	## add_flop
+	elif(command.startswith('add_flop')):
+		targetCell = LogicCell()
+		targetCell.add_flop(command) 
+
+	## add_clock_slope
+	elif(command.startswith('add_clock_slope')):
+		targetCell.add_clock_slope(command) 
+
+	## add_simulation_setup_auto
+	elif(command.startswith('add_simulation_setup_auto')):
+		targetCell.add_simulation_setup_lowest('add_simulation_setup_lowest auto') 
+		targetCell.add_simulation_setup_highest('add_simulation_setup_highest auto') 
+		targetCell.add_simulation_setup_timestep('add_simulation_setup_timestep auto') 
+
+	## add_simulation_setup_lowest
+	elif(command.startswith('add_simulation_setup_lowest')):
+		targetCell.add_simulation_setup_lowest(command) 
+
+	## add_simulation_setup_highest
+	elif(command.startswith('add_simulation_setup_highest')):
+		targetCell.add_simulation_setup_highest(command) 
+
+	## add_simulation_setup_timestep
+	elif(command.startswith('add_simulation_setup_timestep')):
+		targetCell.add_simulation_setup_timestep(command) 
+
+	## add_simulation_hold_auto
+	elif(command.startswith('add_simulation_hold_auto')):
+		targetCell.add_simulation_hold_lowest('add_simulation_hold_lowest auto') 
+		targetCell.add_simulation_hold_highest('add_simulation_hold_highest auto') 
+		targetCell.add_simulation_hold_timestep('add_simulation_hold_timestep auto') 
+
+	## add_simulation_hold_lowest
+	elif(command.startswith('add_simulation_hold_lowest')):
+		targetCell.add_simulation_hold_lowest(command) 
+
+	## add_simulation_hold_highest
+	elif(command.startswith('add_simulation_hold_highest')):
+		targetCell.add_simulation_hold_highest(command) 
+
+	## add_simulation_hold_timestep
+	elif(command.startswith('add_simulation_hold_timestep')):
+		targetCell.add_simulation_hold_timestep(command) 
+
+	##-- execution --#
+	## initialize
+	elif(command.startswith('create')):
+		initializeFiles(targetLib, targetCell) 
+
+	## create
+	elif(command.startswith('characterize')):
+		harnessList2 = characterizeFiles(targetLib, targetCell) 
+		os.chdir("../")
+		#print(len(harnessList))
+
+	## export
+	elif(command.startswith('export')):
+		exportFiles(targetLib, targetCell, harnessList2) 
+		num_gen_file += 1
+
+	## exit
+	elif(command.startswith('quit') or command.startswith('exit')):
+		exitFiles(targetLib, num_gen_file)
+
+	# Handle malformed command
+	else:
+		raise ValueError("Invalid command")
+
+	return num_gen_file
 
 
 def initializeFiles(targetLib, targetCell):
