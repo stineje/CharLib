@@ -1,5 +1,4 @@
 #!/bin/python3
-import json
 
 def main_350():
 	cmd_file = 'CharLib.cmd'
@@ -41,58 +40,26 @@ def main_gf180mcu():
 	gen_comb("GF180MCU", cmd_file, "gf180mcu_osu_sc_12T_inv_1",   "INV",   ['A'],             ['Y'], ['Y=!A'],         '1', 'spice_gf180mcu/gf180mcu_osu_sc_12T_inv_1.spice')
 	exit_CharLib(cmd_file)	
 
-def gen_from_json(json_file = 'char_settings.json'):
-	char_settings = json.load(json_file)
-
-	# Load cmd filename
-	cmd_file = char_settings.get('cmd_file', 'default.cmd')
-
-	try:
-		gen_lib_common(char_settings['lib']['name'], char_settings['cmd_file'], 
-				cell_name_prefix=char_settings['cell_name_prefix'],
-				cell_name_suffix=char_settings['cell_name_suffix'],
-				units=char_settings['units'],
-				vdd=char_settings['vdd'],
-				vss=char_settings['vss'],
-				pwell=char_settings['pwell'],
-				nwell=char_settings['nwell'])
-		
-	except KeyError as e:
-		pass # TODO: print an error message that lets us know which key was missing
-	
-
-def gen_lib_common(lib_name, cmd_file, *args, **kwargs):
-	"""Generate common elements for a cmd file, such as lib name and units"""
-
-	# Get kwargs
-	cell_name_suffix = kwargs.get('cell_name_suffix', lib_name)
-	cell_name_prefix = kwargs.get('cell_name_prefix', 'V1')
-	units = kwargs.get('units', {})
-	vdd = kwargs.get('vdd', {})
-	vss = kwargs.get('vss', {})
-	pwell = kwargs.get('pwell', {})
-	nwell = kwargs.get('nwell', {})
-
-	outlines = []
-	outlines.append("# common settings for library\n")
-	outlines.append(f"set_lib_name         {lib_name}\n")
-	outlines.append(f"set_dotlib_name      {lib_name}.lib\n")
-	outlines.append(f"set_verilog_name     {lib_name}.v\n")
-	outlines.append(f"set_cell_name_suffix {cell_name_suffix}_\n")
-	outlines.append(f"set_cell_name_prefix _{cell_name_prefix}\n")
-	outlines.append(f"set_voltage_unit {units.get('voltage', 'V')}\n")
-	outlines.append(f"set_capacitance_unit {units.get('capacitance', 'pF')}\n")
-	outlines.append(f"set_resistance_unit {units.get('resistance', 'Ohm')}\n")
-	outlines.append(f"set_current_unit {units.get('current', 'mA')}\n")
-	outlines.append(f"set_leakage_power_unit {units.get('leakage_power', 'pW')}\n")
-	outlines.append(f"set_energy_unit {units.get('energy', 'fJ')}\n")
-	outlines.append(f"set_time_unit {units.get('time', 'ns')}\n")
-	outlines.append(f"set_vdd_name {vdd.get('name', 'VDD')}\n")
-	outlines.append(f"set_vss_name {vss.get('name', 'VSS')}\n")
-	outlines.append(f"set_pwell_name {pwell.get('name', 'VPW')}\n")
-	outlines.append(f"set_nwell_name {nwell.get('name', 'VNW')}\n")
-
+def gen_lib_common(name, cmd_file):
 	with open(cmd_file,'w') as f:
+		outlines = []
+		outlines.append("# common settings for library\n")
+		outlines.append("set_lib_name         "+str(name)+"\n")
+		outlines.append("set_dotlib_name      "+str(name)+".lib\n")
+		outlines.append("set_verilog_name     "+str(name)+".v\n")
+		outlines.append("set_cell_name_suffix "+str(name)+"_\n")
+		outlines.append("set_cell_name_prefix _V1\n")
+		outlines.append("set_voltage_unit V\n")
+		outlines.append("set_capacitance_unit pF\n")
+		outlines.append("set_resistance_unit Ohm\n")
+		outlines.append("set_current_unit mA\n")
+		outlines.append("set_leakage_power_unit pW \n")
+		outlines.append("set_energy_unit fJ \n")
+		outlines.append("set_time_unit ns\n")
+		outlines.append("set_vdd_name VDD\n")
+		outlines.append("set_vss_name VSS\n")
+		outlines.append("set_pwell_name VPW\n")
+		outlines.append("set_nwell_name VNW\n")
 		f.writelines(outlines)
 	f.close()
 

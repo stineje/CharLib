@@ -19,7 +19,9 @@ def main():
 	to read in commands one at a time."""
 	
 	# Read in arguments
-	parser = argparse.ArgumentParser(description='argument')
+	parser = argparse.ArgumentParser(
+			prog='CharLib',
+			description='Characterize combinational and sequential standard cells')
 	mode_group = parser.add_mutually_exclusive_group()
 	mode_group.add_argument('-b','--batch', type=str,
 			help='Execute specified batch .cmd file')
@@ -54,9 +56,7 @@ def execute_batch(batchfile):
 	
 	for line in lines:
 		line = line.strip('\n')
-		##-- set function : common settings--#
-		## set_lib_name
-		num_gen_file = execute_single_command(line, targetLib, num_gen_file)
+		num_gen_file = execute_command(line, targetLib, num_gen_file)
 
 
 def execute_lib(library_dir):
@@ -64,177 +64,110 @@ def execute_lib(library_dir):
 
 	# TODO
 	print("Searching for standard cells in " + str(library_dir))
-	pass
 
 
 def execute_shell():
 	"""Enter CharLib shell"""
 
-	print("Entering CharLib shell")
+	print("Entering CharLib shell. Type 'exit' or ^C to quit")
 	
 	targetLib = LibrarySettings()
 	num_gen_file = 0
 	exit_flag = False
-	while not exit_flag:
-		command = input("CharLib > ")
-		try:
-			num_gen_file = execute_single_command(command, targetLib, num_gen_file)
-		except ValueError:
-			print("ERROR: Invalid command")
-		if command == "exit":
-			exit_flag = True
+	try:
+		while not exit_flag:
+			command = input("CharLib > ")
+			try:
+				num_gen_file = execute_command(command, targetLib, num_gen_file)
+			except ValueError:
+				print("Invalid command.")
+			if command == "exit":
+				exit_flag = True
+	except KeyboardInterrupt:
+		print("Keyboard interrupt detected. Exiting...")
 	
-	my_exit()
 
+def execute_command(command, targetLib, num_gen_file):
+	(cmd, *args) = command.split()
 
-def execute_single_command(command, targetLib, num_gen_file):
-	if(command.startswith('set_lib_name')):
-			targetLib.set_lib_name(command) 
-
-	if(command.startswith('set_dotlib_name')):
-		targetLib.set_dotlib_name(command) 
-
-	if(command.startswith('set_verilog_name')):
-		targetLib.set_verilog_name(command) 
-
-	## set_cell_name_suffix
-	elif(command.startswith('set_cell_name_suffix')):
-		targetLib.set_cell_name_suffix(command) 
-
-	## set_cell_name_prefix
-	elif(command.startswith('set_cell_name_prefix')):
-		targetLib.set_cell_name_prefix(command) 
-
-	## set_voltage_unit
-	elif(command.startswith('set_voltage_unit')):
-		targetLib.set_voltage_unit(command) 
-
-	## set_capacitance_unit
-	elif(command.startswith('set_capacitance_unit')):
-		targetLib.set_capacitance_unit(command) 
-
-	## set_resistance_unit
-	elif(command.startswith('set_resistance_unit')):
-		targetLib.set_resistance_unit(command) 
-
-	## set_time_unit
-	elif(command.startswith('set_time_unit')):
-		targetLib.set_time_unit(command) 
-
-	## set_current_unit
-	elif(command.startswith('set_current_unit')):
-		targetLib.set_current_unit(command) 
-
-	## set_leakage_power_unit
-	elif(command.startswith('set_leakage_power_unit')):
-		targetLib.set_leakage_power_unit(command) 
-
-	## set_energy_unit
-	elif(command.startswith('set_energy_unit')):
-		targetLib.set_energy_unit(command) 
-
-	## set_vdd_name
-	elif(command.startswith('set_vdd_name')):
-		targetLib.set_vdd_name(command) 
-
-	## set_vss_name
-	elif(command.startswith('set_vss_name')):
-		#print(command)
-		targetLib.set_vss_name(command) 
-
-	## set_pwell_name
-	elif(command.startswith('set_pwell_name')):
-		#print(command)
-		targetLib.set_pwell_name(command) 
-
-	## set_nwell_name
-	elif(command.startswith('set_nwell_name')):
-		targetLib.set_nwell_name(command) 
+	##-- set function : common settings--#
+	if cmd == 'set_lib_name':
+		targetLib.lib_name = args[0]
+		# TODO: Decide whether to error if we have extra unnecessary args
+	elif cmd == 'set_dotlib_name':
+		targetLib.dotlib_name = args[0]
+	elif cmd == 'set_verilog_name':
+		targetLib.verilog_name = args[0]
+	elif cmd == 'set_cell_name_suffix':
+		targetLib.cell_name_suffix = args[0]
+	elif cmd == 'set_cell_name_prefix':
+		targetLib.cell_name_prefix = args[0]
+	elif command.startswith('set_voltage_unit'):
+		targetLib.set_voltage_unit(command)
+	elif command.startswith('set_capacitance_unit'):
+		targetLib.set_capacitance_unit(command)
+	elif command.startswith('set_resistance_unit'):
+		targetLib.set_resistance_unit(command)
+	elif command.startswith('set_time_unit'):
+		targetLib.set_time_unit(command)
+	elif command.startswith('set_current_unit'):
+		targetLib.set_current_unit(command)
+	elif command.startswith('set_leakage_power_unit'):
+		targetLib.set_leakage_power_unit(command)
+	elif command.startswith('set_energy_unit'):
+		targetLib.set_energy_unit(command)
+	elif command.startswith('set_vdd_name'):
+		targetLib.set_vdd_name(command)
+	elif command.startswith('set_vss_name'):
+		targetLib.set_vss_name(command)
+	elif command.startswith('set_pwell_name'):
+		targetLib.set_pwell_name(command)
+	elif command.startswith('set_nwell_name'):
+		targetLib.set_nwell_name(command)
 
 	##-- set function : characterization settings--#
-	## set_process
-	elif(command.startswith('set_process')):
-		targetLib.set_process(command) 
-
-	## set_temperature
-	elif(command.startswith('set_temperature')):
-		targetLib.set_temperature(command) 
-
-	## set_vdd_voltage
-	elif(command.startswith('set_vdd_voltage')):
-		targetLib.set_vdd_voltage(command) 
-
-	## set_vss_voltage
-	elif(command.startswith('set_vss_voltage')):
-		targetLib.set_vss_voltage(command) 
-
-	## set_pwell_voltage
-	elif(command.startswith('set_pwell_voltage')):
-		targetLib.set_pwell_voltage(command) 
-
-	## set_nwell_voltage
-	elif(command.startswith('set_nwell_voltage')):
-		targetLib.set_nwell_voltage(command) 
-
-	## set_logic_threshold_high
-	elif(command.startswith('set_logic_threshold_high')):
-		targetLib.set_logic_threshold_high(command) 
-
-	## set_logic_threshold_low
-	elif(command.startswith('set_logic_threshold_low')):
-		targetLib.set_logic_threshold_low(command) 
-
-	## set_logic_high_to_low_threshold
-	elif(command.startswith('set_logic_high_to_low_threshold')):
-		targetLib.set_logic_high_to_low_threshold(command) 
-
-	## set_logic_low_to_high_threshold
-	elif(command.startswith('set_logic_low_to_high_threshold')):
-		targetLib.set_logic_low_to_high_threshold(command) 
-
-	## set_work_dir
-	elif(command.startswith('set_work_dir')):
-		targetLib.set_work_dir(command) 
-
-	## set_simulator
-	elif(command.startswith('set_simulator')):
-		targetLib.set_simulator(command) 
-
-	## set_runsim_option
-	elif(command.startswith('set_run_sim')):
-		targetLib.set_run_sim(command) 
-
-	## set_multithread_option
-	elif(command.startswith('set_mt_sim')):
-		targetLib.set_mt_sim(command) 
-
-	## set_supress_message
-	elif(command.startswith('set_supress_message')):
-		targetLib.set_supress_message(command) 
-
-	## set_supress_sim_message
-	elif(command.startswith('set_supress_sim_message')):
-		targetLib.set_supress_sim_message(command) 
-
-	## set_supress_debug_message
-	elif(command.startswith('set_supress_debug_message')):
-		targetLib.set_supress_debug_message(command) 
-
-	## set_energy_meas_low_threshold
-	elif(command.startswith('set_energy_meas_low_threshold')):
-		targetLib.set_energy_meas_low_threshold(command) 
-
-	## set_energy_meas_high_threshold
-	elif(command.startswith('set_energy_meas_high_threshold')):
-		targetLib.set_energy_meas_high_threshold(command) 
-
-	## set_energy_meas_time_extent
-	elif(command.startswith('set_energy_meas_time_extent')):
-		targetLib.set_energy_meas_time_extent(command) 
-
-	## set_energy_meas_time_extent
-	elif(command.startswith('set_operating_conditions')):
-		targetLib.set_operating_conditions(command) 
+	elif command.startswith('set_process'):
+		targetLib.set_process(command)
+	elif command.startswith('set_temperature'):
+		targetLib.set_temperature(command)
+	elif command.startswith('set_vdd_voltage'):
+		targetLib.set_vdd_voltage(command)
+	elif command.startswith('set_vss_voltage'):
+		targetLib.set_vss_voltage(command)
+	elif command.startswith('set_pwell_voltage'):
+		targetLib.set_pwell_voltage(command)
+	elif command.startswith('set_nwell_voltage'):
+		targetLib.set_nwell_voltage(command)
+	elif command.startswith('set_logic_threshold_high'):
+		targetLib.set_logic_threshold_high(command)
+	elif command.startswith('set_logic_threshold_low'):
+		targetLib.set_logic_threshold_low(command)
+	elif command.startswith('set_logic_high_to_low_threshold'):
+		targetLib.set_logic_high_to_low_threshold(command)
+	elif command.startswith('set_logic_low_to_high_threshold'):
+		targetLib.set_logic_low_to_high_threshold(command)
+	elif command.startswith('set_work_dir'):
+		targetLib.set_work_dir(command)
+	elif command.startswith('set_simulator'):
+		targetLib.set_simulator(command)
+	elif command.startswith('set_run_sim'):
+		targetLib.set_run_sim(command)
+	elif command.startswith('set_mt_sim'):
+		targetLib.set_mt_sim(command)
+	elif command.startswith('set_supress_message'):
+		targetLib.set_supress_message(command)
+	elif command.startswith('set_supress_sim_message'):
+		targetLib.set_supress_sim_message(command)
+	elif command.startswith('set_supress_debug_message'):
+		targetLib.set_supress_debug_message(command)
+	elif command.startswith('set_energy_meas_low_threshold'):
+		targetLib.set_energy_meas_low_threshold(command)
+	elif command.startswith('set_energy_meas_high_threshold'):
+		targetLib.set_energy_meas_high_threshold(command)
+	elif command.startswith('set_energy_meas_time_extent'):
+		targetLib.set_energy_meas_time_extent(command)
+	elif command.startswith('set_operating_conditions'):
+		targetLib.set_operating_conditions(command)
 
 	##-- add function : common for comb. and seq. --#
 	## add_cell

@@ -90,6 +90,8 @@ def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
 	return harnessList2
 #end runCombIn2Out1
 
+# TODO: def runCombIn2Out2
+
 def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
 	harnessList = []
 	harnessList2 = []
@@ -140,6 +142,8 @@ def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
 
 	return harnessList2
 #end runCombIn3Out1
+
+# TODO: def runCombIn3Out2
 
 def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
 	harnessList = []

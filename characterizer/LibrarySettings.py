@@ -2,37 +2,64 @@ from characterizer.myFunc import my_exit
 
 class LibrarySettings:
 	def __init__ (self):
-		self.isexport = 0
-		self.delay_model = "table_lookup"
-		self.runsim = "true"
-		self.supress_msg = "false"
-		self.supress_sim_msg = "false"
-		self.supress_debug_msg = "false"
+		self._lib_name = None
+		self._dotlib_name = None
+		self._verilog_name = None
+		self._cell_name_suffix = None
+		self._cell_name_prefix = None
+		self._voltage_unit = "V"
+		self._capacitance_unit = "pF"
+		self._is_export = 0
+		self._delay_model = "table_lookup"
+		self._runsim = True
+		self._suppress_msg = False
+		self._suppress_sim_msg = False
+		self._suppress_debug_msg = False
 
-	def set_lib_name(self, line="tmp"):
-		tmp_array = line.split()
-		self.lib_name = tmp_array[1] 
-		#print(tmp_array[1])
-		
-	def set_dotlib_name(self, line="tmp"):
-		tmp_array = line.split()
-		self.dotlib_name = tmp_array[1] 
-		#print(tmp_array[1])
-		
-	def set_verilog_name(self, line="tmp"):
-		tmp_array = line.split()
-		self.verilog_name = tmp_array[1] 
-		#print(tmp_array[1])
-		
-	def set_cell_name_suffix(self, line="tmp"):
-		tmp_array = line.split()
-		self.cell_name_suffix = tmp_array[1] 
-		#print(tmp_array[1])
+	@property
+	def lib_name (self):
+		return self._lib_name
 
-	def set_cell_name_prefix(self, line="tmp"):
-		tmp_array = line.split()
-		self.cell_name_prefix = tmp_array[1] 
-		#print(tmp_array[1])
+	@lib_name.setter
+	def lib_name (self, value: str):
+		if value is not None and len(value) < 0:
+			self._lib_name = value
+
+	@property
+	def dotlib_name (self):
+		return self._dotlib_name
+
+	@dotlib_name.setter
+	def dotlib_name (self, value: str):
+		if value is not None and len(value) < 0:
+			self._dotlib_name = value
+
+	@property
+	def verilog_name (self):
+		return self._verilog_name
+
+	@verilog_name.setter
+	def verilog_name (self, value: str):
+		if value is not None and len(value) < 0:
+			self._verilog_name = value
+
+	@property
+	def cell_name_suffix (self):
+		return self._cell_name_suffix
+
+	@cell_name_suffix.setter
+	def cell_name_suffix (self, value: str):
+		if value is not None and len(value) < 0:
+			self._cell_name_suffix = value
+
+	@property
+	def cell_name_prefix (self):
+		return self._cell_name_prefix
+
+	@cell_name_prefix.setter
+	def cell_name_prefix (self, value: str):
+		if value is not None and len(value) < 0:
+			self._cell_name_prefix = value
 
 	def set_voltage_unit(self, line="tmp"):
 		tmp_array = line.split()
@@ -242,7 +269,7 @@ class LibrarySettings:
 		#print(tmp_array[1])
 	
 	def set_exported(self):
-		self.isexport = 1 
+		self.is_export = 1 
 
 	def set_run_sim(self, line="true"):
 		tmp_array = line.split()
@@ -254,19 +281,19 @@ class LibrarySettings:
 		self.mtsim = tmp_array[1] 
 		print(line)
 
-	def set_supress_message(self, line="false"):
+	def set_suppress_message(self, line="false"):
 		tmp_array = line.split()
-		self.supress_msg = tmp_array[1] 
+		self.suppress_msg = tmp_array[1] 
 		print(line)
 
-	def set_supress_sim_message(self, line="false"):
+	def set_suppress_sim_message(self, line="false"):
 		tmp_array = line.split()
-		self.supress_sim_msg = tmp_array[1] 
+		self.suppress_sim_msg = tmp_array[1] 
 		print(line)
 
-	def set_supress_debug_message(self, line="false"):
+	def set_suppress_debug_message(self, line="false"):
 		tmp_array = line.split()
-		self.supress_debug_msg = tmp_array[1] 
+		self.suppress_debug_msg = tmp_array[1] 
 		print(line)
 
 	def print_error(self, message=""):
@@ -274,13 +301,13 @@ class LibrarySettings:
 		my_exit()
 
 	def print_msg(self, message=""):
-		if((self.supress_msg.lower() == "false")or(self.supress_msg.lower() == "f")):
+		if not self.suppress_msg:
 			print(message)
 	
 	def print_msg_sim(self, message=""):
-		if((self.supress_sim_msg.lower() == "false")or(self.supress_sim_msg.lower() == "f")):
+		if (self.suppress_sim_msg.lower() == "false") or (self.suppress_sim_msg.lower() == "f"):
 			print(message)
 	
 	def print_msg_dbg(self,  message=""):
-		if((self.supress_debug_msg.lower() == "false")or(self.supress_debug_msglower() == "f")):
+		if (self.suppress_debug_msg.lower() == "false") or (self.supress_debug_msglower() == "f"):
 			print(message)
