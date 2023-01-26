@@ -1,8 +1,8 @@
 import re, os, subprocess
 
 import numpy as np
-from CharacterizerSettings import CharacterizerSettings
-from myFunc import my_exit
+from characterizer.CharacterizerSettings import CharacterizerSettings
+from characterizer.myFunc import my_exit
 
 def runFlop(targetLib, targetCell, expectationList2):
 	harnessList = []   # harness for each trial

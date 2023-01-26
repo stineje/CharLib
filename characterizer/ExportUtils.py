@@ -1,6 +1,6 @@
 
 import re, sys
-from myFunc import my_exit
+from characterizer.myFunc import my_exit
 
 
 def exportFiles(targetLib, targetCell, harnessList2):

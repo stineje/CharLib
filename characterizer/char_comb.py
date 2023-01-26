@@ -1,7 +1,7 @@
 import re, subprocess, sys, threading 
 
-from CharacterizerSettings import CharacterizerSettings
-from myFunc import my_exit
+from characterizer.CharacterizerSettings import CharacterizerSettings
+from characterizer.myFunc import my_exit
 
 def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
 	harnessList = []   # harness for each trial

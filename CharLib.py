@@ -3,12 +3,12 @@
 
 import argparse, os, shutil
 
-from LibrarySettings import LibrarySettings
-from LogicCell import LogicCell
-from myFunc import my_exit
-from ExportUtils import exportFiles, exitFiles
-from char_comb import runCombIn1Out1, runCombIn2Out1, runCombIn3Out1, runCombIn4Out1,  runSpiceCombDelay, genFileLogic_trial1
-from char_seq import runFlop, runSpiceFlopDelay, genFileFlop_trial1
+from characterizer.LibrarySettings import LibrarySettings
+from characterizer.LogicCell import LogicCell
+from characterizer.myFunc import my_exit
+from characterizer.ExportUtils import exportFiles, exitFiles
+from characterizer.char_comb import runCombIn1Out1, runCombIn2Out1, runCombIn3Out1, runCombIn4Out1,  runSpiceCombDelay, genFileLogic_trial1
+from characterizer.char_seq import runFlop, runSpiceFlopDelay, genFileFlop_trial1
 
 def main():
 	"""Reads in command line arguments, then enters the requested execution mode.

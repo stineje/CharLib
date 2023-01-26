@@ -1,6 +1,6 @@
 import re
 
-from myFunc import my_exit
+from characterizer.myFunc import my_exit
 
 class LogicCell:
 	def __init__ (self):

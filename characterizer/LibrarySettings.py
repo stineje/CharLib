@@ -1,4 +1,4 @@
-from myFunc import my_exit
+from characterizer.myFunc import my_exit
 
 class LibrarySettings:
 	def __init__ (self):
