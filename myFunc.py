@@ -5,5 +5,3 @@ def my_exit():
 	path = frame.f_code.co_filename.split('/')
 	print("file:"+path[-1] +" in:"+frame.f_code.co_name+", line:"+str(frame.f_lineno))
 	sys.exit()
-
-

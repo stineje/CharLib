@@ -1,7 +1,6 @@
-import argparse, re, os, shutil, subprocess
 from myFunc import my_exit
 
-class MyLibrarySetting:
+class LibrarySettings:
 	def __init__ (self):
 		self.isexport = 0
 		self.delay_model = "table_lookup"

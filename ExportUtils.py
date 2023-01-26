@@ -1,6 +1,7 @@
 
-import argparse, re, os, shutil, subprocess, sys, inspect 
+import re, sys
 from myFunc import my_exit
+
 
 def exportFiles(targetLib, targetCell, harnessList2):
 	if(targetLib.isexport == 0):
@@ -13,6 +14,7 @@ def exportFiles(targetLib, targetCell, harnessList2):
 	elif((targetLib.isexport == 1) and (targetCell.isexport == 0) and (targetCell.isflop == 1)):
 		exportHarnessFlop(targetLib, targetCell, harnessList2)
 		exportVerilogFlop(targetLib, targetCell)
+
 
 ## export library definition to .lib
 def exportLib(targetLib, targetCell):
@@ -120,6 +122,7 @@ def exportLib(targetLib, targetCell):
 		f.writelines(outlines)
 	f.close()
 
+
 ## export harness data to .lib
 def exportHarness(targetLib, targetCell, harnessList2):
 	with open(targetLib.dotlib_name, 'a') as f:
@@ -211,6 +214,7 @@ def exportHarness(targetLib, targetCell, harnessList2):
 		f.writelines(outlines)
 	f.close()
 	targetCell.set_exported()
+
 
 ## export harness data to .lib
 def exportHarnessFlop(targetLib, targetCell, harnessList2):
@@ -686,6 +690,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
 	f.close()
 	targetCell.set_exported()
 
+
 ## export library definition to .lib
 def exportVerilog(targetLib, targetCell):
 	with open(targetLib.verilog_name, 'a') as f:
@@ -727,6 +732,7 @@ def exportVerilog(targetLib, targetCell):
 		outlines.append("endmodule\n\n")
 		f.writelines(outlines)
 	f.close()
+
 
 ## export library definition to .lib
 def exportVerilogFlop(targetLib, targetCell):
@@ -840,4 +846,3 @@ def exitFiles(targetLib, num_gen_file):
 	f.close()
 	print("\n-- dotlib file generation completed!!  ")
 	print("--  "+str(num_gen_file)+" cells generated!!  \n")
-

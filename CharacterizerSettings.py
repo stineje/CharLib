@@ -1,6 +1,4 @@
-import argparse, re, os, shutil, subprocess
-
-class MyConditionsAndResults:
+class CharacterizerSettings:
 	def __init__ (self):
 		self.instance = None          ## instance name
 		self.target_inport = None     ## target inport name
@@ -21,7 +19,7 @@ class MyConditionsAndResults:
 		elif(outport == '10'):
 			self.set_direction_fall()
 		else:
-			print("Illegal input: "+self.outport+", check direction")
+			print("Illegal input: " + self.outport + ", check direction")
 
 	def set_direction_rise(self):
 		self.direction_prop = "cell_rise"
@@ -427,7 +425,7 @@ class MyConditionsAndResults:
 	def average_list2_cin(self, targetLib, ilist, jlist):
 		## output average of input capacitance
 		## (do not write table)
-		self.lut_cin = 0;
+		self.lut_cin = 0
 		for i in range(len(ilist)):
 			for j in range(len(jlist)):
 				self.lut_cin += self.list2_cin[i][j]
@@ -499,7 +497,7 @@ class MyConditionsAndResults:
 	def average_list2_cclk(self, targetLib, ilist, jlist):
 		## output average of input capacitance
 		## (do not write table)
-		self.lut_cclk = 0;
+		self.lut_cclk = 0
 		for i in range(len(ilist)):
 			for j in range(len(jlist)):
 				self.lut_cclk += self.list2_cclk[i][j]
@@ -523,7 +521,7 @@ class MyConditionsAndResults:
 	def write_list2_pleak(self, targetLib, ilist, jlist):
 		## output average of leak power
 		## (do not write table)
-		self.lut_pleak = 0;
+		self.lut_pleak = 0
 		for i in range(len(ilist)):
 			for j in range(len(jlist)):
 				self.lut_pleak += self.list2_pleak[i][j]

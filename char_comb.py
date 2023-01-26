@@ -1,10 +1,6 @@
-import argparse, re, os, shutil, subprocess, sys, inspect, threading 
+import re, subprocess, sys, threading 
 
-import myConditionsAndResults as mcar
-import myLibrarySetting as mls 
-import myLogicCell as mlc
-import myExport as me
-import numpy as np
+from CharacterizerSettings import CharacterizerSettings
 from myFunc import my_exit
 
 def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
@@ -12,7 +8,7 @@ def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
 	harnessList2 = []  # list of harnessList
 
 	for trial in range(len(expectationList2)):
-		tmp_Harness = mcar.MyConditionsAndResults()
+		tmp_Harness = CharacterizerSettings()
 		tmp_Harness.set_timing_type_comb()
 		tmp_Harness.set_timing_sense(unate)
 		tmp_inp0_val, tmp_outp0_val=expectationList2[trial]
@@ -50,7 +46,7 @@ def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
 	harnessList2 = []
 
 	for trial in range(len(expectationList2)):
-		tmp_Harness = mcar.MyConditionsAndResults()
+		tmp_Harness = CharacterizerSettings()
 		tmp_Harness.set_timing_type_comb()
 		tmp_Harness.set_timing_sense(unate)
 		tmp_inp0_val, tmp_inp1_val, tmp_outp0_val=expectationList2[trial]
@@ -99,7 +95,7 @@ def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
 	harnessList2 = []
 
 	for trial in range(len(expectationList2)):
-		tmp_Harness = mcar.MyConditionsAndResults()
+		tmp_Harness = CharacterizerSettings()
 		tmp_Harness.set_timing_type_comb()
 		tmp_Harness.set_timing_sense(unate)
 		tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_outp0_val=expectationList2[trial]
@@ -150,7 +146,7 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
 	harnessList2 = []
 
 	for trial in range(len(expectationList2)):
-		tmp_Harness = mcar.MyConditionsAndResults()
+		tmp_Harness = CharacterizerSettings()
 		tmp_Harness.set_timing_type_comb()
 		tmp_Harness.set_timing_sense(unate)
 		tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_inp3_val, tmp_outp0_val=expectationList2[trial]

@@ -6,7 +6,7 @@ setup:
 	mkdir -p ./work
 
 run:	CharLib.py CharLib.cmd
-	python3 gen_cmd.py
+	python3 utils/gen_cmd.py
 	python3 CharLib.py -b CharLib.cmd
 
 clean:

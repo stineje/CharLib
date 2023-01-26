@@ -1,10 +1,7 @@
-import argparse, re, os, shutil, subprocess, sys, inspect 
+import re, os, subprocess
 
-import myConditionsAndResults as mcar
-import myLibrarySetting as mls 
-import myLogicCell as mlc
-import myExport as me
 import numpy as np
+from CharacterizerSettings import CharacterizerSettings
 from myFunc import my_exit
 
 def runFlop(targetLib, targetCell, expectationList2):
@@ -18,7 +15,7 @@ def runFlop(targetLib, targetCell, expectationList2):
 	Q_val = None
 
 	for trial in range(len(expectationList2)):
-		tmp_Harness = mcar.MyConditionsAndResults() 
+		tmp_Harness = CharacterizerSettings() 
 		if(targetCell.logic == 'DFF_PCPU_NRNS'):
 			D_val, CLK_val, SET_val, RST_val, Q_val = expectationList2[trial]
 		elif(targetCell.logic == 'DFF_PCPU_NR'):
@@ -365,7 +362,8 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
 	#targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
 	targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
 	#targetHarness.print_lut_pleak()
-		
+
+
 def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
 	list2_prop =   []
 	list2_setup =   []
@@ -988,6 +986,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
 	print("spice deck: "+spicefo)
 	my_exit()
 
+
 def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, tsetup_lowest, tsetup_highest, tsetup_tstep, tmp_min_hold, timestep_mag, spicef):
 	tsimendmag = [1, 10]; # magnify parameter of _tsimend
 	tranmag = [float(targetLib.logic_threshold_low)*1.1, 1];         # magnify parameter of transient simulation
@@ -1116,6 +1115,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
 					tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
 					tmp_q_in_dyn, tmp_q_out_dyn, tmp_q_clk_dyn,  tmp_q_vdd_dyn, tmp_q_vss_dyn, \
 					tmp_i_in_leak, tmp_i_vdd_leak, tmp_i_vss_leak)
+
 
 def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line, \
 		slew_line, cslew_line, tunit_line, tsetup_line, thold_line, tsimend_line, \
@@ -1696,4 +1696,3 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
 						res_setup, res_hold, \
 						res_q_in_dyn, res_q_out_dyn, res_q_clk_dyn, res_q_vdd_dyn, res_q_vss_dyn, \
 						res_i_in_leak, res_i_vdd_leak, res_i_vss_leak 
-

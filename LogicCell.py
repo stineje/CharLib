@@ -1,8 +1,8 @@
-import argparse, re, os, shutil, subprocess, inspect
+import re
 
 from myFunc import my_exit
 
-class MyLogicCell:
+class LogicCell:
 	def __init__ (self):
 		self.cell = None    ## cell name
 		self.area = None    ## set area 
@@ -392,4 +392,3 @@ class MyLogicCell:
 				tmp_index += 1
 				#print("stored cins:"+str(tmp_index)+" for data")
 			#print("stored cins:"+str(tmp_index))
-
