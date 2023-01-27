@@ -91,9 +91,9 @@ def execute_command(command, targetLib, num_gen_file):
 	(cmd, *args) = command.split()
 
 	##-- set function : common settings--#
+	# TODO: Decide whether to error if we have extra unnecessary args
 	if cmd == 'set_lib_name':
 		targetLib.lib_name = args[0]
-		# TODO: Decide whether to error if we have extra unnecessary args
 	elif cmd == 'set_dotlib_name':
 		targetLib.dotlib_name = args[0]
 	elif cmd == 'set_verilog_name':
@@ -105,17 +105,17 @@ def execute_command(command, targetLib, num_gen_file):
 	elif cmd == 'set_voltage_unit':
 		targetLib.units.voltage = args[0]
 	elif cmd == 'set_capacitance_unit':
-		# TODO 
-	elif command.startswith('set_resistance_unit'):
-		targetLib.set_resistance_unit(command)
-	elif command.startswith('set_time_unit'):
-		targetLib.set_time_unit(command)
-	elif command.startswith('set_current_unit'):
-		targetLib.set_current_unit(command)
-	elif command.startswith('set_leakage_power_unit'):
-		targetLib.set_leakage_power_unit(command)
-	elif command.startswith('set_energy_unit'):
-		targetLib.set_energy_unit(command)
+		targetLib.units.capacitance = args[0]
+	elif cmd == 'set_resistance_unit':
+		targetLib.units.resistance = args[0]
+	elif cmd == 'set_time_unit':
+		targetLib.units.capacitance = args[0]
+	elif cmd == 'set_current_unit':
+		targetLib.units.current = args[0]
+	elif cmd == 'set_leakage_power_unit':
+		targetLib.units.leakage_power = args[0]
+	elif cmd == 'set_energy_unit':
+		targetLib.units.energy = args[0]
 	elif command.startswith('set_vdd_name'):
 		targetLib.set_vdd_name(command)
 	elif command.startswith('set_vss_name'):

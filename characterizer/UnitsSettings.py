@@ -190,7 +190,7 @@ class UnitsSettings:
         # Valid symbols are "Ω" or "Ohms"
         if value.endswith('Ω'):
             if value == 'Ω':
-                self._resistance.symbol = value
+                self._resistance.symbol = 'Ω'
                 self._resistance.magnitude = 1
             else:
                 self._resistance.symbol = value[-1]
@@ -205,4 +205,98 @@ class UnitsSettings:
         else:
             raise ValueError(f'Invalid resistance unit: {value}')
     
+    @property
+    def current(self):
+        return self._current
+
+    @current.setter
+    def current(self, value: str):
+        # Valid symbols are "A" or "Amps"
+        if value.lower().endswith('a'):
+            if value.lower() == 'a':
+                self._current.symbol = 'A'
+                self._current.magnitude = 1
+            else:
+                self._current.symbol = value[-1]
+                self._current.magnitude = value[:-1]
+        elif value.lower().endswith('amps'):
+            if value.lower() == 'amps':
+                self._current.symbol = value
+                self._current.magnitude = 1
+            else:
+                self._current.symbol = value[-4:]
+                self._current.magnitude = value[:-4]
+        else:
+            raise ValueError(f'Invalid current unit: {value}')
     
+    @property
+    def time(self):
+        return self._time
+
+    @time.setter
+    def time(self, value: str):
+        # Valid symbols are "s" or "seconds"
+        if value.lower().endswith('seconds'):
+            if value.lower() == 'seconds':
+                self._time.symbol = value
+                self._time.magnitude = 1
+            else:
+                self._time.symbol = value[-7]
+                self._time.magnitude = value[:-7]
+        elif value.lower().endswith('s'):
+            if value.lower() == 's':
+                self._time.symbol = value
+                self._time.magnitude = 1
+            else:
+                self._time.symbol = value[-1]
+                self._time.magnitude = value[:-1]
+        else:
+            raise ValueError(f'Invalid time unit: {value}')
+    
+    @property
+    def leakage_power(self):
+        return self._leakage_power
+    
+    @leakage_power.setter
+    def leakage_power(self, value: str):
+        # Valid symbols are "W" or "Watts"
+        if value.lower().endswith('w'):
+            if value.lower() == 'w':
+                self._leakage_power.symbol = 'W'
+                self._leakage_power.magnitude = 1
+            else:
+                self._leakage_power.symbol = value[-1]
+                self._leakage_power.magnitude = value[:-1]
+        elif value.lower().endswith('watts'):
+            if value.lower() == 'watts':
+                self._leakage_power.symbol = value
+                self._leakage_power.magnitude = 1
+            else:
+                self._leakage_power.symbol = value[-5:]
+                self._leakage_power.magnitude = value[:-5]
+        else:
+            raise ValueError(f'Invalid leakage power unit: {value}')
+    
+    @property
+    def energy(self):
+        return self._energy
+    
+    @energy.setter
+    def energy(self, value: str):
+        # Valid symbols are "J" or "Joules"
+        if value.lower().endswith('j'):
+            if value.lower() == 'j':
+                self._energy.symbol = 'J'
+                self._energy.magnitude = 1
+            else:
+                self._energy.symbol = value[-1]
+                self._energy.magnitude = value[:-1]
+        elif value.lower().endswith('joules'):
+            if value.lower() == 'joules':
+                self._energy.symbol = value
+                self._energy.magnitude = 1
+            else:
+                self._energy.symbol = value[-6:]
+                self._energy.magnitude = value[:-6]
+        else:
+            raise ValueError(f'Invalid energy unit: {value}')
