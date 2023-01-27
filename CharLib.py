@@ -102,10 +102,10 @@ def execute_command(command, targetLib, num_gen_file):
 		targetLib.cell_name_suffix = args[0]
 	elif cmd == 'set_cell_name_prefix':
 		targetLib.cell_name_prefix = args[0]
-	elif command.startswith('set_voltage_unit'):
-		targetLib.set_voltage_unit(command)
-	elif command.startswith('set_capacitance_unit'):
-		targetLib.set_capacitance_unit(command)
+	elif cmd == 'set_voltage_unit':
+		targetLib.units.voltage = args[0]
+	elif cmd == 'set_capacitance_unit':
+		# TODO 
 	elif command.startswith('set_resistance_unit'):
 		targetLib.set_resistance_unit(command)
 	elif command.startswith('set_time_unit'):

@@ -125,10 +125,84 @@ class EngineeringUnit:
 
 class UnitsSettings:
     def __init__(self) -> None:
-        self.voltage = EngineeringUnit('V')
-        self.capacitance = EngineeringUnit('F', 1e-12)
-        self.resistance = EngineeringUnit('Ohm')
-        self.current = EngineeringUnit('A', 1e-6)
-        self.time = EngineeringUnit('s', 1e-9)
-        self.leakage_power = EngineeringUnit('W', 1e-9)
-        self.energy = EngineeringUnit('J', 1e-12)
+        self._voltage = EngineeringUnit('V')
+        self._capacitance = EngineeringUnit('F', 1e-12)
+        self._resistance = EngineeringUnit('Ω')
+        self._current = EngineeringUnit('A', 1e-6)
+        self._time = EngineeringUnit('s', 1e-9)
+        self._leakage_power = EngineeringUnit('W', 1e-9)
+        self._energy = EngineeringUnit('J', 1e-12)
+
+    @property
+    def voltage(self):
+        return self._voltage
+
+    @voltage.setter
+    def voltage(self, value: str):
+        # Valid symbols are "V" or "Volts"
+        if value.lower().endswith('v'):
+            if value.lower() == 'v': # Case A: no SI prefix
+                self._voltage.symbol = 'V'
+                self._voltage.magnitude = 1
+            else: # Case B: SI prefix present
+                self._voltage.symbol = value[-1]
+                self._voltage.magnitude = value[:-1]
+        elif value.lower().endswith('volts'):
+            if value.lower() == 'volts': # Case A: no SI prefix
+                self._voltage.symbol = value
+                self._voltage.magnitude = 1
+            else: # Case B: SI prefix present
+                self._voltage.symbol = value[-5:]
+                self._voltage.magnitude = value[:-5]
+        else:
+            raise ValueError(f'Invalid voltage unit: {value}')
+
+    @property
+    def capacitance(self):
+        return self._capacitance
+
+    @capacitance.setter
+    def capacitance(self, value: str):
+        # Valid symbols are "F" or "Farads"
+        if value.lower().endswith('f'):
+            if value.lower() == 'f':
+                self._capacitance.symbol = 'F'
+                self._capacitance.magnitude = 1
+            else:
+                self._capacitance.symbol = value[-1]
+                self._capacitance.magnitude = value[:-1]
+        elif value.lower().endswith('farads'):
+            if value.lower() == 'farads':
+                self._capacitance.symbol = value
+                self._capacitance.magnitude = 1
+            else:
+                self._capacitance.symbol = value[-6:]
+                self._capacitance.magnitude = value[:-6]
+        else:
+            raise ValueError(f'Invalid capacitance unit: {value}')
+    
+    @property
+    def resistance(self):
+        return self._resistance
+
+    @resistance.setter
+    def resistance(self, value: str):
+        # Valid symbols are "Ω" or "Ohms"
+        if value.endswith('Ω'):
+            if value == 'Ω':
+                self._resistance.symbol = value
+                self._resistance.magnitude = 1
+            else:
+                self._resistance.symbol = value[-1]
+                self._resistance.magnitude = value[:-1]
+        elif value.lower().endswith('ohms'):
+            if value.lower() == 'ohms':
+                self._resistance.symbol = value
+                self._resistance.magnitude = 1
+            else:
+                self._resistance.symbol = value[-4:]
+                self._resistance.magnitude = value[:-4]
+        else:
+            raise ValueError(f'Invalid resistance unit: {value}')
+    
+    
