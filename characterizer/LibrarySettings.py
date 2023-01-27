@@ -1,14 +1,17 @@
 from characterizer.myFunc import my_exit
+from characterizer.UnitsSettings import UnitsSettings
 
 class LibrarySettings:
 	def __init__ (self):
+		# Key Library settings
 		self._lib_name = None
 		self._dotlib_name = None
 		self._verilog_name = None
 		self._cell_name_suffix = None
 		self._cell_name_prefix = None
-		self._voltage_unit = "V"
-		self._capacitance_unit = "pF"
+		self.units = UnitsSettings() # This is unprotected for easy access to members
+		
+		# Behavioral settings
 		self._is_export = 0
 		self._delay_model = "table_lookup"
 		self._runsim = True
@@ -17,150 +20,50 @@ class LibrarySettings:
 		self._suppress_debug_msg = False
 
 	@property
-	def lib_name (self):
+	def lib_name(self):
 		return self._lib_name
 
 	@lib_name.setter
-	def lib_name (self, value: str):
+	def lib_name(self, value: str):
 		if value is not None and len(value) < 0:
 			self._lib_name = value
 
 	@property
-	def dotlib_name (self):
+	def dotlib_name(self):
 		return self._dotlib_name
 
 	@dotlib_name.setter
-	def dotlib_name (self, value: str):
+	def dotlib_name(self, value: str):
 		if value is not None and len(value) < 0:
 			self._dotlib_name = value
 
 	@property
-	def verilog_name (self):
+	def verilog_name(self):
 		return self._verilog_name
 
 	@verilog_name.setter
-	def verilog_name (self, value: str):
+	def verilog_name(self, value: str):
 		if value is not None and len(value) < 0:
 			self._verilog_name = value
 
 	@property
-	def cell_name_suffix (self):
+	def cell_name_suffix(self):
 		return self._cell_name_suffix
 
 	@cell_name_suffix.setter
-	def cell_name_suffix (self, value: str):
+	def cell_name_suffix(self, value: str):
 		if value is not None and len(value) < 0:
 			self._cell_name_suffix = value
 
 	@property
-	def cell_name_prefix (self):
+	def cell_name_prefix(self):
 		return self._cell_name_prefix
 
 	@cell_name_prefix.setter
-	def cell_name_prefix (self, value: str):
+	def cell_name_prefix(self, value: str):
 		if value is not None and len(value) < 0:
 			self._cell_name_prefix = value
 
-	def set_voltage_unit(self, line="tmp"):
-		tmp_array = line.split()
-		#print(tmp_array[1])
-		if(tmp_array[1].upper() == 'V'):
-			self.voltage_unit = "V"	
-			self.voltage_mag = 1	
-		elif(tmp_array[1].upper() == 'MV'):
-			self.voltage_unit = "mV"	
-			self.voltage_mag = 1e-3	
-		else:
-			my_exit("illegal unit for set_voltage_unit")
-
-	def set_capacitance_unit(self, line="tmp"):
-		tmp_array = line.split()
-		#print(tmp_array[1])
-		if(tmp_array[1].upper() == 'PF'):
-			self.capacitance_unit = "pF"	
-			self.capacitance_mag = 1e-12	
-		elif(tmp_array[1].upper() == 'NF'):
-			self.capacitance_unit = "nF"	
-			self.capacitance_mag = 1e-9	
-		else:
-			print("illegal unit for set_capacitance_unit")
-			my_exit()
-
-	def set_resistance_unit(self, line="tmp"):
-		tmp_array = line.split()
-		#print(tmp_array[1])
-		if(tmp_array[1].upper() == 'OHM'):
-			self.resistance_unit = "Ohm"	
-			self.resistance_mag = 1	
-		elif(tmp_array[1].upper() == 'KOHM'):
-			self.resistance_unit = "kOhm"	
-			self.resistance_mag = 1e3	
-		else:
-			print("illegal unit for set_resistance_unit")
-			my_exit()
-
-	def set_time_unit(self, line="tmp"):
-		tmp_array = line.split()
-		#print(tmp_array[1])
-		if(tmp_array[1].upper() == 'PS'):
-			self.time_unit = "ps"	
-			self.time_mag = 1e-12	
-		elif(tmp_array[1].upper() == 'NS'):
-			self.time_unit = "ns"	
-			self.time_mag = 1e-9	
-		elif(tmp_array[1].upper() == 'US'):
-			self.time_unit = "us"	
-			self.time_mag = 1e-6	
-		else:
-			print("illegal unit for set_time_unit")
-			my_exit()
-
-	def set_current_unit(self, line="tmp"):
-		tmp_array = line.split()
-		#print(tmp_array[1])
-		if(tmp_array[1].upper() == 'A'):
-			self.current_unit = "A"	
-			self.current_mag = 1	
-		elif(tmp_array[1].upper() == 'MA'):
-			self.current_unit = "mA"	
-			self.current_mag = 1e-3	
-		elif(tmp_array[1].upper() == 'UA'):
-			self.current_unit = "uA"	
-			self.current_mag = 1e-6	
-		else:
-			print("illegal unit for set_current_unit")
-			my_exit()
-
-	def set_leakage_power_unit(self, line="tmp"):
-		tmp_array = line.split()
-		#print(tmp_array[1])
-		if(tmp_array[1].upper() == 'PW'):
-			self.leakage_power_unit = "pW"	
-			self.leakage_power_mag = 1e-12	
-		elif(tmp_array[1].upper() == 'NW'):
-			self.leakage_power_unit = "nW"	
-			self.leakage_power_mag = 1e-9	
-		else:
-			print("illegal unit for set_leakage_power_unit")
-			my_exit()
-
-	def set_energy_unit(self, line="tmp"):
-		tmp_array = line.split()
-		#print(tmp_array[1])
-		if(tmp_array[1].upper() == 'FJ'):
-			self.energy_unit = "fJ"	
-			self.energy_mag = 1e-12	
-		elif(tmp_array[1].upper() == 'PJ'):
-			self.energy_unit = "pJ"	
-			self.energy_mag = 1e-9	
-			print("Energy unit is not in fJ!")
-		elif(tmp_array[1].upper() == 'NJ'):
-			self.energy_unit = "nJ"	
-			self.energy_mag = 1e-6	
-			print("Energy unit is not in fJ!")
-		else:
-			print("illegal unit for set_energy_unit")
-			my_exit()
 
 	def set_vdd_name(self, line="tmp"):
 		tmp_array = line.split()
