@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import argparse, os, shutil
@@ -9,6 +9,12 @@ from characterizer.myFunc import my_exit
 from characterizer.ExportUtils import exportFiles, exitFiles
 from characterizer.char_comb import runCombIn1Out1, runCombIn2Out1, runCombIn3Out1, runCombIn4Out1,  runSpiceCombDelay, genFileLogic_trial1
 from characterizer.char_seq import runFlop, runSpiceFlopDelay, genFileFlop_trial1
+
+
+# Globals
+targetLib = LibrarySettings()
+targetCell = None
+num_gen_file = 0
 
 def main():
 	"""Reads in command line arguments, then enters the requested execution mode.
@@ -46,9 +52,6 @@ def execute_batch(batchfile):
 
 	print("Executing batch file " + batchfile)
 
-	targetLib = LibrarySettings() 
-	num_gen_file = 0
-
 	# file open
 	with open(batchfile, 'r') as f:
 		lines = f.readlines()
@@ -56,7 +59,7 @@ def execute_batch(batchfile):
 	
 	for line in lines:
 		line = line.strip('\n')
-		num_gen_file = execute_command(line, targetLib, num_gen_file)
+		num_gen_file = execute_command(line)
 
 
 def execute_lib(library_dir):
@@ -78,7 +81,7 @@ def execute_shell():
 		while not exit_flag:
 			command = input("CharLib > ")
 			try:
-				num_gen_file = execute_command(command, targetLib, num_gen_file)
+				execute_command(command)
 			except ValueError:
 				print("Invalid command.")
 			if command == "exit":
@@ -87,12 +90,8 @@ def execute_shell():
 		print("Keyboard interrupt detected. Exiting...")
 	
 
-def execute_command(command: str, targetLib: LibrarySettings, num_gen_file):
+def execute_command(command: str):
 	(cmd, *args) = command.split()
- 
-	# Provide a warning if we have unnecessary args
-	if cmd.startswith('set') and len(args) < 1:
-		print(f'WARNING: {len(args)} arguments provided when 1 argument was expected. Ignoring {len(args) - 1} arguments.')
 	
 	##-- set function : common settings--#
 	if cmd == 'set_lib_name':
@@ -119,38 +118,38 @@ def execute_command(command: str, targetLib: LibrarySettings, num_gen_file):
 		targetLib.units.leakage_power = args[0]
 	elif cmd == 'set_energy_unit':
 		targetLib.units.energy = args[0]
-	elif command.startswith('set_vdd_name'):
-		targetLib.set_vdd_name(command)
-	elif command.startswith('set_vss_name'):
-		targetLib.set_vss_name(command)
-	elif command.startswith('set_pwell_name'):
-		targetLib.set_pwell_name(command)
-	elif command.startswith('set_nwell_name'):
-		targetLib.set_nwell_name(command)
+	elif cmd == 'set_vdd_name':
+		targetLib.vdd.name = args[0]
+	elif cmd == 'set_vss_name':
+		targetLib.vss.name = args[0]
+	elif cmd == 'set_pwell_name':
+		targetLib.pwell.name = args[0]
+	elif cmd == 'set_nwell_name':
+		targetLib.nwell.name = args[0]
 
 	##-- set function : characterization settings--#
-	elif command.startswith('set_process'):
-		targetLib.set_process(command)
-	elif command.startswith('set_temperature'):
-		targetLib.set_temperature(command)
-	elif command.startswith('set_vdd_voltage'):
-		targetLib.set_vdd_voltage(command)
-	elif command.startswith('set_vss_voltage'):
-		targetLib.set_vss_voltage(command)
-	elif command.startswith('set_pwell_voltage'):
-		targetLib.set_pwell_voltage(command)
-	elif command.startswith('set_nwell_voltage'):
-		targetLib.set_nwell_voltage(command)
-	elif command.startswith('set_logic_threshold_high'):
-		targetLib.set_logic_threshold_high(command)
-	elif command.startswith('set_logic_threshold_low'):
-		targetLib.set_logic_threshold_low(command)
-	elif command.startswith('set_logic_high_to_low_threshold'):
-		targetLib.set_logic_high_to_low_threshold(command)
-	elif command.startswith('set_logic_low_to_high_threshold'):
-		targetLib.set_logic_low_to_high_threshold(command)
-	elif command.startswith('set_work_dir'):
-		targetLib.set_work_dir(command)
+	elif cmd == 'set_process':
+		targetLib.process = args[0]
+	elif cmd == 'set_temperature':
+		targetLib.temperature = args[0]
+	elif cmd == 'set_vdd_voltage':
+		targetLib.vdd.voltage = args[0]
+	elif cmd == 'set_vss_voltage':
+		targetLib.vss.voltage = args[0]
+	elif cmd == 'set_pwell_voltage':
+		targetLib.pwell.voltage = args[0]
+	elif cmd == 'set_nwell_voltage':
+		targetLib.nwell.voltage = args[0]
+	elif cmd == 'set_logic_threshold_high':
+		targetLib.logic_threshold_high = args[0]
+	elif cmd == 'set_logic_threshold_low':
+		targetLib.logic_threshold_low = args[0]
+	elif cmd == 'set_logic_high_to_low_threshold':
+		targetLib.logic_high_to_low_threshold = args[0]
+	elif cmd == 'set_logic_low_to_high_threshold':
+		targetLib.logic_low_to_high_threshold = args[0]
+	elif cmd == 'set_work_dir':
+		targetLib.work_dir = ''.join(args) # This should handle paths with spaces
 	elif command.startswith('set_simulator'):
 		targetLib.set_simulator(command)
 	elif command.startswith('set_run_sim'):
@@ -158,9 +157,9 @@ def execute_command(command: str, targetLib: LibrarySettings, num_gen_file):
 	elif command.startswith('set_mt_sim'):
 		targetLib.set_mt_sim(command)
 	elif command.startswith('set_supress_message'):
-		targetLib.set_supress_message(command)
+		targetLib.set_suppress_message(command)
 	elif command.startswith('set_supress_sim_message'):
-		targetLib.set_supress_sim_message(command)
+		targetLib.set_suppress_sim_message(command)
 	elif command.startswith('set_supress_debug_message'):
 		targetLib.set_supress_debug_message(command)
 	elif command.startswith('set_energy_meas_low_threshold'):
@@ -272,9 +271,6 @@ def execute_command(command: str, targetLib: LibrarySettings, num_gen_file):
 	else:
 		raise ValueError("Invalid command")
 
-	return num_gen_file
-
-
 def initializeFiles(targetLib, targetCell):
 	## initialize working directory
 	if (targetLib.runsim.lower() == "true"):
@@ -287,7 +283,6 @@ def initializeFiles(targetLib, targetCell):
 		print ("Illegal setting for set_runsim option: "+targetLib.runsim+"\n")
 		my_exit()
 	
-
 def characterizeFiles(targetLib, targetCell):
 	print ("characterize\n")
 	os.chdir(targetLib.work_dir)

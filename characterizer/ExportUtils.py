@@ -113,7 +113,7 @@ def exportLib(targetLib, targetCell):
 	
 		f.writelines(outlines)
 	f.close()
-	targetLib.set_exported()
+	targetLib.export()
 
 	## for verilog file 
 	outlines = []
