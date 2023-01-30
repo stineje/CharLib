@@ -87,11 +87,14 @@ def execute_shell():
 		print("Keyboard interrupt detected. Exiting...")
 	
 
-def execute_command(command, targetLib, num_gen_file):
+def execute_command(command: str, targetLib: LibrarySettings, num_gen_file):
 	(cmd, *args) = command.split()
-
+ 
+	# Provide a warning if we have unnecessary args
+	if cmd.startswith('set') and len(args) < 1:
+		print(f'WARNING: {len(args)} arguments provided when 1 argument was expected. Ignoring {len(args) - 1} arguments.')
+	
 	##-- set function : common settings--#
-	# TODO: Decide whether to error if we have extra unnecessary args
 	if cmd == 'set_lib_name':
 		targetLib.lib_name = args[0]
 	elif cmd == 'set_dotlib_name':
