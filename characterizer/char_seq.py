@@ -1,8 +1,7 @@
 import re, os, subprocess
 
 import numpy as np
-from characterizer.CharacterizerSettings import CharacterizerSettings
-from characterizer.myFunc import my_exit
+from characterizer.HarnessSettings import HarnessSettings
 
 def runFlop(targetLib, targetCell, expectationList2):
     harnessList = []   # harness for each trial
@@ -15,7 +14,7 @@ def runFlop(targetLib, targetCell, expectationList2):
     Q_val = None
 
     for trial in range(len(expectationList2)):
-        tmp_Harness = CharacterizerSettings() 
+        tmp_Harness = HarnessSettings() 
         if(targetCell.logic == 'DFF_PCPU_NRNS'):
             D_val, CLK_val, SET_val, RST_val, Q_val = expectationList2[trial]
         elif(targetCell.logic == 'DFF_PCPU_NR'):
@@ -103,7 +102,7 @@ def runFlop(targetLib, targetCell, expectationList2):
             print("D: "+D_val+"\n")
             print("SET: "+SET_val+"\n")
             print("RST: "+RST_val+"\n")
-            my_exit()
+            exit()
         harnessList.append(tmp_Harness)
         harnessList2.append(harnessList)
 
@@ -930,7 +929,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
             if(tmp_max_val_loop == tmp_min_prop_in_out):
                 print("Error: simulation failed! Check spice deck!")
                 print("spice deck: "+spicefo)
-                my_exit()
+                mexit()
 
             targetLib.print_msg_sim("Min. D2Q found. Break loop at dHold: "+str(f'{thold:,.4f}'))
 
@@ -984,7 +983,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
     # finish without premature ending
     print("Error! End of dhold search!!: "+str(f'{thold:,.4f}'))
     print("spice deck: "+spicefo)
-    my_exit()
+    exit()
 
 
 def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, tsetup_lowest, tsetup_highest, tsetup_tstep, tmp_min_hold, timestep_mag, spicef):
@@ -1057,7 +1056,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
             if(tmp_max_val_loop == tmp_min_prop_in_out):
                 targetLib.print_msg_sim("Error: simulation failed! Check spice deck!")
                 targetLib.print_msg("spice deck: "+spicefo)
-                my_exit()
+                exit()
             targetLib.print_msg_sim("Min. D2Q found. Break loop at dSetup: "+str(f'{tsetup:,.4f}'))
             # finish without premature ending
             #return float(tsetup - tsetup_tstep) 
@@ -1197,7 +1196,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
                 #outlines.append("VIN VIN 0 PWL(0 '_vdd' '_tclk4' '_vdd' '_tclk5' '_vss') \n")
             else:
                 targetLib.print_msg("Error: no VIN difinition!")
-                my_exit()
+                exit()
             outlines.append("VHIGH VHIGH 0 DC '_vdd' \n")
             outlines.append("VLOW VLOW 0 DC '_vss' \n")
   
@@ -1289,7 +1288,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
                 print ("set_val:"+str(targetHarness.target_set_val))
                 print ("reset_val:"+str(targetHarness.target_reset_val))
                 print ("outport_val:"+str(targetHarness.target_outport_val))
-                my_exit()
+                exit()
   
             outlines.append("* Prop delay (C2Q)\n")
             ## case, clock 01 -> output 10

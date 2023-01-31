@@ -1,4 +1,4 @@
-class CharacterizerSettings:
+class HarnessSettings:
     def __init__ (self):
         self.instance = None          ## instance name
         self.target_inport = None     ## target inport name

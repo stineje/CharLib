@@ -1,5 +1,4 @@
 from pathlib import Path
-from characterizer.myFunc import my_exit
 from characterizer.UnitsSettings import UnitsSettings
 
 class NamedNode:
@@ -97,9 +96,13 @@ class LibrarySettings:
     @simulator.setter
     def simulator(self, value):
         if value is not None:
-            if isinstance(value, Path) and value.is_file():
+            if isinstance(value, Path):
+                if not value.is_file():
+                    raise ValueError(f'Invalid value for simulator: {value} is not a file')
                 self._simulator = value
-            elif isinstance(value, str) and Path(value).is_file():
+            elif isinstance(value, str):
+                if not Path(value).is_file():
+                    raise ValueError(f'Invalid value for simulator: {value} is not a file')
                 self._simulator = Path(value)
             else:
                 raise TypeError(f'Invalid type for simulator: {type(value)}')

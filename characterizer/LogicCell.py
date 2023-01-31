@@ -1,52 +1,50 @@
 import re
 
-from characterizer.myFunc import my_exit
-
 class LogicCell:
-    def __init__ (self):
-        self.cell = None    ## cell name
+    def __init__ (self, name: str, logic: str, in_ports: list[str], out_ports: list[str], function: str):
+        self.name = name            # cell name
+        self.in_ports = in_ports    # input pin names
+        self.out_ports = out_ports  # output pin names
+        self.functions = function   # cell function
+
         self.area = None    ## set area 
-        self.functions = [] ## cell function
-        self.inports = []   ## inport pins
         self.cins = []      ## inport caps
         self.clock = None   ## clock pin for flop
         self.set = None     ## set pin for flop
         self.reset = None   ## reset pin for flop 
-        self.cclks = []    ## clock pin cap. for flop
-        self.csets = []    ## set pin cap. for flop
-        self.crsts = []    ## reset pin cap. for flop 
-        self.outports = []  ## outport pins
+        self.cclks = []     ## clock pin cap. for flop
+        self.csets = []     ## set pin cap. for flop
+        self.crsts = []     ## reset pin cap. for flop 
         self.flops = []     ## registers 
-        self.functions = [] ## logic/flop functions 
         self.slope = []     ## inport slope
         self.cslope = 0     ## inport clock slope
         self.load = []      ## outport load
-        self.simulation_timestep = 0      ## simulation timestep 
+        self.simulation_timestep = 0 ## simulation timestep 
         self.isexport = 0   ## exported or not
         self.isflop = 0     ## DFF or not
-        ## setup 
-        self.sim_setup_lowest = 0    ## fastest simulation edge (pos. val.) 
-        self.sim_setup_highest = 0   ## lowest simulation edge (pos. val.) 
-        self.sim_setup_timestep = 0  ## timestep for setup search (pos. val.) 
-        ## hold                        
-        self.sim_hold_lowest = 0     ## fastest simulation edge (pos. val.) 
-        self.sim_hold_highest = 0    ## lowest simulation edge (pos. val.) 
-        self.sim_hold_timestep = 0   ## timestep for hold search (pos. val.) 
+        ## setup
+        self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
+        self.sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
+        self.sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
+        ## hold
+        self.sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
+        self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
+        self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
         ## power
-        self.pleak = []        ## cell leak power
-        self.inport_pleak = [] ## inport leak power
-        self.inport_cap = []   ## inport cap
+        self.pleak = []         ## cell leak power
+        self.inport_pleak = []  ## inport leak power
+        self.inport_cap = []    ## inport cap
 
 ##                                                #
 ##-- add functions for both comb. and seq. cell --#		
 ##                                                #
     def add_cell(self, line="tmp"):
         tmp_array = line.split('-')
-        ## expected format : add_cell -n(name) AND_X1 
-        ##                            -l(logic) AND2 
-        ##														 -i(inports) A B 
-        ##														 -o(outports) YB
-        ##														 -f(function) YB=A*B
+        ## expected format : add_cell -n(name) AND_X1
+        ##                            -l(logic) AND2
+        ##                            -i(inports) A B
+        ##                            -o(outports) YB
+        ##                            -f(function) YB=A*B
         for options in tmp_array:
 
             ## add_cell command 
@@ -55,7 +53,7 @@ class LogicCell:
             ## -n option
             elif(re.match("^n ", options)):
                 tmp_array2 = options.split() 
-                self.cell = tmp_array2[1] 
+                self.name = tmp_array2[1] 
                 #print (self.cell)
             ## -l option
             elif(re.match("^l ", options)):
@@ -66,8 +64,8 @@ class LogicCell:
             elif(re.match("^i ", options)):
                 tmp_array2 = options.split() 
                 for w in tmp_array2:
-                    self.inports.append(w)
-                self.inports.pop(0) # delete first object("-i")
+                    self.in_ports.append(w)
+                self.in_ports.pop(0) # delete first object("-i")
                 #print (self.inports)
             ## -o option
             ## -f option override -o option
@@ -85,15 +83,11 @@ class LogicCell:
                 tmp_array2.pop(0) # delete first object("-f")
                 for w in tmp_array2:
                     tmp_array3 = w.split('=') 
-                    self.outports.append(tmp_array3[0])
+                    self.out_ports.append(tmp_array3[0])
                     self.functions.append(tmp_array3[1])
-#				print ("func:"+str(self.functions))
-#				print ("outp:"+str(self.outports))
-#				print (self.functions)
-#				print (self.outports)
             ## undefined option 
             else:
-                print("ERROR: undefined option:"+options)	
+                print("ERROR: undefined option:"+options)
         print ("finish add_cell")
 
     def add_slope(self, line="tmp"):
@@ -146,7 +140,7 @@ class LogicCell:
         for line in lines:
             #print("self.cell.lower:"+str(self.cell.lower()))
             #print("line.lower:"+str(line.lower()))
-            if((self.cell.lower() in line.lower()) and (".subckt" in line.lower())):
+            if((self.name.lower() in line.lower()) and (".subckt" in line.lower())):
                 print("Cell definition found!")
                 #print(line)
                 self.definition = line
@@ -168,7 +162,7 @@ class LogicCell:
         ## if cell name is not found, show error
         if(self.definition == None):
             print("Cell definition not found. Please use add_cell command to add your cell")
-            my_exit()
+            exit()
 
     def add_model(self, line="tmp"):
         tmp_array = line.split()
@@ -213,7 +207,7 @@ class LogicCell:
             ## -n option (subckt name)
             elif(re.match("^n ", options)):
                 tmp_array2 = options.split() 
-                self.cell = tmp_array2[1] 
+                self.name = tmp_array2[1] 
                 #print (self.cell)
             ## -l option (logic type)
             elif(re.match("^l ", options)):
@@ -224,8 +218,8 @@ class LogicCell:
             elif(re.match("^i ", options)):
                 tmp_array2 = options.split() 
                 for w in tmp_array2:
-                    self.inports.append(w)
-                self.inports.pop(0) # delete first object("-i")
+                    self.in_ports.append(w)
+                self.in_ports.pop(0) # delete first object("-i")
                 #print (self.inports)
             ## -c option (clock name)
             elif(re.match("^c ", options)):
@@ -246,8 +240,8 @@ class LogicCell:
             elif(re.match("^o ", options)):
                 tmp_array2 = options.split() 
                 for w in tmp_array2:
-                    self.outports.append(w)
-                self.outports.pop(0) ## delete first object("-o")
+                    self.out_ports.append(w)
+                self.out_ports.pop(0) ## delete first object("-o")
                 #print (self.outports)
             ## -q option (storage name)
             elif(re.match("^q ", options)):
@@ -263,14 +257,14 @@ class LogicCell:
                 tmp_array2.pop(0) ## delete first object("-f")
                 for w in tmp_array2:
                     tmp_array3 = w.split('=') 
-                    for o in self.outports:
+                    for o in self.out_ports:
                         if(o == tmp_array3[0]):
                             self.functions.append(tmp_array3[1])
                 #print (self.functions)
             ## undefined option 
             else:
                 print("ERROR: undefined option:"+options+"\n")	
-                my_exit()	
+                exit()	
         print ("finish add_flop")
 
     def add_clock_slope(self, line="tmp"):

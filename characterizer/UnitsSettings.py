@@ -195,8 +195,8 @@ class UnitsSettings:
             else:
                 self._resistance.symbol = value[-1]
                 self._resistance.magnitude = value[:-1]
-        elif value.lower().endswith('ohms'):
-            if value.lower() == 'ohms':
+        elif value.lower().endswith('ohms') or value.lower().endswith('ohm'):
+            if value.lower() == 'ohms' or value.lower() == 'ohm':
                 self._resistance.symbol = value
                 self._resistance.magnitude = 1
             else:

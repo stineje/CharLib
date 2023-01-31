@@ -1,14 +1,13 @@
 import re, subprocess, sys, threading 
 
-from characterizer.CharacterizerSettings import CharacterizerSettings
-from characterizer.myFunc import my_exit
+from characterizer.HarnessSettings import HarnessSettings
 
 def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
     harnessList = []   # harness for each trial
     harnessList2 = []  # list of harnessList
 
     for trial in range(len(expectationList2)):
-        tmp_Harness = CharacterizerSettings()
+        tmp_Harness = HarnessSettings()
         tmp_Harness.set_timing_type_comb()
         tmp_Harness.set_timing_sense(unate)
         tmp_inp0_val, tmp_outp0_val=expectationList2[trial]
@@ -46,7 +45,7 @@ def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
     harnessList2 = []
 
     for trial in range(len(expectationList2)):
-        tmp_Harness = CharacterizerSettings()
+        tmp_Harness = HarnessSettings()
         tmp_Harness.set_timing_type_comb()
         tmp_Harness.set_timing_sense(unate)
         tmp_inp0_val, tmp_inp1_val, tmp_outp0_val=expectationList2[trial]
@@ -97,7 +96,7 @@ def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
     harnessList2 = []
 
     for trial in range(len(expectationList2)):
-        tmp_Harness = CharacterizerSettings()
+        tmp_Harness = HarnessSettings()
         tmp_Harness.set_timing_type_comb()
         tmp_Harness.set_timing_sense(unate)
         tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_outp0_val=expectationList2[trial]
@@ -150,7 +149,7 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
     harnessList2 = []
 
     for trial in range(len(expectationList2)):
-        tmp_Harness = CharacterizerSettings()
+        tmp_Harness = HarnessSettings()
         tmp_Harness.set_timing_type_comb()
         tmp_Harness.set_timing_sense(unate)
         tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_inp3_val, tmp_outp0_val=expectationList2[trial]
@@ -192,7 +191,7 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
             +"_"+str(targetCell.inports[3])+str(tmp_inp3_val)\
             +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
         # run spice and store result
-        if(targetLib.mtsim == "true"):
+        if targetLib.mt_sim:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -325,7 +324,7 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
     #targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
     targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
     #targetHarness.print_lut_pleak()
-        
+
 def runSpiceCombDelaySingle(targetLib, targetCell, targetHarness, spicef, \
                                         tmp_slope, tmp_load, tmp_slope_mag, \
                                         results_prop_in_out, results_trans_out,\
@@ -477,8 +476,6 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
     #targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
     targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
     #targetHarness.print_lut_pleak()
-        
-
 
 def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_line, slew_line, temp_line, estart_line, eend_line, spicef):
     #print (spicef)
@@ -591,7 +588,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
             outlines.append(".measure Tran I_IN_LEAK avg i(VIN) from='_tstart*0.1' to='_tstart'  \n")
         else:
             targetLib.print_msg("Error, meas_energy should 0 (disable) or 1 (enable)")
-            my_error()
+            exit()
 
         ## for ngspice batch mode 
         outlines.append("*comment out .control for ngspice batch mode \n")
