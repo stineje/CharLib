@@ -34,8 +34,8 @@ def runFlop(targetLib, targetCell, expectationList2):
                 Q_val = '01'
             
 
-        tmp_Harness.set_target_inport (targetCell.inports[0], D_val)
-        tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], Q_val)
+        tmp_Harness.set_target_inport (targetCell.in_ports[0], D_val)
+        tmp_Harness.set_target_outport (targetCell.out_ports[0], targetCell.functions[0], Q_val)
         tmp_Harness.set_direction(Q_val)
         tmp_Harness.set_target_clock (targetCell.clock, CLK_val)
         #tmp_Harness.set_nontarget_outport (targetCell.outports[1])
@@ -48,31 +48,31 @@ def runFlop(targetLib, targetCell, expectationList2):
         if((RST_val != None)and(SET_val != None)):
             tmp_Harness.set_target_set (targetCell.set, SET_val)
             tmp_Harness.set_target_reset (targetCell.reset, RST_val)
-            spicef = "c2q1_"+str(targetCell.cell)+"_"\
-                    +str(targetCell.inports[0])+str(D_val)+"_"\
+            spicef = "c2q1_"+str(targetCell.name)+"_"\
+                    +str(targetCell.in_ports[0])+str(D_val)+"_"\
                     +str(targetCell.clock)+str(CLK_val)+"_"\
                     +str(targetCell.set)+str(SET_val)+"_"\
                     +str(targetCell.reset)+str(RST_val)+"_"\
-                    +str(targetCell.outports[0])+str(Q_val)
+                    +str(targetCell.out_ports[0])+str(Q_val)
         elif(SET_val != None):
             tmp_Harness.set_target_set (targetCell.set, SET_val)
-            spicef = "c2q1_"+str(targetCell.cell)+"_"\
-                    +str(targetCell.inports[0])+str(D_val)+"_"\
+            spicef = "c2q1_"+str(targetCell.name)+"_"\
+                    +str(targetCell.in_ports[0])+str(D_val)+"_"\
                     +str(targetCell.clock)+str(CLK_val)+"_"\
                     +str(targetCell.set)+str(SET_val)+"_"\
-                    +str(targetCell.outports[0])+str(Q_val)
+                    +str(targetCell.out_ports[0])+str(Q_val)
         elif(RST_val != None):
             tmp_Harness.set_target_reset (targetCell.reset, RST_val)
-            spicef = "c2q1_"+str(targetCell.cell)+"_"\
-                    +str(targetCell.inports[0])+str(D_val)+"_"\
+            spicef = "c2q1_"+str(targetCell.name)+"_"\
+                    +str(targetCell.in_ports[0])+str(D_val)+"_"\
                     +str(targetCell.clock)+str(CLK_val)+"_"\
                     +str(targetCell.reset)+str(RST_val)+"_"\
-                    +str(targetCell.outports[0])+str(Q_val)
+                    +str(targetCell.out_ports[0])+str(Q_val)
         else:	
-            spicef = "c2q1_"+str(targetCell.cell)+"_"\
-                    +str(targetCell.inports[0])+str(D_val)+"_"\
+            spicef = "c2q1_"+str(targetCell.name)+"_"\
+                    +str(targetCell.in_ports[0])+str(D_val)+"_"\
                     +str(targetCell.clock)+str(CLK_val)+"_"\
-                    +str(targetCell.outports[0])+str(Q_val)
+                    +str(targetCell.out_ports[0])+str(Q_val)
 
         # select simulation type: clock(D2Q, D2C, C2Q, C2D), reset, set
         # normal operation (clock edge)
@@ -929,7 +929,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
             if(tmp_max_val_loop == tmp_min_prop_in_out):
                 print("Error: simulation failed! Check spice deck!")
                 print("spice deck: "+spicefo)
-                mexit()
+                exit()
 
             targetLib.print_msg_sim("Min. D2Q found. Break loop at dHold: "+str(f'{thold:,.4f}'))
 
@@ -1508,10 +1508,10 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
 #	#	spicelis.replace('.sp','.lis')
   
         # run simulation
-        if(re.search("ngspice", targetLib.simulator)):
-            cmd = str(targetLib.simulator)+" -b "+str(spicef)+" 1> "+str(spicelis)+" 2> /dev/null \n"
-        elif(re.search("hspice", targetLib.simulator)):
-            cmd = str(targetLib.simulator)+" "+str(spicef)+" -o "+str(spicelis)+" > /dev/null 2>&1\n"
+        if 'ngspice' in str(targetLib.simulator):
+            cmd = f'{str(targetLib.simulator)} -b {str(spicef)} 1> {str(spicelis)} 2> /dev/null \n'
+        elif 'hspice' in str(targetLib.simulator):
+            cmd = f'{str(targetLib.simulator)} {str(spicef)} -o {str(spicelis)} > /dev/null 2>&1\n'
         #cmd = str(targetLib.simulator)+" -b "+str(spicef)+" > "+str(spicelis)+"\n"
         with open(spicerun,'w') as f:
             outlines = []
@@ -1521,7 +1521,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
   
         cmd = ['sh', spicerun]
                 
-        if(targetLib.runsim == "true"):
+        if(targetLib.run_sim == "true"):
             try:
                 res = subprocess.check_call(cmd)
             except:
@@ -1530,7 +1530,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
     # read results
     with open(spicelis,'r') as f:
         for inline in f:
-            if(re.search("hspice", targetLib.simulator)):
+            if 'hspice' in str(targetLib.simulator):
                 inline = re.sub('\=',' ',inline)
             #targetLib.print_msg(inline)
             # search measure

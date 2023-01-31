@@ -1,10 +1,9 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import argparse, os, shutil
+import argparse, os
 
-from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicCell import LogicCell
+from characterizer.Characterizer import Characterizer
 from characterizer.ExportUtils import exportFiles, exitFiles
 
 
@@ -28,15 +27,16 @@ def main():
     args = parser.parse_args()
 
     # Dispatch based on operating mode
+    characterizer = Characterizer()
     print(args)
     if args.batch is not None:
-        execute_batch(args.batch)
+        execute_batch(characterizer, args.batch)
     elif args.library is not None:
-        execute_lib(args.batch)
+        execute_lib(characterizer, args.library)
     else:
-        execute_shell()
+        execute_shell(characterizer)
 
-def execute_batch(batchfile):
+def execute_batch(characterizer: Characterizer, batchfile):
     """Read in a batch of commands from batchfile and execute."""
 
     print("Executing batch file " + batchfile)
@@ -49,15 +49,15 @@ def execute_batch(batchfile):
     for line in lines:
         line = line.strip()
         if len(line) > 0:
-            execute_command(line)
+            execute_command(characterizer, line)
 
-def execute_lib(library_dir):
+def execute_lib(characterizer: Characterizer, library_dir):
     """Parse a library of standard files, generate a cmd file, and characterize"""
 
     # TODO
     print("Searching for standard cells in " + str(library_dir))
 
-def execute_shell():
+def execute_shell(characterizer: Characterizer):
     """Enter CharLib shell"""
 
     print("Entering CharLib shell. Type 'exit' or ^C to quit")
@@ -67,7 +67,7 @@ def execute_shell():
         while not exit_flag:
             command = input("CharLib > ")
             try:
-                execute_command(command)
+                execute_command(characterizer, command)
             except ValueError:
                 print("Invalid command.")
             if command == "exit":
@@ -75,179 +75,191 @@ def execute_shell():
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Exiting...")
 
-def execute_command(command: str):
+def execute_command(characterizer: Characterizer, command: str):
     print(f'DEBUG: executing {command}')
     (cmd, *args) = command.split()
     
     ##-- set function : common settings--#
     if cmd == 'set_lib_name':
-        targetLib.lib_name = args[0]
+        characterizer.settings.lib_name = args[0]
     elif cmd == 'set_dotlib_name':
-        targetLib.dotlib_name = args[0]
+        characterizer.settings.dotlib_name = args[0]
     elif cmd == 'set_verilog_name':
-        targetLib.verilog_name = args[0]
+        characterizer.settings.verilog_name = args[0]
     elif cmd == 'set_cell_name_suffix':
-        targetLib.cell_name_suffix = args[0]
+        characterizer.settings.cell_name_suffix = args[0]
     elif cmd == 'set_cell_name_prefix':
-        targetLib.cell_name_prefix = args[0]
+        characterizer.settings.cell_name_prefix = args[0]
     elif cmd == 'set_voltage_unit':
-        targetLib.units.voltage = args[0]
+        characterizer.settings.units.voltage = args[0]
     elif cmd == 'set_capacitance_unit':
-        targetLib.units.capacitance = args[0]
+        characterizer.settings.units.capacitance = args[0]
     elif cmd == 'set_resistance_unit':
-        targetLib.units.resistance = args[0]
+        characterizer.settings.units.resistance = args[0]
     elif cmd == 'set_time_unit':
-        targetLib.units.time = args[0]
+        characterizer.settings.units.time = args[0]
     elif cmd == 'set_current_unit':
-        targetLib.units.current = args[0]
+        characterizer.settings.units.current = args[0]
     elif cmd == 'set_leakage_power_unit':
-        targetLib.units.leakage_power = args[0]
+        characterizer.settings.units.leakage_power = args[0]
     elif cmd == 'set_energy_unit':
-        targetLib.units.energy = args[0]
+        characterizer.settings.units.energy = args[0]
     elif cmd == 'set_vdd_name':
-        targetLib.vdd.name = args[0]
+        characterizer.settings.vdd.name = args[0]
     elif cmd == 'set_vss_name':
-        targetLib.vss.name = args[0]
+        characterizer.settings.vss.name = args[0]
     elif cmd == 'set_pwell_name':
-        targetLib.pwell.name = args[0]
+        characterizer.settings.pwell.name = args[0]
     elif cmd == 'set_nwell_name':
-        targetLib.nwell.name = args[0]
+        characterizer.settings.nwell.name = args[0]
 
     ##-- set function : characterization settings--#
     elif cmd == 'set_process':
-        targetLib.process = args[0]
+        characterizer.settings.process = args[0]
     elif cmd == 'set_temperature':
-        targetLib.temperature = args[0]
+        characterizer.settings.temperature = float(args[0])
     elif cmd == 'set_vdd_voltage':
-        targetLib.vdd.voltage = args[0]
+        characterizer.settings.vdd.voltage = float(args[0])
     elif cmd == 'set_vss_voltage':
-        targetLib.vss.voltage = args[0]
+        characterizer.settings.vss.voltage = float(args[0])
     elif cmd == 'set_pwell_voltage':
-        targetLib.pwell.voltage = args[0]
+        characterizer.settings.pwell.voltage = float(args[0])
     elif cmd == 'set_nwell_voltage':
-        targetLib.nwell.voltage = args[0]
+        characterizer.settings.nwell.voltage = float(args[0])
     elif cmd == 'set_logic_threshold_high':
-        targetLib.logic_threshold_high = float(args[0])
+        characterizer.settings.logic_threshold_high = float(args[0])
     elif cmd == 'set_logic_threshold_low':
-        targetLib.logic_threshold_low = float(args[0])
+        characterizer.settings.logic_threshold_low = float(args[0])
     elif cmd == 'set_logic_high_to_low_threshold':
-        targetLib.logic_high_to_low_threshold = float(args[0])
+        characterizer.settings.logic_high_to_low_threshold = float(args[0])
     elif cmd == 'set_logic_low_to_high_threshold':
-        targetLib.logic_low_to_high_threshold = float(args[0])
+        characterizer.settings.logic_low_to_high_threshold = float(args[0])
     elif cmd == 'set_work_dir':
-        targetLib.work_dir = ''.join(args) # This should handle paths with spaces
+        characterizer.settings.work_dir = ''.join(args) # This should handle paths with spaces
     elif cmd == 'set_simulator':
-        targetLib.simulator = ''.join(args) # This should handle paths with spaces
+        characterizer.settings.simulator = ''.join(args) # This should handle paths with spaces
     elif cmd == 'set_run_sim':
-        targetLib.run_sim = args[0]
+        characterizer.settings.run_sim = args[0]
     elif cmd == 'set_mt_sim':
-        targetLib.mt_sim = args[0]
+        characterizer.settings.mt_sim = args[0]
     elif cmd == 'set_supress_message':
         print('WARNING: "set_supress_message" will be replaced with "set_suppress_message" in the future.')
-        targetLib.suppress_message = args[0]
+        characterizer.settings.suppress_message = args[0]
     elif cmd == 'set_suppress_message':
-        targetLib.suppress_message = args[0]
+        characterizer.settings.suppress_message = args[0]
     elif cmd == 'set_supress_sim_message':
         print('WARNING: "set_supress_sim_message" will be replaced with "set_suppress_sim_message" in the future.')
-        targetLib.suppress_sim_message = args[0]
+        characterizer.settings.suppress_sim_message = args[0]
     elif cmd == 'set_suppress_sim_message':
-        targetLib.suppress_sim_message = args[0]
+        characterizer.settings.suppress_sim_message = args[0]
     elif cmd == 'set_supress_debug_message':
         print('WARNING: "set_supress_debug_message" will be replaced with "set_suppress_debug_message" in the future.')
-        targetLib.suppress_debug_message = args[0]
+        characterizer.settings.suppress_debug_message = args[0]
     elif cmd == 'set_energy_meas_low_threshold':
-        targetLib.energy_meas_low_threshold = float(args[0])
+        characterizer.settings.energy_meas_low_threshold = float(args[0])
     elif cmd == 'set_energy_meas_high_threshold':
-        targetLib.energy_meas_high_threshold = float(args[0])
+        characterizer.settings.energy_meas_high_threshold = float(args[0])
     elif cmd == 'set_energy_meas_time_extent':
-        targetLib.energy_meas_time_extent = float(args[0])
+        characterizer.settings.energy_meas_time_extent = float(args[0])
     elif cmd == 'set_operating_conditions':
-        targetLib.operating_conditions = args[0]
+        characterizer.settings.operating_conditions = args[0]
 
     ##-- add function : common for comb. and seq. --#
     ## add_cell
-    elif(command.startswith('add_cell')):
-        targetCell = LogicCell()
-        targetCell.add_cell(command) 
+    elif cmd == 'add_cell':
+        opts = ' '.join(args).strip().split('-')[1:] # Split on hyphen instead of space
+        for opt in opts:
+            if opt.startswith('n '): # -n option
+                name = opt[2:].strip()
+            elif opt.startswith('l '): # -l option
+                logic = opt[2:].strip()
+            elif opt.startswith('i '): # -i option
+                in_ports = opt[2:].strip().split()
+            elif opt.startswith('o '): # -o option
+                out_ports = opt[2:].strip().split()
+            elif opt.startswith('f '): # -f option
+                function = opt[2:].strip()
+            else:
+                raise ValueError(f'Unrecognized option: -{opt}')
+        characterizer.add_cell(name, logic, in_ports, out_ports, function) 
 
     ## add_slope
     elif(command.startswith('add_slope')):
-        targetCell.add_slope(command) 
+        characterizer.target_cell().add_slope(command) 
 
     ## add_load
     elif(command.startswith('add_load')):
-        targetCell.add_load(command) 
+        characterizer.target_cell().add_load(command) 
 
     ## add_area
     elif(command.startswith('add_area')):
-        targetCell.add_area(command) 
+        characterizer.target_cell().add_area(command) 
 
     ## add_netlist
     elif(command.startswith('add_netlist')):
-        targetCell.add_netlist(command) 
+        characterizer.target_cell().add_netlist(command) 
 
     ## add_model
     elif(command.startswith('add_model')):
-        targetCell.add_model(command) 
+        characterizer.target_cell().add_model(command) 
 
     ## add_simulation_timestep
     elif(command.startswith('add_simulation_timestep')):
-        targetCell.add_simulation_timestep(command) 
+        characterizer.target_cell().add_simulation_timestep(command) 
 
     ##-- add function : for seq. cell --#
     ## add_flop
     elif(command.startswith('add_flop')):
-        targetCell = LogicCell()
-        targetCell.add_flop(command) 
+        characterizer.target_cell().add_flop(command) 
 
     ## add_clock_slope
     elif(command.startswith('add_clock_slope')):
-        targetCell.add_clock_slope(command) 
+        characterizer.target_cell().add_clock_slope(command) 
 
     ## add_simulation_setup_auto
     elif(command.startswith('add_simulation_setup_auto')):
-        targetCell.add_simulation_setup_lowest('add_simulation_setup_lowest auto') 
-        targetCell.add_simulation_setup_highest('add_simulation_setup_highest auto') 
-        targetCell.add_simulation_setup_timestep('add_simulation_setup_timestep auto') 
+        characterizer.target_cell().add_simulation_setup_lowest('add_simulation_setup_lowest auto') 
+        characterizer.target_cell().add_simulation_setup_highest('add_simulation_setup_highest auto') 
+        characterizer.target_cell().add_simulation_setup_timestep('add_simulation_setup_timestep auto') 
 
     ## add_simulation_setup_lowest
     elif(command.startswith('add_simulation_setup_lowest')):
-        targetCell.add_simulation_setup_lowest(command) 
+        characterizer.target_cell().add_simulation_setup_lowest(command) 
 
     ## add_simulation_setup_highest
     elif(command.startswith('add_simulation_setup_highest')):
-        targetCell.add_simulation_setup_highest(command) 
+        characterizer.target_cell().add_simulation_setup_highest(command) 
 
     ## add_simulation_setup_timestep
     elif(command.startswith('add_simulation_setup_timestep')):
-        targetCell.add_simulation_setup_timestep(command) 
+        characterizer.target_cell().add_simulation_setup_timestep(command) 
 
     ## add_simulation_hold_auto
     elif(command.startswith('add_simulation_hold_auto')):
-        targetCell.add_simulation_hold_lowest('add_simulation_hold_lowest auto') 
-        targetCell.add_simulation_hold_highest('add_simulation_hold_highest auto') 
-        targetCell.add_simulation_hold_timestep('add_simulation_hold_timestep auto') 
+        characterizer.target_cell().add_simulation_hold_lowest('add_simulation_hold_lowest auto') 
+        characterizer.target_cell().add_simulation_hold_highest('add_simulation_hold_highest auto') 
+        characterizer.target_cell().add_simulation_hold_timestep('add_simulation_hold_timestep auto') 
 
     ## add_simulation_hold_lowest
     elif(command.startswith('add_simulation_hold_lowest')):
-        targetCell.add_simulation_hold_lowest(command) 
+        characterizer.target_cell().add_simulation_hold_lowest(command) 
 
     ## add_simulation_hold_highest
     elif(command.startswith('add_simulation_hold_highest')):
-        targetCell.add_simulation_hold_highest(command) 
+        characterizer.target_cell().add_simulation_hold_highest(command) 
 
     ## add_simulation_hold_timestep
     elif(command.startswith('add_simulation_hold_timestep')):
-        targetCell.add_simulation_hold_timestep(command) 
+        characterizer.target_cell().add_simulation_hold_timestep(command) 
 
     ##-- execution --#
     ## initialize
     elif cmd == 'create' or cmd == 'initialize':
-        initializeFiles() 
+        characterizer.initialize_work_dir()
 
-    ## create
+    ## characterize
     elif(command.startswith('characterize')):
-        harnessList2 = characterizeFiles() 
+        harnessList2 = characterizer.characterize()
         os.chdir("../")
 
     ## export

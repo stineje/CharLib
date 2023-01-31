@@ -13,21 +13,21 @@ def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
         tmp_inp0_val, tmp_outp0_val=expectationList2[trial]
         tmp_Harness.set_direction(tmp_outp0_val)
         #print ("**"+targetCell.outports[0]+" "+targetCell.functions[0]+" "+ tmp_outp0_val)
-        tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+        tmp_Harness.set_target_outport (targetCell.out_ports[0], targetCell.functions[0], tmp_outp0_val)
         ## case input0 is target input pin
         if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[0], tmp_inp0_val)
             tmp_Harness.set_stable_inport ("NULL", "NULL")
         else:
             print ("Illiegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")
-        #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-        spicef = "delay1_"+str(targetCell.cell)+"_"+str(targetCell.inports[0])\
-            +str(tmp_inp0_val)+"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+        #tmp_Harness.set_nontarget_outport (targetCell.out_ports[0], "01")
+        spicef = "delay1_"+str(targetCell.name)+"_"+str(targetCell.in_ports[0])\
+            +str(tmp_inp0_val)+"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         ## run spice and store result
-        if(targetLib.mtsim == "true"):
+        if targetLib.mt_sim:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -50,26 +50,26 @@ def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
         tmp_Harness.set_timing_sense(unate)
         tmp_inp0_val, tmp_inp1_val, tmp_outp0_val=expectationList2[trial]
         tmp_Harness.set_direction(tmp_outp0_val)
-        tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+        tmp_Harness.set_target_outport (targetCell.out_ports[0], targetCell.functions[0], tmp_outp0_val)
         # case input0 is target input pin
         if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
         # case input0 is target input pin
         elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[1], tmp_inp1_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
         else:
             print ("Illiegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")
-        #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-        spicef = "delay1_"+str(targetCell.cell)+"_"+str(targetCell.inports[0])\
-            +str(tmp_inp0_val)+"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
-            +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+        #tmp_Harness.set_nontarget_outport (targetCell.out_ports[0], "01")
+        spicef = "delay1_"+str(targetCell.name)+"_"+str(targetCell.in_ports[0])\
+            +str(tmp_inp0_val)+"_"+str(targetCell.in_ports[1])+str(tmp_inp1_val)\
+            +"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         # run spice and store result
-        if(targetLib.mtsim == "true"):
+        if targetLib.mt_sim:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -101,35 +101,35 @@ def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
         tmp_Harness.set_timing_sense(unate)
         tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_outp0_val=expectationList2[trial]
         tmp_Harness.set_direction(tmp_outp0_val)
-        tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+        tmp_Harness.set_target_outport (targetCell.out_ports[0], targetCell.functions[0], tmp_outp0_val)
         # case input0 is target input pin
         if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[2], tmp_inp2_val)
         # case input1 is target input pin
         elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[1], tmp_inp1_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[2], tmp_inp2_val)
         # case input2 is target input pin
         elif ((tmp_inp2_val == '01') or (tmp_inp2_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[2], tmp_inp2_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[2], tmp_inp2_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
         else:
             print ("Illiegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")
         #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-        spicef = "delay1_"+str(targetCell.cell)+"_"\
-            +str(targetCell.inports[0])+str(tmp_inp0_val)\
-            +"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
-            +"_"+str(targetCell.inports[2])+str(tmp_inp2_val)\
-            +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+        spicef = "delay1_"+str(targetCell.name)+"_"\
+            +str(targetCell.in_ports[0])+str(tmp_inp0_val)\
+            +"_"+str(targetCell.in_ports[1])+str(tmp_inp1_val)\
+            +"_"+str(targetCell.in_ports[2])+str(tmp_inp2_val)\
+            +"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         # run spice and store result
-        if(targetLib.mtsim == "true"):
+        if targetLib.mt_sim:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -154,42 +154,42 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
         tmp_Harness.set_timing_sense(unate)
         tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_inp3_val, tmp_outp0_val=expectationList2[trial]
         tmp_Harness.set_direction(tmp_outp0_val)
-        tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+        tmp_Harness.set_target_outport (targetCell.out_ports[0], targetCell.functions[0], tmp_outp0_val)
         # case input0 is target input pin
         if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[2], tmp_inp2_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[3], tmp_inp3_val)
         # case input1 is target input pin
         elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[1], tmp_inp1_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[2], tmp_inp2_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[3], tmp_inp3_val)
         # case input2 is target input pin
         elif ((tmp_inp2_val == '01') or (tmp_inp2_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[2], tmp_inp2_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[2], tmp_inp2_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[3], tmp_inp3_val)
         elif ((tmp_inp3_val == '01') or (tmp_inp3_val == '10')):
-            tmp_Harness.set_target_inport (targetCell.inports[3], tmp_inp3_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-            tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+            tmp_Harness.set_target_inport (targetCell.in_ports[3], tmp_inp3_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
+            tmp_Harness.set_stable_inport (targetCell.in_ports[2], tmp_inp2_val)
         else:
             print ("Illiegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")
         #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-        spicef = "delay1_"+str(targetCell.cell)+"_"\
-            +str(targetCell.inports[0])+str(tmp_inp0_val)\
-            +"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
-            +"_"+str(targetCell.inports[2])+str(tmp_inp2_val)\
-            +"_"+str(targetCell.inports[3])+str(tmp_inp3_val)\
-            +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+        spicef = "delay1_"+str(targetCell.name)+"_"\
+            +str(targetCell.in_ports[0])+str(tmp_inp0_val)\
+            +"_"+str(targetCell.in_ports[1])+str(tmp_inp1_val)\
+            +"_"+str(targetCell.in_ports[2])+str(tmp_inp2_val)\
+            +"_"+str(targetCell.in_ports[3])+str(tmp_inp3_val)\
+            +"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         # run spice and store result
         if targetLib.mt_sim:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
@@ -275,19 +275,19 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
                 res_q = results_q_vdd_dyn[str(thread_id)]
             else:
                 res_q = results_q_vss_dyn[str(thread_id)]
-            tmp_list_eintl.append(abs(res_q*targetLib.vdd_voltage*targetLib.energy_meas_high_threshold \
+            tmp_list_eintl.append(abs(res_q*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold \
                 - abs((results_energy_end[str(thread_id)] - results_energy_start[str(thread_id)])*(abs(results_i_vdd_leak[str(thread_id)]) \
-                + abs(results_i_vdd_leak[str(thread_id)]))/2*(targetLib.vdd_voltage*targetLib.energy_meas_high_threshold))))
+                + abs(results_i_vdd_leak[str(thread_id)]))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
 
             ## input energy
-            tmp_list_ein.append(abs(results_q_in_dyn[str(thread_id)])*targetLib.vdd_voltage)
+            tmp_list_ein.append(abs(results_q_in_dyn[str(thread_id)])*targetLib.vdd.voltage)
 
             ## Cin = Qin / V
-            tmp_list_cin.append(abs(results_q_in_dyn[str(thread_id)])/(targetLib.vdd_voltage))
+            tmp_list_cin.append(abs(results_q_in_dyn[str(thread_id)])/(targetLib.vdd.voltage))
 
             ## Pleak = average of Pleak_vdd and Pleak_vss
             ## P = I * V
-            tmp_list_pleak.append((abs(results_i_vdd_leak[str(thread_id)])+abs(results_i_vdd_leak[str(thread_id)]))/2*(targetLib.vdd_voltage)) #
+            tmp_list_pleak.append((abs(results_i_vdd_leak[str(thread_id)])+abs(results_i_vdd_leak[str(thread_id)]))/2*(targetLib.vdd.voltage)) #
             thread_id += 1
 
         list2_prop.append(tmp_list_prop)
@@ -334,8 +334,8 @@ def runSpiceCombDelaySingle(targetLib, targetCell, targetHarness, spicef, \
 
     targetLib.print_msg("start thread :"+str(threading.current_thread().name))
 
-    cap_line = ".param cap ="+str(tmp_load*targetLib.capacitance_mag)+"\n"
-    slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag*targetLib.time_mag)+"\n"
+    cap_line = ".param cap ="+str(tmp_load*targetLib.units.capacitance.magnitude)+"\n"
+    slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag*targetLib.units.time.magnitude)+"\n"
     temp_line = ".temp "+str(targetLib.temperature)+"\n"
     spicefo = str(spicef)+"_"+str(tmp_load)+"_"+str(tmp_slope)+".sp"
 
@@ -390,8 +390,8 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
         tmp_list_pleak =   []
         for tmp_load in targetCell.load:
             tmp_loop += 1
-            cap_line = ".param cap ="+str(tmp_load*targetLib.capacitance_mag)+"\n"
-            slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag*targetLib.time_mag)+"\n"
+            cap_line = ".param cap ="+str(tmp_load*targetLib.units.capacitance.magnitude)+"\n"
+            slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag*targetLib.units.time.magnitude)+"\n"
             temp_line = ".temp "+str(targetLib.temperature)+"\n"
             spicefo = str(spicef)+"_"+str(tmp_load)+"_"+str(tmp_slope)+".sp"
 
@@ -419,27 +419,27 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
             ## smaller Qs: intl. Q
             ## Eintl = QsV
             if(abs(res_q_vdd_dyn) < abs(res_q_vss_dyn)):
-                tmp_list_eintl.append(abs(res_q_vdd_dyn*targetLib.vdd_voltage*targetLib.energy_meas_high_threshold-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd_voltage*targetLib.energy_meas_high_threshold))))
-                #targetLib.print_msg(str(abs(res_q_vdd_dyn*targetLib.vdd_voltage)))
+                tmp_list_eintl.append(abs(res_q_vdd_dyn*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
+                #targetLib.print_msg(str(abs(res_q_vdd_dyn*targetLib.vdd.voltage)))
             else:
-                tmp_list_eintl.append(abs(res_q_vss_dyn*targetLib.vdd_voltage*targetLib.energy_meas_high_threshold-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd_voltage*targetLib.energy_meas_high_threshold))))
-                #targetLib.print_msg(str(abs(res_q_vss_dyn*targetLib.vdd_voltage)))
+                tmp_list_eintl.append(abs(res_q_vss_dyn*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
+                #targetLib.print_msg(str(abs(res_q_vss_dyn*targetLib.vdd.voltage)))
 
             ## intl. energy calculation
             ## Use VDD as intl. energy
-#			tmp_list_eintl.append(abs(res_q_vdd_dyn*targetLib.vdd_voltage)-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd_voltage)))
-#			targetLib.print_msg(str(abs(res_q_vdd_dyn*targetLib.vdd_voltage)))
+#			tmp_list_eintl.append(abs(res_q_vdd_dyn*targetLib.vdd.voltage)-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage)))
+#			targetLib.print_msg(str(abs(res_q_vdd_dyn*targetLib.vdd.voltage)))
 
             ## input energy
-            tmp_list_ein.append(abs(res_q_in_dyn)*targetLib.vdd_voltage)
+            tmp_list_ein.append(abs(res_q_in_dyn)*targetLib.vdd.voltage)
 
             ## Cin = Qin / V
-            tmp_list_cin.append(abs(res_q_in_dyn)/(targetLib.vdd_voltage))
+            tmp_list_cin.append(abs(res_q_in_dyn)/(targetLib.vdd.voltage))
 
             ## Pleak = average of Pleak_vdd and Pleak_vss
             ## P = I * V
-            tmp_list_pleak.append((abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd_voltage)) #
-            #targetLib.print_msg("calculated pleak: "+str(float(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*targetLib.vdd_voltage*targetLib.voltage_mag)) #
+            tmp_list_pleak.append((abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage)) #
+            #targetLib.print_msg("calculated pleak: "+str(float(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*targetLib.vdd.voltage*targetLib.units.voltage.magnitude)) #
 
         list2_prop.append(tmp_list_prop)
         list2_tran.append(tmp_list_tran)
@@ -491,10 +491,10 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         outlines.append(".inc '../"+targetCell.model+"'\n")
         outlines.append(".inc '../"+targetCell.netlist+"'\n")
         outlines.append(temp_line)
-        outlines.append(".param _vdd = "+str(targetLib.vdd_voltage)+"\n")
-        outlines.append(".param _vss = "+str(targetLib.vss_voltage)+"\n")
-        outlines.append(".param _vnw = "+str(targetLib.nwell_voltage)+"\n")
-        outlines.append(".param _vpw = "+str(targetLib.pwell_voltage)+"\n")
+        outlines.append(".param _vdd = "+str(targetLib.vdd.voltage)+"\n")
+        outlines.append(".param _vss = "+str(targetLib.vss.voltage)+"\n")
+        outlines.append(".param _vnw = "+str(targetLib.nwell.voltage)+"\n")
+        outlines.append(".param _vpw = "+str(targetLib.pwell.voltage)+"\n")
         outlines.append(".param cap = 10f \n")
         outlines.append(".param slew = 100p \n")
         outlines.append(".param _tslew = slew\n")
@@ -516,7 +516,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         outlines.append(" \n")
         ## in auto mode, simulation timestep is 1/10 of min. input slew
         ## simulation runs 1000x of input slew time
-        outlines.append(".tran "+str(targetCell.simulation_timestep)+str(targetLib.time_unit)+" '_tsimend'\n")
+        outlines.append(".tran "+str(targetCell.simulation_timestep)+str(targetLib.units.time.symbol)+" '_tsimend'\n")
         outlines.append(" \n")
 
         if(targetHarness.target_inport_val == "01"):
@@ -535,33 +535,33 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         outlines.append("** Delay \n")
         outlines.append("* Prop delay \n")
         if(targetHarness.target_inport_val == "01"):
-            outlines.append(".measure Tran PROP_IN_OUT trig v(VIN) val='"+str(targetLib.logic_low_to_high_threshold_voltage)+"' rise=1 \n")
+            outlines.append(".measure Tran PROP_IN_OUT trig v(VIN) val='"+str(targetLib.logic_low_to_high_threshold_voltage())+"' rise=1 \n")
         elif(targetHarness.target_inport_val == "10"):
-            outlines.append(".measure Tran PROP_IN_OUT trig v(VIN) val='"+str(targetLib.logic_high_to_low_threshold_voltage)+"' fall=1 \n")
+            outlines.append(".measure Tran PROP_IN_OUT trig v(VIN) val='"+str(targetLib.logic_high_to_low_threshold_voltage())+"' fall=1 \n")
         if(targetHarness.target_outport_val == "10"):
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_high_to_low_threshold_voltage)+"' fall=1 \n")
+            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_high_to_low_threshold_voltage())+"' fall=1 \n")
         elif(targetHarness.target_outport_val == "01"):
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_low_to_high_threshold_voltage)+"' rise=1 \n")
+            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_low_to_high_threshold_voltage())+"' rise=1 \n")
         outlines.append("* Trans delay \n")
 
         if(targetHarness.target_outport_val == "10"):
-            outlines.append(".measure Tran TRANS_OUT trig v(VOUT) val='"+str(targetLib.logic_threshold_high_voltage)+"' fall=1\n")
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_threshold_low_voltage)+"' fall=1 \n")
+            outlines.append(".measure Tran TRANS_OUT trig v(VOUT) val='"+str(targetLib.logic_threshold_high_voltage())+"' fall=1\n")
+            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_threshold_low_voltage())+"' fall=1 \n")
         elif(targetHarness.target_outport_val == "01"):
-            outlines.append(".measure Tran TRANS_OUT trig v(VOUT) val='"+str(targetLib.logic_threshold_low_voltage)+"' rise=1\n")
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_threshold_high_voltage)+"' rise=1 \n")
+            outlines.append(".measure Tran TRANS_OUT trig v(VOUT) val='"+str(targetLib.logic_threshold_low_voltage())+"' rise=1\n")
+            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_threshold_high_voltage())+"' rise=1 \n")
 
         # get ENERGY_START and ENERGY_END for energy calculation in 2nd round 
         if(meas_energy == 0):
             outlines.append("* For energy calculation \n")
             if(targetHarness.target_inport_val == "01"):
-                outlines.append(".measure Tran ENERGY_START when v(VIN)='"+str(targetLib.energy_meas_low_threshold_voltage)+"' rise=1 \n")
+                outlines.append(".measure Tran ENERGY_START when v(VIN)='"+str(targetLib.energy_meas_low_threshold_voltage())+"' rise=1 \n")
             elif(targetHarness.target_inport_val == "10"):
-                outlines.append(".measure Tran ENERGY_START when v(VIN)='"+str(targetLib.energy_meas_high_threshold_voltage)+"' fall=1 \n")
+                outlines.append(".measure Tran ENERGY_START when v(VIN)='"+str(targetLib.energy_meas_high_threshold_voltage())+"' fall=1 \n")
             if(targetHarness.target_outport_val == "01"):
-                outlines.append(".measure Tran ENERGY_END when v(VOUT)='"+str(targetLib.energy_meas_high_threshold_voltage)+"' rise=1 \n")
+                outlines.append(".measure Tran ENERGY_END when v(VOUT)='"+str(targetLib.energy_meas_high_threshold_voltage())+"' rise=1 \n")
             elif(targetHarness.target_outport_val == "10"):
-                outlines.append(".measure Tran ENERGY_END when v(VOUT)='"+str(targetLib.energy_meas_low_threshold_voltage)+"' fall=1 \n")
+                outlines.append(".measure Tran ENERGY_END when v(VOUT)='"+str(targetLib.energy_meas_low_threshold_voltage())+"' fall=1 \n")
 
         ##
         ## energy measurement 
@@ -641,16 +641,16 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
                     index_val = targetHarness.nontarget_outport_val[targetHarness.nontarget_outport.index(w2)]
                     tmp_line += ' WFLOAT'+str(index_val)
                     is_matched += 1
-            if(w1.upper() == targetLib.vdd_name.upper()):
+            if(w1.upper() == targetLib.vdd.name.upper()):
                     tmp_line += ' '+w1.upper() 
                     is_matched += 1
-            if(w1.upper() == targetLib.vss_name.upper()):
+            if(w1.upper() == targetLib.vss.name.upper()):
                     tmp_line += ' '+w1.upper() 
                     is_matched += 1
-            if(w1.upper() == targetLib.pwell_name.upper()):
+            if(w1.upper() == targetLib.pwell.name.upper()):
                     tmp_line += ' '+w1.upper() 
                     is_matched += 1
-            if(w1.upper() == targetLib.nwell_name.upper()):
+            if(w1.upper() == targetLib.nwell.name.upper()):
                     tmp_line += ' '+w1.upper() 
                     is_matched += 1
             ## show error if this port has not matched
@@ -678,10 +678,10 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
     spicerun = spicef
     spicerun += ".run"
 
-    if(re.search("ngspice", targetLib.simulator)):
-        cmd = str(targetLib.simulator)+" -b "+str(spicef)+" 1> "+str(spicelis)+" 2> /dev/null \n"
-    elif(re.search("hspice", targetLib.simulator)):
-        cmd = str(targetLib.simulator)+" "+str(spicef)+" -o "+str(spicelis)+" 2> /dev/null \n"
+    if 'ngspice' in str(targetLib.simulator):
+        cmd = f'{str(targetLib.simulator.resolve())} -b {str(spicef)} 1> {str(spicelis)} 2> /dev/null \n'
+    elif 'hspice' in str(targetLib.simulator):
+        cmd = f'{str(targetLib.simulator.resolve())} {str(spicef)} -o {str(spicelis)} 2> /dev/null \n'
     with open(spicerun,'w') as f:
         outlines = []
         outlines.append(cmd) 
@@ -690,7 +690,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
 
     cmd = ['sh', spicerun]
             
-    if(targetLib.runsim == "true"):
+    if(targetLib.run_sim == "true"):
         try:
             res = subprocess.check_call(cmd)
         except:

@@ -1,9 +1,9 @@
 import os, shutil
 
-from LibrarySettings import LibrarySettings
-from LogicCell import LogicCell
-from char_comb import *
-from char_seq import *
+from characterizer.LibrarySettings import LibrarySettings
+from characterizer.LogicCell import LogicCell
+from characterizer.char_comb import *
+from characterizer.char_seq import *
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings, cells, and results."""
@@ -14,11 +14,11 @@ class Characterizer:
 
     def target_cell(self) -> LogicCell:
         """Get last cell"""
-        return self.cells[len(self.cells)]
+        return self.cells[len(self.cells) - 1]
 
     def add_cell(self, name, logic, in_ports, out_ports, function):
         # Create a new logic cell
-        self._cells.append(LogicCell(name, logic, in_ports, out_ports, function))
+        self.cells.append(LogicCell(name, logic, in_ports, out_ports, function))
 
     def initialize_work_dir(self):
         if self.settings.run_sim:
@@ -30,11 +30,7 @@ class Characterizer:
             print("Save previous working directory and files")
 
     def characterize(self):
-        """Iterate through cells and characterize"""
-        
-        # TODO: implement threaded execution to characterize in batches
-        
-        print("characterize")
+        """Iterate through cells and characterize"""        
         os.chdir(self.settings.work_dir)
 
         for cell in self.cells:

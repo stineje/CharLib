@@ -356,7 +356,7 @@ class LibrarySettings:
         self._suppress_debug_msg = str_to_bool(value)
 
     def print_msg(self, message=""):
-        if not self.suppress_msg:
+        if not self.suppress_message:
             print(message)
     
     def print_msg_sim(self, message=""):
@@ -364,5 +364,5 @@ class LibrarySettings:
             print(message)
     
     def print_msg_dbg(self,  message=""):
-        if self.suppress_debug_message:
+        if not self.suppress_debug_message:
             print(message)

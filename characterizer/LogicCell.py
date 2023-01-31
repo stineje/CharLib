@@ -3,6 +3,7 @@ import re
 class LogicCell:
     def __init__ (self, name: str, logic: str, in_ports: list[str], out_ports: list[str], function: str):
         self.name = name            # cell name
+        self.logic = logic
         self.in_ports = in_ports    # input pin names
         self.out_ports = out_ports  # output pin names
         self.functions = function   # cell function
@@ -34,61 +35,6 @@ class LogicCell:
         self.pleak = []         ## cell leak power
         self.inport_pleak = []  ## inport leak power
         self.inport_cap = []    ## inport cap
-
-##                                                #
-##-- add functions for both comb. and seq. cell --#		
-##                                                #
-    def add_cell(self, line="tmp"):
-        tmp_array = line.split('-')
-        ## expected format : add_cell -n(name) AND_X1
-        ##                            -l(logic) AND2
-        ##                            -i(inports) A B
-        ##                            -o(outports) YB
-        ##                            -f(function) YB=A*B
-        for options in tmp_array:
-
-            ## add_cell command 
-            if(re.match("^add_cell", options)):
-                continue
-            ## -n option
-            elif(re.match("^n ", options)):
-                tmp_array2 = options.split() 
-                self.name = tmp_array2[1] 
-                #print (self.cell)
-            ## -l option
-            elif(re.match("^l ", options)):
-                tmp_array2 = options.split() 
-                self.logic = tmp_array2[1] 
-                #print (self.logic)
-            ## -i option
-            elif(re.match("^i ", options)):
-                tmp_array2 = options.split() 
-                for w in tmp_array2:
-                    self.in_ports.append(w)
-                self.in_ports.pop(0) # delete first object("-i")
-                #print (self.inports)
-            ## -o option
-            ## -f option override -o option
-            ## currently, -o is not used
-            elif(re.match("^o ", options)):
-                tmp_array2 = options.split() 
-                #for w in tmp_array2:
-                #	self.outports.append(w)
-                #self.outports.pop(0) # delete first object("-o")
-                #print (self.outports)
-            ## -f option
-            elif(re.match("^f ", options)):
-                tmp_array2 = options.split() 
-                #print (tmp_array2)
-                tmp_array2.pop(0) # delete first object("-f")
-                for w in tmp_array2:
-                    tmp_array3 = w.split('=') 
-                    self.out_ports.append(tmp_array3[0])
-                    self.functions.append(tmp_array3[1])
-            ## undefined option 
-            else:
-                print("ERROR: undefined option:"+options)
-        print ("finish add_cell")
 
     def add_slope(self, line="tmp"):
         line = re.sub('\{','',line)
