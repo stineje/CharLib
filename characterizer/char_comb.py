@@ -709,6 +709,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
                     res_prop_in_out = "{:e}".format(float(sparray[2].strip()))
                 elif 'trans_out':
                     sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                    print(sparray)
                     res_trans_out = "{:e}".format(float(sparray[2].strip()))
                 if meas_energy == 0:
                     if 'energy_start' in inline:
