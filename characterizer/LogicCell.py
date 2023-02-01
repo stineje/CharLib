@@ -1,7 +1,29 @@
 import re
 
-from characterizer.Characterizer import RECOGNIZED_LOGIC
-
+RECOGNIZED_LOGIC = [
+    'INV',
+    'BUF',
+    'AND2',  'AND3',  'AND4',
+    'OR2',   'OR3',   'OR4',
+    'NAND2', 'NAND3', 'NAND4',
+    'NOR2',  'NOR3',  'NOR4',
+    'AO21',  'AO22',
+    'OA21',  'OA22',
+    'AOI21', 'AOI22',
+    'OAI21', 'OAI22',
+    'XOR2',
+    'XNOR2',
+    'SEL2',
+    #'HA',
+    #'FA',
+    'DFF_PCPU',
+    'DFF_PCNU',
+    'DFF_NCPU',
+    'DFF_NCNU',
+    'DFF_PCPU_NR',
+    'DFF_PCPU_NRNS',
+]
+ 
 class LogicCell:
     def __init__ (self, name: str, logic: str, in_ports: list, out_ports: list, function: str):
         self.name = name            # cell name
