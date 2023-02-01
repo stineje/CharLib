@@ -671,7 +671,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
                 
         outlines.append(".end \n") 
         f.writelines(outlines)
-    f.close()
+        f.close()
 
     spicelis = spicef
     spicelis += ".lis"
@@ -686,7 +686,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         outlines = []
         outlines.append(cmd) 
         f.writelines(outlines)
-    f.close()
+        f.close()
 
     cmd = ['sh', spicerun]
             
@@ -738,8 +738,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
                 elif((re.search("i_in_leak", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
                     sparray = re.split(" +", inline) # separate words with spaces (use re.split)
                     res_i_in_leak = "{:e}".format(float(sparray[2].strip()))
-
-    f.close()
+        f.close()
     #targetLib.print_msg(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end))
     # check spice finish successfully
     try:
