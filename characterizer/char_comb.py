@@ -692,7 +692,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
             
     if(targetLib.run_sim == "true"):
         try:
-            res = subprocess.check_call(cmd)
+            res = subprocess.run(cmd)
         except:
             print ("Failed to lunch spice")
 
