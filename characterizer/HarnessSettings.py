@@ -250,17 +250,17 @@ class HarnessSettings:
             outline = "\""
             for j in range(len(jlist)-1):
                 #outline += str(self.list2_prop[i][j])+", "
-                tmp_line = str("{:5f}".format(self.list2_prop[i][j]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_prop[i][j]/targetLib.units.time.magnitude))
                 outline += tmp_line+", "
             ## do not add "," for last line
             if(i == (len(ilist)-1)): 
                 #outline += str(self.list2_prop[i][len(jlist)-1])+"\" \\"
-                tmp_line = str("{:5f}".format(self.list2_prop[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_prop[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\" \\"
             ##  add "," for else 
             else:	
                 #outline += str(self.list2_prop[i][len(jlist)-1])+"\", \\"
-                tmp_line = str("{:5f}".format(self.list2_prop[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_prop[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\", \\"
             self.lut_prop.append(outline)
         self.lut_prop.append(");")
@@ -299,16 +299,16 @@ class HarnessSettings:
             outline = "\""
             for j in range(len(jlist)-1):
                 #outline += str(self.list2_tran[i][j])+", "
-                tmp_line = str("{:5f}".format(self.list2_tran[i][j]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_tran[i][j]/targetLib.units.time.magnitude))
                 outline += tmp_line+", "
             if(i == (len(ilist)-1)): 
                 #outline += str(self.list2_tran[i][len(jlist)-1])+"\" \\"
-                tmp_line = str("{:5f}".format(self.list2_tran[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_tran[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\" \\"
             ##  add "," for else 
             else:	
                 #outline += str(self.list2_tran[i][len(jlist)-1])+"\", \\"
-                tmp_line = str("{:5f}".format(self.list2_prop[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_prop[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\", \\"
             self.lut_tran.append(outline)
         self.lut_tran.append(");")
@@ -347,16 +347,16 @@ class HarnessSettings:
             outline = "\""
             for j in range(len(jlist)-1):
                 #outline += str(self.list2_eintl[i][j])+", "
-                tmp_line = str("{:5f}".format(self.list2_eintl[i][j]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_eintl[i][j]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+", "
             if(i == (len(ilist)-1)): 
                 #outline += str(self.list2_eintl[i][len(jlist)-1])+"\" \\"
-                tmp_line = str("{:5f}".format(self.list2_eintl[i][len(jlist)-1]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_eintl[i][len(jlist)-1]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+"\" \\"
             ##  add "," for else 
             else:	
                 #outline += str(self.list2_eintl[i][len(jlist)-1])+"\", \\"
-                tmp_line = str("{:5f}".format(self.list2_eintl[i][len(jlist)-1]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_eintl[i][len(jlist)-1]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+"\" \\"
             self.lut_eintl.append(outline)
         self.lut_eintl.append(");")
@@ -395,16 +395,16 @@ class HarnessSettings:
             outline = "\""
             for j in range(len(jlist)-1):
                 #outline += str(self.list2_ein[i][j])+", "
-                tmp_line = str("{:5f}".format(self.list2_ein[i][j]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_ein[i][j]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+", "
             if(i == (len(ilist)-1)): 
                 #outline += str(self.list2_ein[i][len(jlist)-1])+"\" \\"
-                tmp_line = str("{:5f}".format(self.list2_ein[i][len(jlist)-1]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_ein[i][len(jlist)-1]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+"\" \\"
             ##  add "," for else 
             else:	
                 #outline += str(self.list2_ein[i][len(jlist)-1])+"\", \\"
-                tmp_line = str("{:5f}".format(self.list2_ein[i][len(jlist)-1]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_ein[i][len(jlist)-1]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+"\", \\"
             self.lut_ein.append(outline)
         self.lut_ein.append(");")
@@ -429,7 +429,7 @@ class HarnessSettings:
         for i in range(len(ilist)):
             for j in range(len(jlist)):
                 self.lut_cin += self.list2_cin[i][j]
-        #self.cin = str(self.lut_cin / (len(ilist) * len(jlist))/targetLib.capacitance_mag) ## use average
+        #self.cin = str(self.lut_cin / (len(ilist) * len(jlist))/targetLib.units.capacitance.magnitude) ## use average
         self.cin = str(self.lut_cin / (len(ilist) * len(jlist))) ## use average
         #print("store cin:"+str(self.cin))
 
@@ -467,16 +467,16 @@ class HarnessSettings:
             outline = "\""
             for j in range(len(jlist)-1):
                 #outline += str(self.list2_eclk[i][j])+", "
-                tmp_line = str("{:5f}".format(self.list2_eclk[i][j]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_eclk[i][j]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+", "
             if(i == (len(ilist)-1)): 
                 #outline += str(self.list2_eclk[i][len(jlist)-1])+"\" \\"
-                tmp_line = str("{:5f}".format(self.list2_eclk[i][len(jlist)-1]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_eclk[i][len(jlist)-1]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+"\" \\"
             ##  add "," for else 
             else:	
                 #outline += str(self.list2_eclk[i][len(jlist)-1])+"\", \\"
-                tmp_line = str("{:5f}".format(self.list2_eclk[i][len(jlist)-1]/targetLib.voltage_mag/targetLib.energy_mag))
+                tmp_line = str("{:5f}".format(self.list2_eclk[i][len(jlist)-1]/targetLib.units.voltage.magnitude/targetLib.units.energy.magnitude))
                 outline += tmp_line+"\", \\"
             self.lut_eclk.append(outline)
         self.lut_eclk.append(");")
@@ -501,7 +501,7 @@ class HarnessSettings:
         for i in range(len(ilist)):
             for j in range(len(jlist)):
                 self.lut_cclk += self.list2_cclk[i][j]
-        #self.cclk = str(self.lut_cclk / (len(ilist) * len(jlist))/targetLib.capacitance_mag) ## use average
+        #self.cclk = str(self.lut_cclk / (len(ilist) * len(jlist))/targetLib.units.capacitance.magnitude) ## use average
         self.cclk = str(self.lut_cclk / (len(ilist) * len(jlist))) ## use average
         #print("store cclk:"+str(self.cclk))
 
@@ -525,7 +525,7 @@ class HarnessSettings:
         for i in range(len(ilist)):
             for j in range(len(jlist)):
                 self.lut_pleak += self.list2_pleak[i][j]
-        self.pleak = str(self.lut_pleak / (len(ilist) * len(jlist))/targetLib.leakage_power_mag) # use average
+        self.pleak = str(self.lut_pleak / (len(ilist) * len(jlist))/targetLib.units.leakage_power.magnitude) # use average
     
     ## setup (for flop)
     def set_list2_setup(self, list2_setup=[]):
@@ -563,18 +563,18 @@ class HarnessSettings:
                 #outline += str(self.list2_setup[i][j])+", "
                 print(str(i)+" "+str(j))
                 print(self.list2_setup)
-                print(str("{:5f}".format(self.list2_setup[i][j]/targetLib.time_mag)))
-                tmp_line = str("{:5f}".format(self.list2_setup[i][j]/targetLib.time_mag))
+                print(str("{:5f}".format(self.list2_setup[i][j]/targetLib.units.time.magnitude)))
+                tmp_line = str("{:5f}".format(self.list2_setup[i][j]/targetLib.units.time.magnitude))
                 outline += tmp_line+", "
             ## do not add "," for last line
             if(i == (len(ilist)-1)): 
                 #outline += str(self.list2_setup[i][len(jlist)-1])+"\" \\"
-                tmp_line = str("{:5f}".format(self.list2_setup[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_setup[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\" \\"
             ##  add "," for else 
             else:	
                 #outline += str(self.list2_setup[i][len(jlist)-1])+"\", \\"
-                tmp_line = str("{:5f}".format(self.list2_setup[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_setup[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\", \\"
             self.lut_setup.append(outline)
         self.lut_setup.append(");")
@@ -613,17 +613,17 @@ class HarnessSettings:
             outline = "\""
             for j in range(len(jlist)-1):
                 #outline += str(self.list2_hold[i][j])+", "
-                tmp_line = str("{:5f}".format(self.list2_hold[i][j]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_hold[i][j]/targetLib.units.time.magnitude))
                 outline += tmp_line+", "
             ## do not add "," for last line
             if(i == (len(ilist)-1)): 
                 #outline += str(self.list2_hold[i][len(jlist)-1])+"\" \\"
-                tmp_line = str("{:5f}".format(self.list2_hold[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_hold[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\" \\"
             ##  add "," for else 
             else:	
                 #outline += str(self.list2_hold[i][len(jlist)-1])+"\", \\"
-                tmp_line = str("{:5f}".format(self.list2_hold[i][len(jlist)-1]/targetLib.time_mag))
+                tmp_line = str("{:5f}".format(self.list2_hold[i][len(jlist)-1]/targetLib.units.time.magnitude))
                 outline += tmp_line+"\", \\"
             self.lut_hold.append(outline)
         self.lut_hold.append(");")
