@@ -406,7 +406,7 @@ class LogicCell:
                 ## if this is (2n+1) then store averaged 
                 ## cin into targetCell.cins
                 if((tmp_index % 2) == 1):
-                    self.cclks.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+                    self.cclks.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
                     tmp_cin = 0
                 tmp_index += 1
                 #print("stored cins:"+str(tmp_index)+" for clk")
@@ -415,7 +415,7 @@ class LogicCell:
                 ## if this is (2n+1) then store averaged 
                 ## cin into targetCell.cins
                 if((tmp_index % 2) == 1):
-                    self.crsts.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+                    self.crsts.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
                     tmp_cin = 0
                 tmp_index += 1
                 #print("stored cins:"+str(tmp_index)+" for rst")
@@ -424,7 +424,7 @@ class LogicCell:
                 ## if this is (2n+1) then store averaged 
                 ## cin into targetCell.cins
                 if((tmp_index % 2) == 1):
-                    self.csets.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+                    self.csets.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
                     tmp_cin = 0
                 tmp_index += 1
                 #print("stored cins:"+str(tmp_index)+" for set")
@@ -433,7 +433,7 @@ class LogicCell:
                 ## if this is (2n+1) then store averaged 
                 ## cin into targetCell.cins
                 if((tmp_index % 2) == 1):
-                    self.cins.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+                    self.cins.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
                     tmp_cin = 0
                 tmp_index += 1
                 #print("stored cins:"+str(tmp_index)+" for data")
