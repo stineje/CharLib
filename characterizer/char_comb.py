@@ -699,45 +699,46 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
     # read results
     with open(spicelis,'r') as f:
         for inline in f:
-            if(re.search("hspice", targetLib.simulator)):
+            if 'hspice' in targetLib.simulator:
                 inline = re.sub('\=',' ',inline)
             #targetLib.print_msg(inline)
             # search measure
-            if((re.search("prop_in_out", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                res_prop_in_out = "{:e}".format(float(sparray[2].strip()))
-            elif((re.search("trans_out", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                res_trans_out = "{:e}".format(float(sparray[2].strip()))
-            if(meas_energy == 0):
-                if((re.search("energy_start", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
+            if 'failed' not in inline and 'Error' not in inline:
+                if 'prop_in_out' in inline:
                     sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_energy_start = "{:e}".format(float(sparray[2].strip()))
-                elif((re.search("energy_end", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
+                    res_prop_in_out = "{:e}".format(float(sparray[2].strip()))
+                elif 'trans_out':
                     sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_energy_end = "{:e}".format(float(sparray[2].strip()))
-            if(meas_energy == 1):
-                if((re.search("q_in_dyn", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_q_in_dyn = "{:e}".format(float(sparray[2].strip()))
-                elif((re.search("q_out_dyn", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_q_out_dyn = "{:e}".format(float(sparray[2].strip()))
-                elif((re.search("q_vdd_dyn", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_q_vdd_dyn = "{:e}".format(float(sparray[2].strip()))
-                elif((re.search("q_vss_dyn", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_q_vss_dyn = "{:e}".format(float(sparray[2].strip()))
-                elif((re.search("i_vdd_leak", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_i_vdd_leak = "{:e}".format(float(sparray[2].strip()))
-                elif((re.search("i_vss_leak", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_i_vss_leak = "{:e}".format(float(sparray[2].strip()))
-                elif((re.search("i_in_leak", inline))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-                    res_i_in_leak = "{:e}".format(float(sparray[2].strip()))
+                    res_trans_out = "{:e}".format(float(sparray[2].strip()))
+                if meas_energy == 0:
+                    if 'energy_start' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_energy_start = "{:e}".format(float(sparray[2].strip()))
+                    elif 'energy_end' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_energy_end = "{:e}".format(float(sparray[2].strip()))
+                if meas_energy == 1:
+                    if 'q_in_dyn' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_q_in_dyn = "{:e}".format(float(sparray[2].strip()))
+                    elif 'q_out_dyn' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_q_out_dyn = "{:e}".format(float(sparray[2].strip()))
+                    elif 'q_vdd_dyn' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_q_vdd_dyn = "{:e}".format(float(sparray[2].strip()))
+                    elif 'q_vss_dyn' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_q_vss_dyn = "{:e}".format(float(sparray[2].strip()))
+                    elif 'i_vdd_leak' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_i_vdd_leak = "{:e}".format(float(sparray[2].strip()))
+                    elif 'i_vss_leak' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_i_vss_leak = "{:e}".format(float(sparray[2].strip()))
+                    elif 'i_in_leak' in inline:
+                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        res_i_in_leak = "{:e}".format(float(sparray[2].strip()))
         f.close()
     #targetLib.print_msg(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end))
     # check spice finish successfully
