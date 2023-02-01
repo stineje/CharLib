@@ -5,7 +5,7 @@ from characterizer.LogicCell import LogicCell
 from characterizer.char_comb import *
 from characterizer.char_seq import *
 
-RECONGNIZED_LOGIC = [
+RECOGNIZED_LOGIC = [
     'INV',
     'BUF',
     'AND2',  'AND3',  'AND4',
