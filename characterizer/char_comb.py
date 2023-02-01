@@ -705,40 +705,40 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
             # search measure
             if 'failed' not in inline and 'Error' not in inline:
                 if 'prop_in_out' in inline:
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                    sparray = inline.split() # separate words with spaces
                     res_prop_in_out = "{:e}".format(float(sparray[2].strip()))
                 elif 'trans_out':
-                    sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                    sparray = inline.split() # separate words with spaces
                     print(sparray)
                     res_trans_out = "{:e}".format(float(sparray[2].strip()))
                 if meas_energy == 0:
                     if 'energy_start' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_energy_start = "{:e}".format(float(sparray[2].strip()))
                     elif 'energy_end' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_energy_end = "{:e}".format(float(sparray[2].strip()))
                 if meas_energy == 1:
                     if 'q_in_dyn' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_q_in_dyn = "{:e}".format(float(sparray[2].strip()))
                     elif 'q_out_dyn' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_q_out_dyn = "{:e}".format(float(sparray[2].strip()))
                     elif 'q_vdd_dyn' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_q_vdd_dyn = "{:e}".format(float(sparray[2].strip()))
                     elif 'q_vss_dyn' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_q_vss_dyn = "{:e}".format(float(sparray[2].strip()))
                     elif 'i_vdd_leak' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_i_vdd_leak = "{:e}".format(float(sparray[2].strip()))
                     elif 'i_vss_leak' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_i_vss_leak = "{:e}".format(float(sparray[2].strip()))
                     elif 'i_in_leak' in inline:
-                        sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+                        sparray = inline.split() # separate words with spaces
                         res_i_in_leak = "{:e}".format(float(sparray[2].strip()))
         f.close()
     #targetLib.print_msg(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end))
