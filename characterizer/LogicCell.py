@@ -241,15 +241,15 @@ class LogicCell:
 ##                                 #
     def add_flop(self, line="tmp"):
         tmp_array = line.split('-')
-        ## expected format : add_floop -n(name) DFFRS_X1 /
+        ## expected format : add_flop -n(name) DFFRS_X1 /
         ##                             -l(logic)    DFFARAS : DFF w async RST and async SET
-        ##														  -i(inports)  DATA 
-        ##														  -c(clock)    CLK 
-        ##														  -s(set)      SET   (if used) 
-        ##														  -r(reset)    RESET (if used)
-        ##														  -o(outports) Q QN
-        ##														  -q(flops)    IQ IQN
-        ##														  -f(function) Q=IQ QN=IQN
+        ##                             -i(inports)  DATA 
+        ##                             -c(clock)    CLK 
+        ##                             -s(set)      SET   (if used) 
+        ##                             -r reset)    RESET (if used)
+        ##                             -o(outports) Q QN
+        ##                             -q(flops)    IQ IQN
+        ##                             -f(function) Q=IQ QN=IQN
         self.isflop = 1  ## set as flop
         for options in tmp_array:
 
