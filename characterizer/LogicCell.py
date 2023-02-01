@@ -1,9 +1,11 @@
 import re
 
+from characterizer.Characterizer import RECOGNIZED_LOGIC
+
 class LogicCell:
     def __init__ (self, name: str, logic: str, in_ports: list, out_ports: list, function: str):
         self.name = name            # cell name
-        self.logic = logic
+        self.logic = logic          # logic implemented by this cell
         self.in_ports = in_ports    # input pin names
         self.out_ports = out_ports  # output pin names
         self.functions = function   # cell function
@@ -35,6 +37,88 @@ class LogicCell:
         self.pleak = []         ## cell leak power
         self.inport_pleak = []  ## inport leak power
         self.inport_cap = []    ## inport cap
+
+    def __repr__(self):
+        # TODO
+        return self.name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, value: str):
+        if value is not None and len(value) > 0:
+            self._name = str(value)
+        else:
+            raise ValueError(f'Invalid value for cell name: {value}')
+
+    @property
+    def logic(self) -> str:
+        return self._logic
+    
+    @logic.setter
+    def logic(self, value: str):
+        if value is not None:
+            if value in RECOGNIZED_LOGIC:
+                self._logic = str(value)
+            else:
+                raise ValueError(f'Unrecognized logic: {value}')
+        else:
+            raise ValueError(f'Invalid value for cell logic: {value}')
+
+    @property
+    def in_ports(self) -> list:
+        return self._in_ports
+
+    @in_ports.setter
+    def in_ports(self, value):
+        if value is not None:
+            if isinstance(value, str):
+                # Should be in the format "A B C"
+                # TODO: add parsing for comma separated as well
+                self._in_ports = value.split()
+            elif isinstance(value, list):
+                self._in_ports = value
+            else:
+                raise TypeError(f'Invalid type for in_ports: {type(value)}')
+        else:
+            raise ValueError(f'Invalid value for in_ports: {value}')
+
+    @property
+    def out_ports(self) -> list:
+        return self._out_ports
+
+    @out_ports.setter
+    def out_ports(self, value):
+        if value is not None:
+            if isinstance(value, str):
+                # Should be in the format "Y Z"
+                # TODO: add parsing for comma separated as well
+                self._out_ports = value.split()
+            elif isinstance(value, list):
+                self._out_ports = value
+            else:
+                raise TypeError(f'Invalid type for out_ports: {type(value)}')
+        else:
+            raise ValueError(f'Invalid value for out_ports: {value}')
+
+    @property
+    def functions(self) -> list:
+        return self._functions
+
+    @functions.setter
+    def functions(self, value):
+        if value is not None:
+            if isinstance(value, list):
+                self._functions = value
+            elif isinstance(value, str) and '=' in value:
+                # Should be in the format "Y=stuff"
+                self._functions = value.split('=')[1:] # Discard lefthand side of equation
+            else:
+                raise TypeError(f'Invalid type for cell functions: {type(value)}')
+        else:
+            raise ValueError(f'Invalid value for cell functions: {value}')
 
     def add_slope(self, line="tmp"):
         line = re.sub('\{','',line)

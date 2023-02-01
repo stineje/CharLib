@@ -5,6 +5,30 @@ from characterizer.LogicCell import LogicCell
 from characterizer.char_comb import *
 from characterizer.char_seq import *
 
+RECONGNIZED_LOGIC = [
+    'INV',
+    'BUF',
+    'AND2',  'AND3',  'AND4',
+    'OR2',   'OR3',   'OR4',
+    'NAND2', 'NAND3', 'NAND4',
+    'NOR2',  'NOR3',  'NOR4',
+    'AO21',  'AO22',
+    'OA21',  'OA22',
+    'AOI21', 'AOI22',
+    'OAI21', 'OAI22',
+    'XOR2',
+    'XNOR2',
+    'SEL2',
+    #'HA',
+    #'FA',
+    'DFF_PCPU',
+    'DFF_PCNU',
+    'DFF_NCPU',
+    'DFF_NCNU',
+    'DFF_PCPU_NR',
+    'DFF_PCPU_NRNS',
+]
+
 class Characterizer:
     """Main object of Charlib. Keeps track of settings, cells, and results."""
     
@@ -189,7 +213,6 @@ class Characterizer:
                                     ['0','1','10','0','01'], ['0','1','01','0','10'],
                                     ['0','1','0','10','01'], ['0','1','0','10','10']]
                 return runCombIn4Out1(self.settings, cell, expectationList2,"neg")
-
             elif(cell.logic == 'XOR2'):
                 print ("XOR2\n")
                 #                   [in0, in1, out0]
