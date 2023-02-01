@@ -1,7 +1,7 @@
 import re
 
 class LogicCell:
-    def __init__ (self, name: str, logic: str, in_ports: list[str], out_ports: list[str], function: str):
+    def __init__ (self, name: str, logic: str, in_ports: list, out_ports: list, function: str):
         self.name = name            # cell name
         self.logic = logic
         self.in_ports = in_ports    # input pin names
