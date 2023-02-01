@@ -699,7 +699,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
     # read results
     with open(spicelis,'r') as f:
         for inline in f:
-            if 'hspice' in targetLib.simulator:
+            if 'hspice' in str(targetLib.simulator):
                 inline = re.sub('\=',' ',inline)
             #targetLib.print_msg(inline)
             # search measure
