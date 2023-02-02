@@ -1,16 +1,16 @@
 
 import re, sys
 
-def exportFiles(targetLib, targetCell, harnessList2):
-    if(targetLib.isexport == 0):
+def exportFiles(targetLib, targetCell, harnessList):
+    if not targetLib.is_exported:
         exportLib(targetLib, targetCell)
     ## export comb. logic
-    if((targetLib.isexport == 1) and (targetCell.isexport == 0) and (targetCell.isflop == 0)):
-        exportHarness(targetLib, targetCell, harnessList2)
+    if targetLib.is_exported and not targetCell.is_exported and not targetCell.is_flop:
+        exportHarness(targetLib, targetCell, harnessList)
         exportVerilog(targetLib, targetCell)
     ## export seq. logic
-    elif((targetLib.isexport == 1) and (targetCell.isexport == 0) and (targetCell.isflop == 1)):
-        exportHarnessFlop(targetLib, targetCell, harnessList2)
+    elif targetLib.is_exported and not targetCell.is_exported and targetCell.is_flop:
+        exportHarnessFlop(targetLib, targetCell, harnessList)
         exportVerilogFlop(targetLib, targetCell)
 
 
@@ -21,15 +21,15 @@ def exportLib(targetLib, targetCell):
         ## general settings
         outlines.append("library ("+targetLib.lib_name+"){\n")
         outlines.append("  delay_model : \""+targetLib.delay_model+"\";\n")
-        outlines.append("  capacitive_load_unit (1,"+targetLib.capacitance_unit+");\n")
-        outlines.append("  current_unit : \"1"+targetLib.current_unit+"\";\n")
-        outlines.append("  leakage_power_unit : \"1"+targetLib.leakage_power_unit+"\";\n")
-        outlines.append("  pulling_resistance_unit : \"1"+targetLib.resistance_unit+"\";\n")
-        outlines.append("  time_unit : \"1"+targetLib.time_unit+"\";\n")
-        outlines.append("  voltage_unit : \"1"+targetLib.voltage_unit+"\";\n")
-        outlines.append("  voltage_map ("+targetLib.vdd_name+", "+str(targetLib.vdd_voltage)+");\n")
-        outlines.append("  voltage_map ("+targetLib.vss_name+", "+str(targetLib.vss_voltage)+");\n")
-        outlines.append("  voltage_map (GND , "+str(targetLib.vss_voltage)+");\n")
+        outlines.append("  capacitive_load_unit (1,"+targetLib.units.capacitance.symbol+");\n")
+        outlines.append("  current_unit : \"1"+targetLib.units.current.symbol+"\";\n")
+        outlines.append("  leakage_power_unit : \"1"+targetLib.units.leakage_power.symbol+"\";\n")
+        outlines.append("  pulling_resistance_unit : \"1"+targetLib.units.resistance.symbol+"\";\n")
+        outlines.append("  time_unit : \"1"+targetLib.units.time.symbol+"\";\n")
+        outlines.append("  voltage_unit : \"1"+targetLib.units.voltage.symbol+"\";\n")
+        outlines.append("  voltage_map ("+targetLib.vdd.name+", "+str(targetLib.vdd.voltage)+");\n")
+        outlines.append("  voltage_map ("+targetLib.vss.name+", "+str(targetLib.vss.voltage)+");\n")
+        outlines.append("  voltage_map (GND , "+str(targetLib.vss.voltage)+");\n")
         outlines.append("  default_cell_leakage_power : 0;\n")
         outlines.append("  default_fanout_load : 1;\n")
         outlines.append("  default_max_transition : 1000;\n")
@@ -43,7 +43,7 @@ def exportLib(targetLib, targetCell):
         outlines.append("  input_threshold_pct_rise : "+str(targetLib.logic_low_to_high_threshold*100)+";\n")
         outlines.append("  nom_process : 1;\n")
         outlines.append("  nom_temperature : \""+str(targetLib.temperature)+"\";\n")
-        outlines.append("  nom_voltage : \""+str(targetLib.vdd_voltage)+"\";\n")
+        outlines.append("  nom_voltage : \""+str(targetLib.vdd.voltage)+"\";\n")
         outlines.append("  output_threshold_pct_fall : "+str(targetLib.logic_high_to_low_threshold*100)+";\n")
         outlines.append("  output_threshold_pct_rise : "+str(targetLib.logic_low_to_high_threshold*100)+";\n")
         outlines.append("  slew_derate_from_library : 1;\n")
@@ -55,7 +55,7 @@ def exportLib(targetLib, targetCell):
         outlines.append("  operating_conditions ("+targetLib.operating_conditions+") {\n")
         outlines.append("    process : 1;\n")
         outlines.append("    temperature : "+str(targetLib.temperature)+";\n")
-        outlines.append("    voltage : "+str(targetLib.vdd_voltage)+";\n")
+        outlines.append("    voltage : "+str(targetLib.vdd.voltage)+";\n")
         outlines.append("  }\n")
         outlines.append("  default_operating_conditions : "+targetLib.operating_conditions+";\n")
         outlines.append("  lu_table_template (constraint_template) {\n")
@@ -96,22 +96,22 @@ def exportLib(targetLib, targetCell):
         outlines.append("    index_1 "+targetCell.return_slope()+"\n")
         outlines.append("    index_2 "+targetCell.return_load()+"\n")
         outlines.append("  }\n")
-        outlines.append("  input_voltage (default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input) {\n")
-        outlines.append("    vil : "+str(targetLib.vss_voltage)+";\n")
-        outlines.append("    vih : "+str(targetLib.vdd_voltage)+";\n")
-        outlines.append("    vimin : "+str(targetLib.vss_voltage)+";\n")
-        outlines.append("    vimax : "+str(targetLib.vdd_voltage)+";\n")
+        outlines.append("  input_voltage (default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_input) {\n")
+        outlines.append("    vil : "+str(targetLib.vss.voltage)+";\n")
+        outlines.append("    vih : "+str(targetLib.vdd.voltage)+";\n")
+        outlines.append("    vimin : "+str(targetLib.vss.voltage)+";\n")
+        outlines.append("    vimax : "+str(targetLib.vdd.voltage)+";\n")
         outlines.append("  }\n")
-        outlines.append("  output_voltage (default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_output) {\n")
-        outlines.append("    vol : "+str(targetLib.vss_voltage)+";\n")
-        outlines.append("    voh : "+str(targetLib.vdd_voltage)+";\n")
-        outlines.append("    vomin : "+str(targetLib.vss_voltage)+";\n")
-        outlines.append("    vomax : "+str(targetLib.vdd_voltage)+";\n")
+        outlines.append("  output_voltage (default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_output) {\n")
+        outlines.append("    vol : "+str(targetLib.vss.voltage)+";\n")
+        outlines.append("    voh : "+str(targetLib.vdd.voltage)+";\n")
+        outlines.append("    vomin : "+str(targetLib.vss.voltage)+";\n")
+        outlines.append("    vomax : "+str(targetLib.vdd.voltage)+";\n")
         outlines.append("  }\n")
     
         f.writelines(outlines)
     f.close()
-    targetLib.export()
+    targetLib.set_exported()
 
     ## for verilog file 
     outlines = []
@@ -125,33 +125,33 @@ def exportLib(targetLib, targetCell):
 def exportHarness(targetLib, targetCell, harnessList2):
     with open(targetLib.dotlib_name, 'a') as f:
         outlines = []
-        outlines.append("  cell ("+targetCell.cell+") {\n") ## cell start
+        outlines.append("  cell ("+targetCell.name+") {\n") ## cell start
         outlines.append("    area : "+str(targetCell.area)+";\n")
         ##outlines.append("    cell_leakage_power : "+targetCell.pleak+";\n")
         outlines.append("    cell_leakage_power : "+harnessList2[0][0].pleak+";\n") ## use leak of 1st harness
-        outlines.append("    pg_pin ("+targetLib.vdd_name+"){\n")
+        outlines.append("    pg_pin ("+targetLib.vdd.name+"){\n")
         outlines.append("      pg_type : primary_power;\n")
-        outlines.append("      voltage_name : \""+targetLib.vdd_name+"\";\n")
+        outlines.append("      voltage_name : \""+targetLib.vdd.name+"\";\n")
         outlines.append("    }\n")
-        outlines.append("    pg_pin ("+targetLib.vss_name+"){\n")
+        outlines.append("    pg_pin ("+targetLib.vss.name+"){\n")
         outlines.append("      pg_type : primary_ground;\n")
-        outlines.append("      voltage_name : \""+targetLib.vss_name+"\";\n")
+        outlines.append("      voltage_name : \""+targetLib.vss.name+"\";\n")
         outlines.append("    }\n")
 
         ## select one output pin from pinlist(target_outports) 
-        for target_outport in targetCell.outports:
-            index1 = targetCell.outports.index(target_outport) 
+        for target_outport in targetCell.out_ports:
+            index1 = targetCell.out_ports.index(target_outport) 
             outlines.append("    pin ("+target_outport+"){\n") ## out pin start
             outlines.append("      direction : output;\n")
             outlines.append("      function : \"("+targetCell.functions[index1]+")\"\n")
-            outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
-            outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
+            outlines.append("      related_power_pin : \""+targetLib.vdd.name+"\";\n")
+            outlines.append("      related_ground_pin : \""+targetLib.vss.name+"\";\n")
             outlines.append("      max_capacitance : \""+str(targetCell.load[-1])+"\";\n") ## use max val. of load table
-            outlines.append("      output_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_output;\n")
+            outlines.append("      output_voltage : default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_output;\n")
             ## timing
-            for target_inport in targetCell.inports:
+            for target_inport in targetCell.in_ports:
                 outlines.append("      timing () {\n")
-                index2 = targetCell.inports.index(target_inport) 
+                index2 = targetCell.in_ports.index(target_inport) 
                 outlines.append("        related_pin : \""+target_inport+"\";\n")
                 outlines.append("        timing_sense : \""+harnessList2[index1][index2*2].timing_sense+"\";\n")
                 outlines.append("        timing_type : \""+harnessList2[index1][index2*2].timing_type+"\";\n")
@@ -179,9 +179,9 @@ def exportHarness(targetLib, targetCell, harnessList2):
                 outlines.append("        }\n") 
                 outlines.append("      }\n") ## timing end 
             ## power
-            for target_inport in targetCell.inports:
+            for target_inport in targetCell.in_ports:
                 outlines.append("      internal_power () {\n")
-                index2 = targetCell.inports.index(target_inport) 
+                index2 = targetCell.in_ports.index(target_inport) 
                 outlines.append("        related_pin : \""+target_inport+"\";\n")
                 ## rise(fall)
                 outlines.append("        "+harnessList2[index1][index2*2].direction_power+" (power_template) {\n")
@@ -197,15 +197,15 @@ def exportHarness(targetLib, targetCell, harnessList2):
             outlines.append("    }\n") ## out pin end
 
         ## select one input pin from pinlist(target_inports) 
-        for target_inport in targetCell.inports:
-            index1 = targetCell.inports.index(target_inport) 
+        for target_inport in targetCell.in_ports:
+            index1 = targetCell.in_ports.index(target_inport) 
             outlines.append("    pin ("+target_inport+"){\n") ## out pin start
             outlines.append("      direction : input; \n")
-            outlines.append("      related_power_pin : "+targetLib.vdd_name+";\n")
-            outlines.append("      related_ground_pin : "+targetLib.vss_name+";\n")
+            outlines.append("      related_power_pin : "+targetLib.vdd.name+";\n")
+            outlines.append("      related_ground_pin : "+targetLib.vss.name+";\n")
             outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
             outlines.append("      capacitance : \""+str(targetCell.cins[index1])+"\";\n")
-            outlines.append("      input_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input;\n")
+            outlines.append("      input_voltage : default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_input;\n")
             outlines.append("    }\n") ## in pin end
 
         outlines.append("  }\n") ## cell end
@@ -218,22 +218,22 @@ def exportHarness(targetLib, targetCell, harnessList2):
 def exportHarnessFlop(targetLib, targetCell, harnessList2):
     with open(targetLib.dotlib_name, 'a') as f:
         outlines = []
-        outlines.append("  cell ("+targetCell.cell+") {\n") #### cell start
+        outlines.append("  cell ("+targetCell.name+") {\n") #### cell start
         outlines.append("    area : "+str(targetCell.area)+";\n")
 ##		outlines.append("    cell_leakage_power : "+targetCell.leak+";\n")
-        outlines.append("    pg_pin ("+targetLib.vdd_name+"){\n")
+        outlines.append("    pg_pin ("+targetLib.vdd.name+"){\n")
         outlines.append("      pg_type : primary_power;\n")
-        outlines.append("      voltage_name : \""+targetLib.vdd_name+"\";\n")
+        outlines.append("      voltage_name : \""+targetLib.vdd.name+"\";\n")
         outlines.append("    }\n")
-        outlines.append("    pg_pin ("+targetLib.vss_name+"){\n")
+        outlines.append("    pg_pin ("+targetLib.vss.name+"){\n")
         outlines.append("      pg_type : primary_ground;\n")
-        outlines.append("      voltage_name : \""+targetLib.vss_name+"\";\n")
+        outlines.append("      voltage_name : \""+targetLib.vss.name+"\";\n")
         outlines.append("    }\n")
 
         ## define flop
         outlines.append("    ff ("+str(targetCell.flops[0])+","+str(targetCell.flops[1])+"){\n") 
         outlines.append("    clocked_on : \""+targetCell.clock+"\";\n") 
-        for target_inport in targetCell.inports:
+        for target_inport in targetCell.in_ports:
             outlines.append("    next_state : \""+target_inport+"\";\n") 
         if targetCell.reset is not None:
             outlines.append("    clear : \""+targetCell.reset+"\";\n") 
@@ -254,11 +254,11 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
             target_inport = targetCell.clock
             outlines.append("    pin ("+target_inport+"){\n") ## clock pin start 
             outlines.append("      direction : input;\n")
-            outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
-            outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
+            outlines.append("      related_power_pin : \""+targetLib.vdd.name+"\";\n")
+            outlines.append("      related_ground_pin : \""+targetLib.vss.name+"\";\n")
             outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
             outlines.append("      capacitance : \""+str(targetCell.cclks[index1])+"\";\n")
-            outlines.append("      input_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input;\n")
+            outlines.append("      input_voltage : default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_input;\n")
             outlines.append("      clock : true;\n") 
     #   internal_power() {
     #     rise_power(passive_energy_template_7x1) {
@@ -279,20 +279,20 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
         ##
         ## (2) prop/tran/setup/hold for input pins 
         ##
-        for target_inport in targetCell.inports:
-            for target_outport in targetCell.outports:
+        for target_inport in targetCell.in_ports:
+            for target_outport in targetCell.out_ports:
                 ## select inport with setup/hold informatioin
-                index2 = targetCell.inports.index(target_inport) 
-                index1 = targetCell.outports.index(target_outport) 
+                index2 = targetCell.in_ports.index(target_inport) 
+                index1 = targetCell.out_ports.index(target_outport) 
                 #print(harnessList2[index1][index2*2].timing_type_setup)
                 if((harnessList2[index1][index2*2].timing_type_setup == "setup_rising") or (harnessList2[index1][index2*2].timing_type_setup == "setup_falling")):
                     outlines.append("    pin ("+target_inport+"){\n") #### inport pin start 
                     outlines.append("      direction : input;\n")
-                    outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
-                    outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
+                    outlines.append("      related_power_pin : \""+targetLib.vdd.name+"\";\n")
+                    outlines.append("      related_ground_pin : \""+targetLib.vss.name+"\";\n")
                     outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
                     outlines.append("      capacitance : \""+str(targetCell.cins[index1])+"\";\n")
-                    outlines.append("      input_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input;\n")
+                    outlines.append("      input_voltage : default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_input;\n")
                     ## (2-1) setup
                     outlines.append("      timing () {\n")
                     outlines.append("        related_pin : \""+targetCell.clock+"\";\n")
@@ -310,7 +310,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                     outlines.append("      }\n") 
                     ## (2-2) hold
                     outlines.append("      timing () {\n")
-                    index1 = targetCell.outports.index(target_outport) 
+                    index1 = targetCell.out_ports.index(target_outport) 
                     outlines.append("        related_pin : \""+targetCell.clock+"\";\n")
                     outlines.append("        timing_type : \""+harnessList2[index1][index2*2].timing_type_hold+"\";\n")
                     ## hold rise
@@ -329,21 +329,21 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
         ##
         ## (3) outport 
         ##
-        for target_outport in targetCell.outports:
-            index1 = targetCell.outports.index(target_outport) 
+        for target_outport in targetCell.out_ports:
+            index1 = targetCell.out_ports.index(target_outport) 
             outlines.append("    pin ("+target_outport+"){\n") #### out pin start
             outlines.append("      direction : output;\n")
             outlines.append("      function : \"("+targetCell.functions[index1]+")\"\n")
-            outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
-            outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
+            outlines.append("      related_power_pin : \""+targetLib.vdd.name+"\";\n")
+            outlines.append("      related_ground_pin : \""+targetLib.vss.name+"\";\n")
             outlines.append("      max_capacitance : \""+str(targetCell.load[-1])+"\";\n") ## use max val. of load table
-            outlines.append("      output_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_output;\n")
+            outlines.append("      output_voltage : default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_output;\n")
             ## (3-1) clock
             if targetCell.clock is not None:
                 ## index2 is a base pointer for harness search
                 ## index2_offset and index2_offset_max are used to 
                 ## search harness from harnessList2 which contain "timing_type_set"
-                index2 = targetCell.outports.index(target_outport) 
+                index2 = targetCell.out_ports.index(target_outport) 
                 index2_offset = 0
                 index2_offset_max = 10
                 while(index2_offset < index2_offset_max):
@@ -393,7 +393,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                 ## index2 is an base pointer for harness search
                 ## index2_offset and index2_offset_max are used to 
                 ## search harness from harnessList2 which contain "timing_type_set"
-                index2 = targetCell.outports.index(target_outport) 
+                index2 = targetCell.out_ports.index(target_outport) 
                 index2_offset = 0
                 index2_offset_max = 10
                 while(index2_offset < index2_offset_max):
@@ -429,7 +429,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                 ## index2 is an base pointer for harness search
                 ## index2_offset and index2_offset_max are used to 
                 ## search harness from harnessList2 which contain "timing_type_set"
-                index2 = targetCell.outports.index(target_outport) 
+                index2 = targetCell.out_ports.index(target_outport) 
                 index2_offset = 0
                 index2_offset_max = 10
                 while(index2_offset < index2_offset_max):
@@ -461,7 +461,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                 ## index2 is a base pointer for harness search
                 ## index2_offset and index2_offset_max are used to 
                 ## search harness from harnessList2 which contain "timing_type_set"
-                index2 = targetCell.outports.index(target_outport) 
+                index2 = targetCell.out_ports.index(target_outport) 
                 index2_offset = 0
                 index2_offset_max = 10
                 while(index2_offset < index2_offset_max):
@@ -473,7 +473,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                     exit()
 
                 outlines.append("      internal_power () {\n")
-                index2 = targetCell.inports.index(target_inport) 
+                index2 = targetCell.in_ports.index(target_inport) 
                 outlines.append("        related_pin : \""+targetCell.clock+"\";\n")
                 ## rise(fall)
                 outlines.append("        "+harnessList2[index1][index2*2].direction_power+" (power_template) {\n")
@@ -494,7 +494,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                 ## index2 is an base pointer for harness search
                 ## index2_offset and index2_offset_max are used to 
                 ## search harness from harnessList2 which contain "timing_type_set"
-                index2 = targetCell.outports.index(target_outport) 
+                index2 = targetCell.out_ports.index(target_outport) 
                 index2_offset = 0
                 index2_offset_max = 10
                 while(index2_offset < index2_offset_max):
@@ -507,7 +507,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                     exit()
 
                 outlines.append("      internal_power () {\n")
-                index2 = targetCell.inports.index(target_inport) 
+                index2 = targetCell.in_ports.index(target_inport) 
                 outlines.append("        related_pin : \""+targetCell.reset+"\";\n")
                 ## rise(fall)
                 outlines.append("        "+harnessList2[index1][index2*2].direction_power+" (power_template) {\n")
@@ -528,7 +528,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                 ## index2 is an base pointer for harness search
                 ## index2_offset and index2_offset_max are used to 
                 ## search harness from harnessList2 which contain "timing_type_set"
-                index2 = targetCell.outports.index(target_outport) 
+                index2 = targetCell.out_ports.index(target_outport) 
                 index2_offset = 0
                 index2_offset_max = 10
                 while(index2_offset < index2_offset_max):
@@ -541,7 +541,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
                     exit()
 
                 outlines.append("      internal_power () {\n")
-                index2 = targetCell.inports.index(target_inport) 
+                index2 = targetCell.in_ports.index(target_inport) 
                 outlines.append("        related_pin : \""+targetCell.set+"\";\n")
                 ## rise(fall)
                 outlines.append("        "+harnessList2[index1][index2*2].direction_power+" (power_template) {\n")
@@ -565,19 +565,19 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
             outlines.append("    pin ("+target_reset+"){\n") #### out pin start
             outlines.append("      direction : input;\n")
             #outlines.append("      function : \"("+targetCell.functions[index1]+")\"\n")
-            outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
-            outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
+            outlines.append("      related_power_pin : \""+targetLib.vdd.name+"\";\n")
+            outlines.append("      related_ground_pin : \""+targetLib.vss.name+"\";\n")
             outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
             ##outlines.append("      capacitance : \""+str(targetCell.crsts[index1])+"\";\n")
             outlines.append("      capacitance : \""+str(targetCell.crsts[0])+"\";\n") # use 0 as representative
-            outlines.append("      input_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input;\n")
+            outlines.append("      input_voltage : default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_input;\n")
             ##target_inport = targetCell.reset
   
             ## Harness search for reset
             ## index2 is an base pointer for harness search
             ## index2_offset and index2_offset_max are used to 
             ## search harness from harnessList2 which contain "timing_type_set"
-            index2 = targetCell.outports.index(target_outport) 
+            index2 = targetCell.out_ports.index(target_outport) 
             index2_offset = 0
             index2_offset_max = 10
             while(index2_offset < index2_offset_max):
@@ -594,10 +594,10 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
             outlines.append("      timing () {\n")
             outlines.append("        related_pin : \""+targetCell.clock+"\";\n")
             outlines.append("        timing_type : \""+harnessList2[index1][index2*2+index2_offset].timing_type_reset_recov+"\";\n")
-            if (1 != len(targetCell.inports)):
-                print ("Error: number of targetCell.inports is "+str(len(targetCell.inports))+", not one! die" )
+            if (1 != len(targetCell.in_ports)):
+                print ("Error: number of targetCell.in_ports is "+str(len(targetCell.in_ports))+", not one! die" )
                 exit()
-            #for target_inport in targetCell.inports: ## only one target_inport should be available
+            #for target_inport in targetCell.in_ports: ## only one target_inport should be available
             #	outlines.append("        when : \""+harnessList2[index1][index2*2+index2_offset].timing_type_reset+"\";\n")
             outlines.append("        "+harnessList2[index1][index2*2+index2_offset].timing_sense_reset_recov+" (recovery_template) {\n")
             for lut_line in harnessList2[index1][index2*2+index2_offset].lut_setup:
@@ -608,10 +608,10 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
             outlines.append("      timing () {\n")
             outlines.append("        related_pin : \""+targetCell.clock+"\";\n")
             outlines.append("        timing_type : \""+harnessList2[index1][index2*2+index2_offset].timing_type_reset_remov+"\";\n")
-            if (1 != len(targetCell.inports)):
-                print ("Error: number of targetCell.inports is "+str(len(targetCell.inports))+", not one! die" )
+            if (1 != len(targetCell.in_ports)):
+                print ("Error: number of targetCell.in_ports is "+str(len(targetCell.in_ports))+", not one! die" )
                 exit()
-            #for target_inport in targetCell.inports: ## only one target_inport should be available
+            #for target_inport in targetCell.in_ports: ## only one target_inport should be available
             #	outlines.append("        when : \""+harnessList2[index1][index2*2+index2_offset].timing_type_reset+"\";\n")
             outlines.append("        "+harnessList2[index1][index2*2+index2_offset].timing_sense_reset_remov+" (removal_template) {\n")
             for lut_line in harnessList2[index1][index2*2+index2_offset].lut_hold:
@@ -628,19 +628,19 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
             outlines.append("    pin ("+target_set+"){\n") #### out pin start
             outlines.append("      direction : input;\n")
             #outlines.append("      function : \"("+targetCell.functions[index1]+")\"\n")
-            outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
-            outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
+            outlines.append("      related_power_pin : \""+targetLib.vdd.name+"\";\n")
+            outlines.append("      related_ground_pin : \""+targetLib.vss.name+"\";\n")
             outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
             #outlines.append("      capacitance : \""+str(targetCell.csets[index1])+"\";\n")
             outlines.append("      capacitance : \""+str(targetCell.csets[0])+"\";\n") # use 0 as representative val
-            outlines.append("      input_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input;\n")
+            outlines.append("      input_voltage : default_"+targetLib.vdd.name+"_"+targetLib.vss.name+"_input;\n")
             ##target_inport = targetCell.set
   
             ## Harness search for set
             ## index2 is an base pointer for harness search
             ## index2_offset and index2_offset_max are used to 
             ## search harness from harnessList2 which contain "timing_type_set"
-            index2 = targetCell.outports.index(target_outport) 
+            index2 = targetCell.out_ports.index(target_outport) 
             index2_offset = 0
             index2_offset_max = 10
             while(index2_offset < index2_offset_max):
@@ -656,10 +656,10 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
             outlines.append("      timing () {\n")
             outlines.append("        related_pin : \""+targetCell.clock+"\";\n")
             outlines.append("        timing_type : \""+harnessList2[index1][index2*2+index2_offset].timing_type_set_recov+"\";\n")
-            if (1 != len(targetCell.inports)):
-                print ("Error: number of targetCell.inports is "+str(len(targetCell.inports))+", not one! die" )
+            if (1 != len(targetCell.in_ports)):
+                print ("Error: number of targetCell.in_ports is "+str(len(targetCell.in_ports))+", not one! die" )
                 exit()
-            #for target_inport in targetCell.inports: ## only one target_inport should be available
+            #for target_inport in targetCell.in_ports: ## only one target_inport should be available
             #	outlines.append("        when : \""+harnessList2[index1][index2*2+index2_offset].timing_type_set+"\";\n")
             outlines.append("        "+harnessList2[index1][index2*2+index2_offset].timing_sense_set_recov+" (recovery_template) {\n")
             for lut_line in harnessList2[index1][index2*2+index2_offset].lut_setup:
@@ -671,10 +671,10 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
             outlines.append("      timing () {\n")
             outlines.append("        related_pin : \""+targetCell.clock+"\";\n")
             outlines.append("        timing_type : \""+harnessList2[index1][index2*2+index2_offset].timing_type_set_remov+"\";\n")
-            if (1 != len(targetCell.inports)):
-                print ("Error: number of targetCell.inports is "+str(len(targetCell.inports))+", not one! die" )
+            if (1 != len(targetCell.in_ports)):
+                print ("Error: number of targetCell.in_ports is "+str(len(targetCell.in_ports))+", not one! die" )
                 exit()
-            #for target_inport in targetCell.inports: ## only one target_inport should be available
+            #for target_inport in targetCell.in_ports: ## only one target_inport should be available
             #	outlines.append("        when : \""+harnessList2[index1][index2*2+index2_offset].timing_type_set+"\";\n")
             outlines.append("        "+harnessList2[index1][index2*2+index2_offset].timing_sense_set_remov+" (removal_template) {\n")
             for lut_line in harnessList2[index1][index2*2+index2_offset].lut_hold:
@@ -697,22 +697,22 @@ def exportVerilog(targetLib, targetCell):
         ## list ports in one line 
         portlist = "("
         numport = 0
-        for target_outport in targetCell.outports:
+        for target_outport in targetCell.out_ports:
             if(numport != 0):
                 portlist = portlist+", "
             portlist = portlist+target_outport
             numport += 1
-        for target_inport in targetCell.inports:
+        for target_inport in targetCell.in_ports:
             portlist = portlist+","+target_inport
             numport += 1
         portlist = portlist+");"
 
-        outlines.append("module "+targetCell.cell+portlist+"\n")
+        outlines.append("module "+targetCell.name+portlist+"\n")
 
         ## input/output statement
-        for target_outport in targetCell.outports:
+        for target_outport in targetCell.out_ports:
             outlines.append("output "+target_outport+";\n")
-        for target_inport in targetCell.inports:
+        for target_inport in targetCell.in_ports:
             outlines.append("input "+target_inport+";\n")
 
         ## branch for sequencial cell
@@ -723,8 +723,8 @@ def exportVerilog(targetLib, targetCell):
         ## branch for combinational cell
         else:
         ## assign statement
-            for target_outport in targetCell.outports:
-                index1 = targetCell.outports.index(target_outport) 
+            for target_outport in targetCell.out_ports:
+                index1 = targetCell.out_ports.index(target_outport) 
                 outlines.append("assign "+target_outport+" = "+targetCell.functions[index1]+";\n")
 
         outlines.append("endmodule\n\n")
@@ -740,12 +740,12 @@ def exportVerilogFlop(targetLib, targetCell):
         ## list ports in one line 
         portlist = "("
         numport = 0
-        for target_outport in targetCell.outports:
+        for target_outport in targetCell.out_ports:
             if(numport != 0):
                 portlist = portlist+", "
             portlist = portlist+target_outport
             numport += 1
-        for target_inport in targetCell.inports:
+        for target_inport in targetCell.in_ports:
             portlist = portlist+","+target_inport
             numport += 1
         if targetCell.clock is not None:
@@ -759,12 +759,12 @@ def exportVerilogFlop(targetLib, targetCell):
             numport += 1
         portlist = portlist+");"
 
-        outlines.append("module "+targetCell.cell+portlist+"\n")
+        outlines.append("module "+targetCell.name+portlist+"\n")
 
         ## input/output statement
-        for target_outport in targetCell.outports:
+        for target_outport in targetCell.out_ports:
             outlines.append("output "+target_outport+";\n")
-        for target_inport in targetCell.inports:
+        for target_inport in targetCell.in_ports:
             outlines.append("input "+target_inport+";\n")
         if targetCell.clock is not None:
             outlines.append("input "+targetCell.clock+";\n")
@@ -774,8 +774,8 @@ def exportVerilogFlop(targetLib, targetCell):
             outlines.append("input "+targetCell.set+";\n")
 
         ## assign statement
-        for target_outport in targetCell.outports:
-            for target_inport in targetCell.inports:
+        for target_outport in targetCell.out_ports:
+            for target_inport in targetCell.in_ports:
                 line = 'always@('
                 resetlines = []
                 setlines = []

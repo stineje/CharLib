@@ -1,6 +1,5 @@
 class HarnessSettings:
     def __init__ (self):
-        self.instance = None          ## instance name
         self.target_inport = None     ## target inport name
         self.target_outport = None    ## target outport name
         self.stable_inport = []       ## stable imports
@@ -99,7 +98,7 @@ class HarnessSettings:
 #			self.direction_clock_prop = "cell_fall"
 #			self.direction_clock_tran = "fall_transition"
 #		else:
-#			print("Warning: illigal outport type at set_timing_flop_set: "+str(inport))
+#			print("Warning: illegal outport type at set_timing_flop_set: "+str(inport))
 
     def set_timing_flop_set(self, targetCell, inport="01", outport="01"):
         ## inport
@@ -114,7 +113,7 @@ class HarnessSettings:
             self.timing_sense_set_recov = "fall_constraint"
             self.timing_sense_set_remov = "fall_constraint"
         else:
-            print("Warning: illigal inport type at set_timing_flop_set: "+str(inport))
+            print("Warning: illegal inport type at set_timing_flop_set: "+str(inport))
         ## outport
         if((outport == "01")or(outport.upper() == "RISE")):
             self.timing_type_set = "preset"
@@ -129,7 +128,7 @@ class HarnessSettings:
             self.timing_type_set_recov = "recovery_falling"
             self.timing_type_set_remov = "removal_rising"
         else:
-            print("Warning: illigal outport type at set_timing_flop_set: "+str(inport))
+            print("Warning: illegal outport type at set_timing_flop_set: "+str(inport))
 
     def set_timing_flop_reset(self, targetCell, inport="01", outport="01"):
         ## inport
@@ -144,7 +143,7 @@ class HarnessSettings:
             self.timing_sense_reset_recov = "fall_constraint"
             self.timing_sense_reset_remov = "fall_constraint"
         else:
-            print("Warning: illigal inport type at set_timing_flop_reset: "+str(inport))
+            print("Warning: illegal inport type at set_timing_flop_reset: "+str(inport))
         ## outport
         if((outport == "01")or(outport.upper() == "RISE")):
             self.timing_type_reset = "preset"
@@ -159,7 +158,7 @@ class HarnessSettings:
             self.timing_type_reset_recov = "recovery_falling"
             self.timing_type_reset_remov = "removal_rising"
         else:
-            print("Warning: illigal outport type at set_timing_flop_reset: "+str(inport))
+            print("Warning: illegal outport type at set_timing_flop_reset: "+str(inport))
 
     def set_function(self, function="tmp"):
         self.function = function 

@@ -19,7 +19,7 @@ def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
             tmp_Harness.set_target_inport (targetCell.in_ports[0], tmp_inp0_val)
             tmp_Harness.set_stable_inport ("NULL", "NULL")
         else:
-            print ("Illiegal input vector type!!")
+            print ("Illegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")

@@ -68,7 +68,7 @@ class LibrarySettings:
         self._mt_sim = True
 
         # Behavioral settings
-        self._is_export = False
+        self._is_exported = False # whether the library settings have been exported
         self._suppress_msg = False
         self._suppress_sim_msg = False
         self._suppress_debug_msg = False
@@ -293,6 +293,17 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for operating_conditions: {value}')
 
     @property
+    def delay_model(self) -> str:
+        return self._delay_model
+    
+    @delay_model.setter
+    def delay_model(self, value: str):
+        if value is not None and len(value) > 0:
+            self._delay_model = value
+        else:
+            raise ValueError(f'Invalid value for delay_model: {value}')
+
+    @property
     def run_sim(self) -> bool:
         return self._run_sim
 
@@ -325,10 +336,10 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for mt_sim: {value}')
     
     @property
-    def is_export(self) -> bool:
-        return self._is_export
+    def is_exported(self) -> bool:
+        return self._is_exported
 
-    def export(self):
+    def set_exported(self):
         self._is_export = True
 
     @property

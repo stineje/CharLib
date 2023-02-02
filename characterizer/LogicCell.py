@@ -1,5 +1,7 @@
 import re
 
+from characterizer.HarnessSettings import HarnessSettings
+
 RECOGNIZED_LOGIC = [
     'INV',
     'BUF',
@@ -25,27 +27,29 @@ RECOGNIZED_LOGIC = [
 ]
  
 class LogicCell:
-    def __init__ (self, name: str, logic: str, in_ports: list, out_ports: list, function: str):
+    def __init__ (self, name: str, logic: str, in_ports: list, out_ports: list, function: str, area: float = 0):
         self.name = name            # cell name
         self.logic = logic          # logic implemented by this cell
         self.in_ports = in_ports    # input pin names
         self.out_ports = out_ports  # output pin names
         self.functions = function   # cell function
 
-        self.area = None    ## set area 
-        self.cins = []      ## inport caps
+        self.area = area    # cell area 
+        self.cins = []      # input pin capacitances
+        self.harnesses = [] # list of harnessSettings
+
+        # Settings for sequential cells
         self.clock = None   ## clock pin for flop
         self.set = None     ## set pin for flop
-        self.reset = None   ## reset pin for flop 
+        self.reset = None   ## reset pin for flop
         self.cclks = []     ## clock pin cap. for flop
         self.csets = []     ## set pin cap. for flop
-        self.crsts = []     ## reset pin cap. for flop 
-        self.flops = []     ## registers 
-        self.slope = []     ## inport slope
-        self.cslope = 0     ## inport clock slope
+        self.crsts = []     ## reset pin cap. for flop
+        self.flops = []     ## registers
+        self.slope = []     ## input pin slope
+        self.cslope = 0     ## input pin clock slope 
         self.load = []      ## outport load
-        self.simulation_timestep = 0 ## simulation timestep 
-        self.isexport = 0   ## exported or not
+        self.simulation_timestep = 0 ## simulation timestep
         self.isflop = 0     ## DFF or not
         ## setup
         self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
@@ -56,9 +60,10 @@ class LogicCell:
         self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
         self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
         ## power
-        self.pleak = []         ## cell leak power
-        self.inport_pleak = []  ## inport leak power
-        self.inport_cap = []    ## inport cap
+        self.pleak = []             ## cell leak power
+
+        # Behavioral settings
+        self._is_exported = False   # whether the cell has been exported
 
     def __repr__(self):
         # TODO
@@ -142,6 +147,26 @@ class LogicCell:
         else:
             raise ValueError(f'Invalid value for cell functions: {value}')
 
+    @property
+    def area(self) -> float:
+        return self._area
+
+    @area.setter
+    def area(self, value: float):
+        if value is not None:
+            self._area = float(value)
+        else:
+            raise ValueError(f'Invalid value for cell area: {value}')
+
+    # TODO: def add_harness(self, port, )
+
+    @property
+    def is_exported(self) -> bool:
+        return self._is_exported
+
+    def set_exported(self):
+        self._is_exported = True
+
     def add_slope(self, line="tmp"):
         line = re.sub('\{','',line)
         line = re.sub('\}','',line)
@@ -178,10 +203,6 @@ class LogicCell:
         outline += str(jlist[len(jlist)-1])+"\");" 
         return outline
 
-    def add_area(self, line="tmp"):
-        tmp_array = line.split()
-        self.area = float(tmp_array[1]) 
-
     def add_netlist(self, line="tmp"):
         tmp_array = line.split()
         self.netlist = tmp_array[1]
@@ -190,7 +211,7 @@ class LogicCell:
         lines = open(self.netlist, "r")
         ## search cell name in the netlist
         for line in lines:
-            #print("self.cell.lower:"+str(self.cell.lower()))
+            #print("self.name.lower:"+str(self.name.lower()))
             #print("line.lower:"+str(line.lower()))
             if((self.name.lower() in line.lower()) and (".subckt" in line.lower())):
                 print("Cell definition found!")
@@ -229,9 +250,6 @@ class LogicCell:
         else:
             self.simulation_timestep = float(tmp_array[1])
 
-    def set_exported(self):
-        self.isexport = 1 
-
     def set_inport_cap_pleak(self, index, harness):
         ## average leak power of all harness
         self.pleak += harness.pleak 
@@ -260,7 +278,7 @@ class LogicCell:
             elif(re.match("^n ", options)):
                 tmp_array2 = options.split() 
                 self.name = tmp_array2[1] 
-                #print (self.cell)
+                #print (self.name)
             ## -l option (logic type)
             elif(re.match("^l ", options)):
                 tmp_array2 = options.split() 

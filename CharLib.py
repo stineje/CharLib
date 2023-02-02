@@ -54,8 +54,11 @@ def execute_batch(characterizer: Characterizer, batchfile):
 def execute_lib(characterizer: Characterizer, library_dir):
     """Parse a library of standard files, generate a cmd file, and characterize"""
 
-    # TODO
+    # TODO: Find sc library
     print("Searching for standard cells in " + str(library_dir))
+
+    # TODO: Read in settings.json (or whatever we decide to call it)
+    # and apply settings to characterizer
 
 def execute_shell(characterizer: Characterizer):
     """Enter CharLib shell"""
@@ -78,6 +81,8 @@ def execute_shell(characterizer: Characterizer):
 def execute_command(characterizer: Characterizer, command: str):
     print(f'DEBUG: executing {command}')
     (cmd, *args) = command.split()
+
+    harnessList = [] # Placeholder for characterization results
     
     ##-- set function : common settings--#
     if cmd == 'set_lib_name':
@@ -165,7 +170,6 @@ def execute_command(characterizer: Characterizer, command: str):
         characterizer.settings.operating_conditions = args[0]
 
     ##-- add function : common for comb. and seq. --#
-    ## add_cell
     elif cmd == 'add_cell':
         opts = ' '.join(args).strip().split('-')[1:] # Split on hyphen instead of space
         for opt in opts:
@@ -192,8 +196,8 @@ def execute_command(characterizer: Characterizer, command: str):
         characterizer.target_cell().add_load(command) 
 
     ## add_area
-    elif(command.startswith('add_area')):
-        characterizer.target_cell().add_area(command) 
+    elif cmd == 'add_area':
+        characterizer.target_cell().area = args[0]
 
     ## add_netlist
     elif(command.startswith('add_netlist')):
@@ -259,17 +263,16 @@ def execute_command(characterizer: Characterizer, command: str):
 
     ## characterize
     elif(command.startswith('characterize')):
-        harnessList2 = characterizer.characterize()
+        harnessList = characterizer.characterize()
         os.chdir("../")
 
     ## export
     elif(command.startswith('export')):
-        exportFiles(harnessList2) 
-        num_gen_file += 1
+        exportFiles(characterizer.settings, characterizer.target_cell(), harnessList)
 
     ## exit
     elif(command.startswith('quit') or command.startswith('exit')):
-        exitFiles()
+        exitFiles(characterizer.settings, 0)
 
     ## comment
     elif command.startswith('#'):

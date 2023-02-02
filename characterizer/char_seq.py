@@ -881,7 +881,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
         for j in range(len(tranmag)):
             if(first_stage_fail == 0):
                 targetLib.print_msg_sim("dSetup: "+str(f'{tsetup:,.4f}')+str(targetLib.time_unit)+" dHold: "+str(f'{thold:,.4f}')+str(targetLib.time_unit)+" stage:"+str(j))
-                cap_line = ".param cap ="+str(tmp_load)+str(targetLib.capacitance_unit)+"\n"
+                cap_line = ".param cap ="+str(tmp_load)+str(targetLib.units.capacitance.symbol)+"\n"
                 slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag)+str(targetLib.time_unit)+"\n"
                 cslew_line = ".param cslew ="+str(targetCell.cslope)+str(targetLib.time_unit)+"\n"
                 tunit_line = ".param tunit ="+str(targetCell.slope[-1])+str(targetLib.time_unit)+"\n"
@@ -1005,7 +1005,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
         for j in range(len(tranmag)):
             if(first_stage_fail == 0):
                 targetLib.print_msg_sim("dSetup: "+str(f'{tsetup:,.4f}')+str(targetLib.time_unit)+" dHold: "+str(f'{tmp_min_hold:,.4f}')+str(targetLib.time_unit)+" stage:"+str(j))
-                cap_line = ".param cap ="+str(tmp_load)+str(targetLib.capacitance_unit)+"\n"
+                cap_line = ".param cap ="+str(tmp_load)+str(targetLib.units.capacitance.symbol)+"\n"
                 slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag)+str(targetLib.time_unit)+"\n"
                 cslew_line = ".param cslew ="+str(targetCell.cslope)+str(targetLib.time_unit)+"\n"
                 tunit_line = ".param tunit ="+str(targetCell.slope[-1])+str(targetLib.time_unit)+"\n"
