@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 from characterizer.HarnessSettings import HarnessSettings
 
@@ -38,8 +39,9 @@ class LogicCell:
         self.area = area        # cell area
 
         # Characterization settings
-        self.harnesses = []     # list of harnessSettings
-        self.netlist = None     # cell netlist
+        self._netlist = None    # cell netlist
+        self._definition = None # cell definition (from netlist)
+        self._instance = None   # TODO: figure out what this represents, and briefly document here``
         self.cins = []          # input pin capacitances
         self.slope = []         # input pin slope
         self.load = []          # output pin load
@@ -65,6 +67,7 @@ class LogicCell:
         self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
 
         # From characterization results
+        self.harnesses = []     # list of harnessSettings
         self.leakage_power = [] # cell leakage power
 
         # Behavioral settings
@@ -173,6 +176,66 @@ class LogicCell:
         print(f'Cell {self} is_exported flag set!')
         self._is_exported = True
 
+    @property
+    def netlist(self) -> str:
+        return self._netlist
+
+    @netlist.setter
+    def netlist(self, value):
+        if value is not None:
+            if isinstance(value, Path):
+                if not value.is_file():
+                    raise ValueError(f'Invalid value for netlist: {value} is not a file')
+                self._netlist = value
+            elif isinstance(value, str):
+                if not Path(value).is_file():
+                    raise ValueError(f'Invalid value for netlist: {value} is not a file')
+                self._netlist = Path(value)
+            else:
+                raise TypeError(f'Invalid type for netlist: {type(value)}')
+            # netlist is now set - update definition
+            with open(self.netlist, 'r') as netfile:
+                for line in netfile:
+                    if self.name.lower() in line.lower() and '.subckt' in line.lower():
+                        self.definition = line
+                netfile.close()
+            if self.definition is None:
+                raise ValueError(f'No cell definition found in netlist {value}')
+        else:
+            raise ValueError(f'Invalid value for netlist: {value}')
+
+    @property
+    def definition(self) -> str:
+        return self._definition
+
+    @definition.setter
+    def definition(self, value: str):
+        if value is not None:
+            if self.name.lower() not in value.lower():
+                raise ValueError(f'Cell name not found in cell definition: {value}')
+            elif '.subckt' not in value.lower():
+                raise ValueError(f'".subckt" not found in cell definition: {value}')
+            else:
+                self._definition = value
+            # definition is now set - update instance
+            circuit_call = re.sub('\$.*$', '', value).split()[1:]   # Delete .subckt
+            circuit_call.append(circuit_call.pop(0))                # Move circuit name to last element
+            circuit_call.insert(0,'XDUT')                           # Insert instance name
+            self.instance = ' '.join(circuit_call)
+        else:
+            raise ValueError(f'Invalid value for cell definiton: {value}')
+
+    @property
+    def instance(self) -> str:
+        return self._instance
+
+    @instance.setter
+    def instance(self, value: str):
+        if value is not None:
+            self._instance = value
+        else:
+            raise ValueError(f'Invalid value for instance: {value}')
+
     def add_slope(self, line="tmp"):
         line = re.sub('\{','',line)
         line = re.sub('\}','',line)
@@ -208,40 +271,6 @@ class LogicCell:
             outline += str(jlist[j])+", " 
         outline += str(jlist[len(jlist)-1])+"\");" 
         return outline
-
-    def add_netlist(self, line="tmp"):
-        tmp_array = line.split()
-        self.netlist = tmp_array[1]
-        self.definition = None 
-        self.instance = None 
-        lines = open(self.netlist, "r")
-        ## search cell name in the netlist
-        for line in lines:
-            #print("self.name.lower:"+str(self.name.lower()))
-            #print("line.lower:"+str(line.lower()))
-            if((self.name.lower() in line.lower()) and (".subckt" in line.lower())):
-                print("Cell definition found!")
-                #print(line)
-                self.definition = line
-                ## generate circuit call
-                line = re.sub('\$.*$','',line)
-                tmp_array2 = line.split()
-                #print (tmp_array2)
-                tmp_array2.pop(0) ## delete .subckt
-                #print (tmp_array2)
-                tmp_str = tmp_array2.pop(0)
-                #print (tmp_array2)
-                tmp_array2.append(tmp_str) ## move circuit name to last
-                #print (tmp_array2)
-                tmp_array2.insert(0,"XDUT") ## insert instance name 
-                #print (tmp_array2)
-                self.instance = ' '.join(tmp_array2) ## convert array into string
-                
-                
-        ## if cell name is not found, show error
-        if(self.definition == None):
-            print("Cell definition not found. Please use add_cell command to add your cell")
-            exit()
 
     def add_model(self, line="tmp"):
         tmp_array = line.split()

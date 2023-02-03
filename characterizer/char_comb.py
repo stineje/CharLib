@@ -488,7 +488,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         outlines.append("*title: delay meas.\n")
         outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
         outlines.append(".inc '../"+targetCell.model+"'\n")
-        outlines.append(".inc '../"+targetCell.netlist+"'\n")
+        outlines.append(".inc '../"+str(targetCell.netlist)+"'\n")
         outlines.append(temp_line)
         outlines.append(".param _vdd = "+str(targetLib.vdd.voltage)+"\n")
         outlines.append(".param _vss = "+str(targetLib.vss.voltage)+"\n")

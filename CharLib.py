@@ -202,7 +202,7 @@ def execute_command(characterizer: Characterizer, command: str):
 
     ## add_netlist
     elif(command.startswith('add_netlist')):
-        characterizer.target_cell().add_netlist(command) 
+        characterizer.target_cell().netlist = args[0]
 
     ## add_model
     elif(command.startswith('add_model')):
