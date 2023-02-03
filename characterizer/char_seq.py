@@ -80,7 +80,7 @@ def runFlop(targetLib, targetCell, expectationList2):
             tmp_Harness.set_timing_flop_inout(D_val, CLK_val, Q_val)
             targetLib.print_msg_sim("D2Q simualtion mode!\n")
             # run spice and store result
-            if(targetLib.mtsim == "true"):
+            if targetLib.mt_sim:
                 runSpiceFlopDelayMT(targetLib, targetCell, tmp_Harness, spicef)
             else:
                 runSpiceFlopDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -889,7 +889,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
                 thold_line = ".param thold ="+str(thold)+str(targetLib.time_unit)+"\n"
                 tsimend_line = ".param tsimendmag ="+str(tsimendmag[j])+" tranmag ="+str(tranmag[j])+"\n"
                 spicefo = str(spicef)+"_j"+str(j)+"_"+str(tmp_load)+"_"+str(tmp_slope)+"_setup"+str(f'{tsetup:,.4f}')+"_hold"+str(f'{thold:,.4f}')+".sp"
-                tran_line =".tran "+str(targetCell.simulation_timestep*timestep_mag)+str(targetLib.time_unit)+" '_tsimend'\n"
+                tran_line =".tran "+str(targetCell.sim_timestep*timestep_mag)+str(targetLib.time_unit)+" '_tsimend'\n"
                 #targetLib.print_msg(spicefo)
         
                 ## Delay simulation
@@ -1013,7 +1013,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
                 thold_line = ".param thold ="+str(tmp_min_hold)+str(targetLib.time_unit)+"\n"
                 tsimend_line = ".param tsimendmag ="+str(tsimendmag[j])+" tranmag ="+str(tranmag[j])+"\n"
                 spicefo = str(spicef)+"_j"+str(j)+"_"+str(tmp_load)+"_"+str(tmp_slope)+"_setup"+str(f'{tsetup:,.4f}')+"_hold"+str(f'{tmp_min_hold:,.4f}')+".sp"
-                tran_line =".tran "+str(targetCell.simulation_timestep*timestep_mag)+str(targetLib.time_unit)+" '_tsimend'\n"
+                tran_line =".tran "+str(targetCell.sim_timestep*timestep_mag)+str(targetLib.time_unit)+" '_tsimend'\n"
                 #targetLib.print_msg_sim(spicefo)
         
                 ## Delay simulation
@@ -1175,7 +1175,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
             outlines.append(" \n")
             # in auto mode, simulation timestep is 1/10 of min. input slew
             # simulation runs 1000x of input slew time
-            # outlines.append(".tran "+str(targetCell.simulation_timestep)+str(targetLib.time_unit)+" '_tsimend'\n")
+            # outlines.append(".tran "+str(targetCell.sim_timestep)+str(targetLib.time_unit)+" '_tsimend'\n")
             outlines.append( tran_line )
             outlines.append(" \n")
             # target Vinput
@@ -1499,7 +1499,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
             outlines.append("*.endc \n")
             outlines.append(".end \n") 
             f.writelines(outlines)
-        f.close()
+            f.close()
   
         spicelis = spicef
         spicelis += ".lis"
@@ -1521,7 +1521,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
   
         cmd = ['sh', spicerun]
                 
-        if(targetLib.run_sim == "true"):
+        if targetLib.run_sim:
             try:
                 res = subprocess.check_call(cmd)
             except:

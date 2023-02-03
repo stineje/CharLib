@@ -18,7 +18,8 @@ def main():
     # Read in arguments
     parser = argparse.ArgumentParser(
             prog='CharLib',
-            description='Characterize combinational and sequential standard cells')
+            description='Characterize combinational and sequential standard cells.',
+            epilog='If no options are provided, a shell is launched where users may enter CharLib commands using cmd file syntax.')
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument('-b','--batch', type=str,
             help='Execute specified batch .cmd file')
@@ -68,12 +69,12 @@ def execute_shell(characterizer: Characterizer):
     exit_flag = False
     try:
         while not exit_flag:
-            command = input("CharLib > ")
+            command = input('CharLib > ')
             try:
                 execute_command(characterizer, command)
             except ValueError:
-                print("Invalid command.")
-            if command == "exit":
+                print('Invalid command.')
+            if command == 'exit' or command == 'quit':
                 exit_flag = True
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Exiting...")
@@ -82,7 +83,7 @@ def execute_command(characterizer: Characterizer, command: str):
     print(f'DEBUG: executing {command}')
     (cmd, *args) = command.split()
 
-    harnessList = [] # Placeholder for characterization results
+    # TODO: Add display commands to print all settings
     
     ##-- set function : common settings--#
     if cmd == 'set_lib_name':
@@ -263,16 +264,17 @@ def execute_command(characterizer: Characterizer, command: str):
 
     ## characterize
     elif(command.startswith('characterize')):
-        harnessList = characterizer.characterize()
+        characterizer.characterize(characterizer.target_cell())
         os.chdir("../")
 
     ## export
     elif(command.startswith('export')):
-        exportFiles(characterizer.settings, characterizer.target_cell(), harnessList)
+        exportFiles(characterizer.settings, characterizer.target_cell())
+        characterizer.num_files_generated += 1
 
     ## exit
-    elif(command.startswith('quit') or command.startswith('exit')):
-        exitFiles(characterizer.settings, 0)
+    elif cmd == 'quit' or cmd == 'exit':
+        exitFiles(characterizer.settings, characterizer.num_files_generated)
 
     ## comment
     elif command.startswith('#'):

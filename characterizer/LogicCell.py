@@ -34,9 +34,16 @@ class LogicCell:
         self.out_ports = out_ports  # output pin names
         self.functions = function   # cell function
 
-        self.area = area    # cell area 
-        self.cins = []      # input pin capacitances
-        self.harnesses = [] # list of harnessSettings
+        # Documentation
+        self.area = area        # cell area
+
+        # Characterization settings
+        self.harnesses = []     # list of harnessSettings
+        self.netlist = None     # cell netlist
+        self.cins = []          # input pin capacitances
+        self.slope = []         # input pin slope
+        self.load = []          # output pin load
+        self.sim_timestep = 0   # simulation timestep
 
         # Settings for sequential cells
         self.clock = None   ## clock pin for flop
@@ -46,11 +53,8 @@ class LogicCell:
         self.csets = []     ## set pin cap. for flop
         self.crsts = []     ## reset pin cap. for flop
         self.flops = []     ## registers
-        self.slope = []     ## input pin slope
         self.cslope = 0     ## input pin clock slope 
-        self.load = []      ## outport load
-        self.simulation_timestep = 0 ## simulation timestep
-        self.isflop = 0     ## DFF or not
+        self.is_flop = 0     ## DFF or not
         ## setup
         self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
         self.sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
@@ -59,8 +63,9 @@ class LogicCell:
         self.sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
         self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
         self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
-        ## power
-        self.pleak = []             ## cell leak power
+
+        # From characterization results
+        self.leakage_power = [] # cell leakage power
 
         # Behavioral settings
         self._is_exported = False   # whether the cell has been exported
@@ -165,6 +170,7 @@ class LogicCell:
         return self._is_exported
 
     def set_exported(self):
+        print(f'Cell {self} is_exported flag set!')
         self._is_exported = True
 
     def add_slope(self, line="tmp"):
@@ -245,17 +251,18 @@ class LogicCell:
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 1/10 of min slope
         if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
-            self.simulation_timestep = float(self.slope[0])/10 
+            self.sim_timestep = float(self.slope[0])/10 
             print ("auto set simulation timestep")
         else:
-            self.simulation_timestep = float(tmp_array[1])
+            self.sim_timestep = float(tmp_array[1])
 
     def set_inport_cap_pleak(self, index, harness):
         ## average leak power of all harness
-        self.pleak += harness.pleak 
+        print(f'Set cell {str(self)} leakage power to {harness.pleak}')
+        self.leakage_power += harness.pleak 
 
 ##                                 #
-##-- add functions for seq. cell --#		
+##-- add functions for seq. cell --#
 ##                                 #
     def add_flop(self, line="tmp"):
         tmp_array = line.split('-')
@@ -268,7 +275,7 @@ class LogicCell:
         ##                             -o(outports) Q QN
         ##                             -q(flops)    IQ IQN
         ##                             -f(function) Q=IQ QN=IQN
-        self.isflop = 1  ## set as flop
+        self.is_flop = 1  ## set as flop
         for options in tmp_array:
 
             ## add_flop command 
@@ -416,8 +423,8 @@ class LogicCell:
     ## neighborhood harness, so cin of (2n)th and 
     ## (2n+1)th harness are averaged out
     def set_cin_avg(self, targetLib, harnessList, port="data"):
-        tmp_cin = 0;
-        tmp_index = 0;
+        tmp_cin = 0
+        tmp_index = 0
         for targetHarness in harnessList:
             if((port.lower() == 'clock')or(port.lower() == 'clk')):
                 tmp_cin += float(targetHarness.cclk)

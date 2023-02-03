@@ -122,7 +122,10 @@ class LibrarySettings:
 
     @property
     def dotlib_name(self) -> str:
-        return self._dotlib_name
+        if self._dotlib_name is None:
+            return self.lib_name + '.lib'
+        else:
+            return self._dotlib_name
 
     @dotlib_name.setter
     def dotlib_name(self, value: str):
@@ -133,7 +136,10 @@ class LibrarySettings:
 
     @property
     def verilog_name(self) -> str:
-        return self._verilog_name
+        if self._verilog_name is None:
+            return self.lib_name + '.v'
+        else:
+            return self._verilog_name
 
     @verilog_name.setter
     def verilog_name(self, value: str):
@@ -340,7 +346,7 @@ class LibrarySettings:
         return self._is_exported
 
     def set_exported(self):
-        self._is_export = True
+        self._is_exported = True
 
     @property
     def suppress_message(self) -> bool:

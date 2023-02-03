@@ -2,15 +2,16 @@ import re, subprocess, sys, threading
 
 from characterizer.HarnessSettings import HarnessSettings
 
-def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
+def runCombIn1Out1(targetLib, targetCell, expectationList, unate):
     harnessList = []   # harness for each trial
     harnessList2 = []  # list of harnessList
 
-    for trial in range(len(expectationList2)):
+    for trial in range(len(expectationList)):
+        print(f'Trial: {trial}')
         tmp_Harness = HarnessSettings()
         tmp_Harness.set_timing_type_comb()
         tmp_Harness.set_timing_sense(unate)
-        tmp_inp0_val, tmp_outp0_val=expectationList2[trial]
+        tmp_inp0_val, tmp_outp0_val=expectationList[trial]
         tmp_Harness.set_direction(tmp_outp0_val)
         #print ("**"+targetCell.outports[0]+" "+targetCell.functions[0]+" "+ tmp_outp0_val)
         tmp_Harness.set_target_outport (targetCell.out_ports[0], targetCell.functions[0], tmp_outp0_val)
@@ -32,13 +33,11 @@ def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
         harnessList.append(tmp_Harness)
-        harnessList2.append(harnessList)
-
+        targetCell.harnesses.append(harnessList)
 
     ## average cin of each harness
-    targetCell.set_cin_avg(targetLib, harnessList) 
+    targetCell.set_cin_avg(targetLib, harnessList)
 
-    return harnessList2
 #end runCombIn1Out1
 def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
     harnessList = []
@@ -516,7 +515,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         outlines.append(" \n")
         ## in auto mode, simulation timestep is 1/10 of min. input slew
         ## simulation runs 1000x of input slew time
-        outlines.append(".tran "+str(targetCell.simulation_timestep)+str(targetLib.units.time.symbol)+" '_tsimend'\n")
+        outlines.append(".tran "+str(targetCell.sim_timestep)+str(targetLib.units.time)+" '_tsimend'\n")
         outlines.append(" \n")
 
         if(targetHarness.target_inport_val == "01"):
@@ -694,7 +693,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         try:
             subprocess.run(cmd)
         except:
-            print ("Failed to lunch spice")
+            print ("Failed to launch spice")
 
     # read results
     with open(spicelis,'r') as f:
