@@ -137,7 +137,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
     list2_eclk =   []
     list2_cclk =   []
     list2_pleak =   []
-    for tmp_slope in targetCell.slope:
+    for tmp_slope in targetCell.in_slopes:
         res_list_prop =   []  # C2Q
         res_list_setup =  []  # D2C(setup)
         res_list_hold =   []  # C2D(hold)
@@ -152,7 +152,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
         res_list_pleak =   []
 
         for tmp_load in targetCell.load:
-            tmp_max_val_loop = float(targetCell.slope[-1]) * 10 # use x10 of max. slope for max val.
+            tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 10 # use x10 of max. slope for max val.
             tmp_min_setup = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup1 = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup2 = tmp_max_val_loop # temporal value for setup 
@@ -176,7 +176,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
             tmp_energy_clk_end    = tmp_max_val_loop # temporal value for D2Qmin search
 
             tmp_tstep_mag = 20
-            tmp_tstep_mag1 = float(targetCell.slope[-1])/float(targetCell.slope[0])* tmp_tstep_mag
+            tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
             targetLib.print_msg_sim("First stage sparse setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
@@ -221,7 +221,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
             ## if target is D2Q, do standard setup/hold search
             #if((targetHarness.target_inport_val == "01")or(targetHarness.target_inport_val == "10")):
             tmp_tstep_mag = 20
-            tmp_tstep_mag1 = float(targetCell.slope[-1])/float(targetCell.slope[0])* tmp_tstep_mag
+            tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
             targetLib.print_msg_sim("First stage sparse hold search, timestep: "\
                 +str(targetCell.sim_hold_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
@@ -322,44 +322,44 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
         list2_pleak.append(res_list_pleak)
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_setup(list2_setup)
-    #targetHarness.print_list2_setup(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_setup(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_setup()
     targetHarness.set_list2_hold(list2_hold)
-    #targetHarness.print_list2_hold(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_hold(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_hold()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_eclk(list2_eclk)
-    #targetHarness.print_list2_eclk(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eclk(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eclk()
     targetHarness.set_list2_cclk(list2_cclk)
-    #targetHarness.print_list2_cclk(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cclk(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cclk()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
 
@@ -376,7 +376,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
     list2_eclk =   []
     list2_cclk =   []
     list2_pleak =   []
-    for tmp_slope in targetCell.slope:
+    for tmp_slope in targetCell.in_slopes:
         res_list_prop =   []  # C2Q
         res_list_setup =  []  # D2C(setup)
         res_list_hold =   []  # C2D(hold)
@@ -391,7 +391,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
         res_list_pleak =   []
 
         for tmp_load in targetCell.load:
-            tmp_max_val_loop = float(targetCell.slope[-1]) * 10 # use x10 of max. slope for max val.
+            tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 10 # use x10 of max. slope for max val.
             tmp_min_setup = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup1 = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup2 = tmp_max_val_loop # temporal value for setup 
@@ -415,7 +415,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
             tmp_energy_clk_end    = tmp_max_val_loop # temporal value for D2Qmin search
 
             tmp_tstep_mag = 20
-            tmp_tstep_mag1 = float(targetCell.slope[-1])/float(targetCell.slope[0])* tmp_tstep_mag
+            tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
             targetLib.print_msg_sim("First stage sparse setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
@@ -460,7 +460,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
             ## if target is D2Q, do standard setup/hold search
             #if((targetHarness.target_inport_val == "01")or(targetHarness.target_inport_val == "10")):
             tmp_tstep_mag = 20
-            tmp_tstep_mag1 = float(targetCell.slope[-1])/float(targetCell.slope[0])* tmp_tstep_mag
+            tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
             targetLib.print_msg_sim("First stage sparse hold search, timestep: "\
                 +str(targetCell.sim_hold_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
@@ -561,44 +561,44 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
         list2_pleak.append(res_list_pleak)
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_setup(list2_setup)
-    #targetHarness.print_list2_setup(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_setup(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_setup()
     targetHarness.set_list2_hold(list2_hold)
-    #targetHarness.print_list2_hold(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_hold(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_hold()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_eclk(list2_eclk)
-    #targetHarness.print_list2_eclk(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eclk(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eclk()
     targetHarness.set_list2_cclk(list2_cclk)
-    #targetHarness.print_list2_cclk(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cclk(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cclk()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
         
 
@@ -620,7 +620,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
     list2_eclk =   []
     list2_cclk =   []
     list2_pleak =   []
-    for tmp_slope in targetCell.slope:
+    for tmp_slope in targetCell.in_slopes:
         res_list_prop =   []  # C2Q
         res_list_setup =  []  # D2C(setup)
         res_list_hold =   []  # C2D(hold)
@@ -635,7 +635,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
         res_list_pleak =   []
 
         for tmp_load in targetCell.load:
-            tmp_max_val_loop = float(targetCell.slope[-1]) * 10 # use x10 of max. slope for max val.
+            tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 10 # use x10 of max. slope for max val.
             tmp_min_setup = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup1 = tmp_max_val_loop   # temporal value for setup 
             tmp_tsetup2 = tmp_max_val_loop   # temporal value for setup 
@@ -663,7 +663,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
             targetHarness.invert_set_reset_val()
 
             tmp_tstep_mag = 20
-            tmp_tstep_mag1 = float(targetCell.slope[-1])/float(targetCell.slope[0])* tmp_tstep_mag
+            tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
             targetLib.print_msg_sim("First stage sparse recovery search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
@@ -713,7 +713,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
             targetHarness.invert_set_reset_val()
 
             tmp_tstep_mag = 20
-            tmp_tstep_mag1 = float(targetCell.slope[-1])/float(targetCell.slope[0])* tmp_tstep_mag
+            tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
             targetLib.print_msg_sim("First stage sparse removal search, timestep: "\
                 +str(targetCell.sim_hold_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
@@ -816,44 +816,44 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
         list2_pleak.append(res_list_pleak)
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_setup(list2_setup)
-    #targetHarness.print_list2_setup(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_setup(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_setup()
     targetHarness.set_list2_hold(list2_hold)
-    #targetHarness.print_list2_hold(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_hold(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_hold()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_eclk(list2_eclk)
-    #targetHarness.print_list2_eclk(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eclk(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eclk()
     targetHarness.set_list2_cclk(list2_cclk)
-    #targetHarness.print_list2_cclk(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cclk(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cclk()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
 def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
@@ -864,7 +864,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
     # 2nd stage: sim w/ 100-% output swing
     tsimendmag = [1, 10]; # magnify parameter of _tsimend
     tranmag = [float(targetLib.logic_threshold_low)*1.1, 1];  # magnify parameter of transient simulation
-    tmp_max_val_loop = float(targetCell.slope[-1]) * 40 # use x10 of max. slope for max val.
+    tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 40 # use x10 of max. slope for max val.
     tmp_min_setup = tmp_max_val_loop # temporal value for setup 
     tmp_min_prop_in_out   = tmp_max_val_loop # temporal value for D2Qmin search
     tmp_min_prop_cin_out  = tmp_max_val_loop # temporal value for D2Qmin search
@@ -884,7 +884,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
                 cap_line = ".param cap ="+str(tmp_load)+str(targetLib.units.capacitance.symbol)+"\n"
                 slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag)+str(targetLib.time_unit)+"\n"
                 cslew_line = ".param cslew ="+str(targetCell.cslope)+str(targetLib.time_unit)+"\n"
-                tunit_line = ".param tunit ="+str(targetCell.slope[-1])+str(targetLib.time_unit)+"\n"
+                tunit_line = ".param tunit ="+str(targetCell.in_slopes[-1])+str(targetLib.time_unit)+"\n"
                 tsetup_line = ".param tsetup ="+str(tsetup)+str(targetLib.time_unit)+"\n"
                 thold_line = ".param thold ="+str(thold)+str(targetLib.time_unit)+"\n"
                 tsimend_line = ".param tsimendmag ="+str(tsimendmag[j])+" tranmag ="+str(tranmag[j])+"\n"
@@ -989,7 +989,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
 def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, tsetup_lowest, tsetup_highest, tsetup_tstep, tmp_min_hold, timestep_mag, spicef):
     tsimendmag = [1, 10]; # magnify parameter of _tsimend
     tranmag = [float(targetLib.logic_threshold_low)*1.1, 1];         # magnify parameter of transient simulation
-    tmp_max_val_loop = float(targetCell.slope[-1]) * 10 # use x10 of max. slope for max val.
+    tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 10 # use x10 of max. slope for max val.
     tmp_min_setup = tmp_max_val_loop # temporal value for setup 
     tmp_min_prop_in_out   = tmp_max_val_loop # temporal value for D2Qmin search
     tmp_min_prop_cin_out  = tmp_max_val_loop # temporal value for D2Qmin search
@@ -1008,7 +1008,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
                 cap_line = ".param cap ="+str(tmp_load)+str(targetLib.units.capacitance.symbol)+"\n"
                 slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag)+str(targetLib.time_unit)+"\n"
                 cslew_line = ".param cslew ="+str(targetCell.cslope)+str(targetLib.time_unit)+"\n"
-                tunit_line = ".param tunit ="+str(targetCell.slope[-1])+str(targetLib.time_unit)+"\n"
+                tunit_line = ".param tunit ="+str(targetCell.in_slopes[-1])+str(targetLib.time_unit)+"\n"
                 tsetup_line = ".param tsetup ="+str(tsetup)+str(targetLib.time_unit)+"\n"
                 thold_line = ".param thold ="+str(tmp_min_hold)+str(targetLib.time_unit)+"\n"
                 tsimend_line = ".param tsimendmag ="+str(tsimendmag[j])+" tranmag ="+str(tranmag[j])+"\n"

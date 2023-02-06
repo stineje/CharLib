@@ -229,7 +229,7 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
     results_i_vdd_leak   = dict()
     results_i_vss_leak   = dict()
     threadlist = list()
-    for tmp_slope in targetCell.slope:
+    for tmp_slope in targetCell.in_slopes:
         for tmp_load in targetCell.load:
             thread = threading.Thread(target=runSpiceCombDelaySingle, \
                                 args=([targetLib, targetCell, targetHarness, spicef, \
@@ -249,7 +249,7 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
         thread.join() 
 
     thread_id = 0
-    for tmp_slope in targetCell.slope:
+    for tmp_slope in targetCell.in_slopes:
         tmp_list_prop =   []
         tmp_list_tran =   []
         tmp_list_estart = []
@@ -270,7 +270,7 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
             ## larger Ql: intl. Q, load Q 
             ## smaller Qs: intl. Q
             ## Eintl = QsV
-            if(abs(results_q_vdd_dyn[str(thread_id)]) < abs(results_q_vss_dyn[str(thread_id)])):
+            if abs(results_q_vdd_dyn[str(thread_id)]) < abs(results_q_vss_dyn[str(thread_id)]):
                 res_q = results_q_vdd_dyn[str(thread_id)]
             else:
                 res_q = results_q_vss_dyn[str(thread_id)]
@@ -300,28 +300,28 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
 
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
 def runSpiceCombDelaySingle(targetLib, targetCell, targetHarness, spicef, \
@@ -378,7 +378,7 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
     ## calculate whole slope length from logic threshold
     tmp_slope_mag = 1 / (targetLib.logic_threshold_high - targetLib.logic_threshold_low)
 
-    for tmp_slope in targetCell.slope:
+    for tmp_slope in targetCell.in_slopes:
         tmp_list_prop =   []
         tmp_list_tran =   []
         tmp_list_estart = []
@@ -452,28 +452,28 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
     #targetLib.print_msg(list2_prop)
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.slope)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.slope)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.slope)
+    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
 def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_line, slew_line, temp_line, estart_line, eend_line, spicef):

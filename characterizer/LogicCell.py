@@ -41,9 +41,8 @@ class LogicCell:
         # Characterization settings
         self._netlist = None    # cell netlist
         self._definition = None # cell definition (from netlist)
-        self._instance = None   # TODO: figure out what this represents, and briefly document here``
-        self.cins = []          # input pin capacitances
-        self.slope = []         # input pin slope
+        self._instance = None   # TODO: figure out what this represents, and briefly document here
+        self._in_slopes = []     # input pin slope
         self.load = []          # output pin load
         self.sim_timestep = 0   # simulation timestep
 
@@ -68,6 +67,7 @@ class LogicCell:
 
         # From characterization results
         self.harnesses = []     # list of harnessSettings
+        self.cins = []          # input pin capacitances
         self.leakage_power = [] # cell leakage power
 
         # Behavioral settings
@@ -166,16 +166,6 @@ class LogicCell:
         else:
             raise ValueError(f'Invalid value for cell area: {value}')
 
-    # TODO: def add_harness(self, port, )
-
-    @property
-    def is_exported(self) -> bool:
-        return self._is_exported
-
-    def set_exported(self):
-        print(f'Cell {self} is_exported flag set!')
-        self._is_exported = True
-
     @property
     def netlist(self) -> str:
         return self._netlist
@@ -236,14 +226,24 @@ class LogicCell:
         else:
             raise ValueError(f'Invalid value for instance: {value}')
 
-    def add_slope(self, line="tmp"):
-        line = re.sub('\{','',line)
-        line = re.sub('\}','',line)
-        line = re.sub('^add_slope ','',line)
-        tmp_array = line.split()
-        for w in tmp_array:
-            self.slope.append(float(w))
-        #print (self.slope)
+    @property
+    def in_slopes(self) -> list:
+        return self._in_slopes
+
+    def add_in_slope(self, value: float):
+        if value is not None:
+            self._in_slopes.append(float(value))
+        else:
+            raise ValueError(f'Invalid value for input pin slope: {value}')
+
+    @property
+    def is_exported(self) -> bool:
+        return self._is_exported
+
+    def set_exported(self):
+        self._is_exported = True
+
+    # TODO: def add_harness(self, port, )
 
     def add_load(self, line="tmp"):
         line = re.sub('\{','',line)
@@ -255,7 +255,7 @@ class LogicCell:
         #print (self.load)
 
     def return_slope(self):
-        jlist = self.slope
+        jlist = self.in_slopes
         outline = "(\""
         self.lut_prop = []
         for j in range(len(jlist)-1):
@@ -279,15 +279,14 @@ class LogicCell:
     def add_simulation_timestep(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 1/10 of min slope
-        if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
-            self.sim_timestep = float(self.slope[0])/10 
+        if ((tmp_array[1] == 'auto') and (self.in_slopes[0] != None)):
+            self.sim_timestep = float(self.in_slopes[0])/10 
             print ("auto set simulation timestep")
         else:
             self.sim_timestep = float(tmp_array[1])
 
     def set_inport_cap_pleak(self, index, harness):
         ## average leak power of all harness
-        print(f'Set cell {str(self)} leakage power to {harness.pleak}')
         self.leakage_power += harness.pleak 
 
 ##                                 #
@@ -377,7 +376,7 @@ class LogicCell:
         tmp_array = line.split()
         ## if auto, amd slope is defined, use mininum slope
         if (tmp_array[1] == 'auto'):
-            self.cslope = float(self.slope[0]) 
+            self.cslope = float(self.in_slopes[0]) 
             print ("auto set clock slope as mininum slope.")
         else:
             self.cslope = float(tmp_array[1]) 
@@ -387,8 +386,8 @@ class LogicCell:
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 10x of max slope 
         ## "10" should be the same value of tstart1 and tclk5 in spice 
-        if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-            self.sim_setup_lowest = float(self.slope[-1]) * -10 
+        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
+            self.sim_setup_lowest = float(self.in_slopes[-1]) * -10 
             print ("auto set setup simulation time lowest limit")
         else:
             self.sim_setup_lowest = float(tmp_array[1]) 
@@ -397,8 +396,8 @@ class LogicCell:
     def add_simulation_setup_highest(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 10x of max slope 
-        if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-            self.sim_setup_highest = float(self.slope[-1]) * 10 
+        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
+            self.sim_setup_highest = float(self.in_slopes[-1]) * 10 
             print ("auto set setup simulation time highest limit")
         else:
             self.sim_setup_highest = float(tmp_array[1])
@@ -406,8 +405,8 @@ class LogicCell:
     def add_simulation_setup_timestep(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 1/10x min slope
-        if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
-            self.sim_setup_timestep = float(self.slope[0])/10
+        if ((tmp_array[1] == 'auto') and (self.in_slopes[0] != None)):
+            self.sim_setup_timestep = float(self.in_slopes[0])/10
             print ("auto set setup simulation timestep")
         else:
             self.sim_setup_timestep = float(tmp_array[1])
@@ -418,10 +417,10 @@ class LogicCell:
         ## if auto, amd slope is defined, use very small val. 
         #remove# if hold is less than zero, pwl time point does not be incremental
         #remove# and simulation failed
-        if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-            #self.sim_hold_lowest = float(self.slope[-1]) * -5 
-            self.sim_hold_lowest = float(self.slope[-1]) * -10 
-            #self.sim_hold_lowest = float(self.slope[-1]) * 0.001 
+        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
+            #self.sim_hold_lowest = float(self.in_slopes[-1]) * -5 
+            self.sim_hold_lowest = float(self.in_slopes[-1]) * -10 
+            #self.sim_hold_lowest = float(self.in_slopes[-1]) * 0.001 
             print ("auto set hold simulation time lowest limit")
         else:
             self.sim_hold_lowest = float(tmp_array[1])
@@ -431,9 +430,9 @@ class LogicCell:
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 5x of max slope 
         ## value should be smaller than "tmp_max_val_loop" in holdSearchFlop
-        if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-            #self.sim_hold_highest = float(self.slope[-1]) * 5 
-            self.sim_hold_highest = float(self.slope[-1]) * 10 
+        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
+            #self.sim_hold_highest = float(self.in_slopes[-1]) * 5 
+            self.sim_hold_highest = float(self.in_slopes[-1]) * 10 
             print ("auto set hold simulation time highest limit")
         else:
             self.sim_hold_highest = float(tmp_array[1])
@@ -441,8 +440,8 @@ class LogicCell:
     def add_simulation_hold_timestep(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 1/10x min slope
-        if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
-            self.sim_hold_timestep = float(self.slope[0])/10 
+        if ((tmp_array[1] == 'auto') and (self.in_slopes[0] != None)):
+            self.sim_hold_timestep = float(self.in_slopes[0])/10 
             print ("auto set hold simulation timestep")
         else:
             self.sim_hold_timestep = float(tmp_array[1])
