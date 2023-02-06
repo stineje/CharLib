@@ -1,6 +1,0 @@
-.subckt INVX1 A Y vdd vss
-M0 Y A vdd vdd pfet w=4u l=0.4u
-+ ad=0p pd=0u as=0p ps=0u 
-M1 Y A vss Gnd nfet w=2u l=0.4u
-+ ad=0p pd=0u as=0p ps=0u 
-.ends INVX1
