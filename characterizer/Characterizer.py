@@ -1,7 +1,7 @@
 import os, shutil
 
 from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicCell import LogicCell, RECOGNIZED_LOGIC
+from characterizer.LogicCell import LogicCell, SequentialCell, RECOGNIZED_LOGIC
 from characterizer.char_comb import *
 from characterizer.char_seq import *
 
@@ -20,6 +20,10 @@ class Characterizer:
     def add_cell(self, name, logic, in_ports, out_ports, function):
         # Create a new logic cell
         self.cells.append(LogicCell(name, logic, in_ports, out_ports, function))
+
+    def add_flop(self, name, logic, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, functions):
+        # Create a new sequential cell
+        self.cells.append(SequentialCell(name, logic, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, functions))
 
     def initialize_work_dir(self):
         if self.settings.run_sim:

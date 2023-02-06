@@ -1,16 +1,18 @@
 
 import re, sys
 
+from characterizer.LogicCell import LogicCell, SequentialCell
+
 def exportFiles(targetLib, targetCell):
     if not targetLib.is_exported:
         exportLib(targetLib, targetCell)
     if targetLib.is_exported and not targetCell.is_exported:
         ## export comb. logic
-        if not targetCell.is_flop:
+        if not isinstance(targetCell, SequentialCell):
             exportHarness(targetLib, targetCell)
             exportVerilog(targetLib, targetCell)
         ## export seq. logic
-        elif targetCell.is_flop:
+        else:
             exportHarnessFlop(targetLib, targetCell)
             exportVerilogFlop(targetLib, targetCell)
 

@@ -46,25 +46,6 @@ class LogicCell:
         self.load = []          # output pin load
         self.sim_timestep = 0   # simulation timestep
 
-        # Settings for sequential cells
-        self.clock = None   ## clock pin for flop
-        self.set = None     ## set pin for flop
-        self.reset = None   ## reset pin for flop
-        self.cclks = []     ## clock pin cap. for flop
-        self.csets = []     ## set pin cap. for flop
-        self.crsts = []     ## reset pin cap. for flop
-        self.flops = []     ## registers
-        self.cslope = 0     ## input pin clock slope 
-        self.is_flop = 0     ## DFF or not
-        ## setup
-        self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
-        self.sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
-        self.sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
-        ## hold
-        self.sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
-        self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
-        self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
-
         # From characterization results
         self.harnesses = []     # list of harnessSettings
         self.cins = []          # input pin capacitances
@@ -289,89 +270,6 @@ class LogicCell:
         ## average leak power of all harness
         self.leakage_power += harness.pleak 
 
-##                                 #
-##-- add functions for seq. cell --#
-##                                 #
-    def add_flop(self, line="tmp"):
-        tmp_array = line.split('-')
-        ## expected format : add_flop -n(name) DFFRS_X1 /
-        ##                             -l(logic)    DFFARAS : DFF w async RST and async SET
-        ##                             -i(inports)  DATA 
-        ##                             -c(clock)    CLK 
-        ##                             -s(set)      SET   (if used) 
-        ##                             -r reset)    RESET (if used)
-        ##                             -o(outports) Q QN
-        ##                             -q(flops)    IQ IQN
-        ##                             -f(function) Q=IQ QN=IQN
-        self.is_flop = 1  ## set as flop
-        for options in tmp_array:
-
-            ## add_flop command 
-            if(re.match("^add_flop", options)):
-                continue
-            ## -n option (subckt name)
-            elif(re.match("^n ", options)):
-                tmp_array2 = options.split() 
-                self.name = tmp_array2[1] 
-                #print (self.name)
-            ## -l option (logic type)
-            elif(re.match("^l ", options)):
-                tmp_array2 = options.split() 
-                self.logic = tmp_array2[1] 
-                #print (self.logic)
-            ## -i option (input name)
-            elif(re.match("^i ", options)):
-                tmp_array2 = options.split() 
-                for w in tmp_array2:
-                    self.in_ports.append(w)
-                self.in_ports.pop(0) # delete first object("-i")
-                #print (self.inports)
-            ## -c option (clock name)
-            elif(re.match("^c ", options)):
-                tmp_array2 = options.split() 
-                self.clock = tmp_array2[1] 
-                #print (self.clock)
-            ## -s option (set name)
-            elif(re.match("^s ", options)):
-                tmp_array2 = options.split()
-                self.set = tmp_array2[1] 
-                #print (self.set)
-            ## -r option (reset name)
-            elif(re.match("^r ", options)):
-                tmp_array2 = options.split() 
-                self.reset = tmp_array2[1] 
-                print (self.reset)
-            ## -o option (output name)
-            elif(re.match("^o ", options)):
-                tmp_array2 = options.split() 
-                for w in tmp_array2:
-                    self.out_ports.append(w)
-                self.out_ports.pop(0) ## delete first object("-o")
-                #print (self.outports)
-            ## -q option (storage name)
-            elif(re.match("^q ", options)):
-                tmp_array2 = options.split() 
-                for w in tmp_array2:
-                    self.flops.append(w)
-                self.flops.pop(0) ## delete first object("-q")
-                #print (self.flops)
-            ## -f option (function name)
-            elif(re.match("^f ", options)):
-                tmp_array2 = options.split() 
-                #print (tmp_array2)
-                tmp_array2.pop(0) ## delete first object("-f")
-                for w in tmp_array2:
-                    tmp_array3 = w.split('=') 
-                    for o in self.out_ports:
-                        if(o == tmp_array3[0]):
-                            self.functions.append(tmp_array3[1])
-                #print (self.functions)
-            ## undefined option 
-            else:
-                print("ERROR: undefined option:"+options+"\n")	
-                exit()	
-        print ("finish add_flop")
-
     def add_clock_slope(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use mininum slope
@@ -491,3 +389,25 @@ class LogicCell:
                 tmp_index += 1
                 #print("stored cins:"+str(tmp_index)+" for data")
             #print("stored cins:"+str(tmp_index))
+
+class SequentialCell(LogicCell):
+    def __init__(self, name: str, logic: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
+        super().__init__(name, logic, in_ports, out_ports, function, area)
+        self.clock = clock_pin  # clock pin name
+        self.set = set_pin      # set pin name
+        self.reset = reset_pin  # reset pin name
+        self.flops = flops      # registers
+        self.cslope = 0         # input pin clock slope
+
+        # Characterization settings
+        self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
+        self.sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
+        self.sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
+        self.sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
+        self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
+        self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
+
+        # From characterization results
+        self.cclks = []     # clock pin capacitance
+        self.csets = []     # set pin capacitance
+        self.crsts = []     # reset pin capacitance
