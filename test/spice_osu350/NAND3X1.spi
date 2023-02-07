@@ -1,0 +1,14 @@
+.subckt NAND3X1 B vdd vss A C Y
+M0 Y A vdd vdd pfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M1 vdd B Y vdd pfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M2 Y C vdd vdd pfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M3 a_9_6# A vss Gnd nfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M4 a_14_6# B a_9_6# Gnd nfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M5 Y C a_14_6# Gnd nfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+.ends NAND3X1

@@ -1,0 +1,62 @@
+* Copyright 2022 Google LLC
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+
+.inc "/import/yukari1/lrburle/OSU_180/char/techfiles/design.hspice"
+.lib "/import/yukari1/lrburle/OSU_180/char/techfiles/sm141064.hspice" typical
+
+.GLOBAL VDD
+.GLOBAL VSS
+
+.option scale=0.05u
+
+.subckt gf180mcu_osu_sc_12T_dffsr_1 D SN RN Q QN CLK
+X0 a_1_11 CLK a_42_106 VDD pmos_3p3 w=34 l=6
+X1 a_75_106 a_52_11 a_1_11 VDD pmos_3p3 w=34 l=6
+X2 a_n56_16 RN VSS VSS nmos_3p3 w=17 l=6
+X3 a_n56_16 RN VDD VDD pmos_3p3 w=34 l=6
+X4 VDD a_114_16 a_175_106 VDD pmos_3p3 w=34 l=6
+X5 a_194_16 a_114_16 VSS VSS nmos_3p3 w=17 l=6
+X6 a_n40_106 a_n56_16 VSS VSS nmos_3p3 w=17 l=6
+X7 a_131_16 a_52_11 a_114_16 VSS nmos_3p3 w=17 l=6
+X8 a_42_106 D VDD VDD pmos_3p3 w=34 l=6
+X9 a_75_16 CLK a_1_11 VSS nmos_3p3 w=17 l=6
+X10 a_135_65 SN a_194_16 VSS nmos_3p3 w=17 l=6
+X11 a_175_106 SN VDD VDD pmos_3p3 w=34 l=6
+X12 a_135_65 a_n56_16 a_175_106 VDD pmos_3p3 w=34 l=6
+X13 VSS a_135_65 a_131_16 VSS nmos_3p3 w=17 l=6
+X14 a_1_11 a_52_11 a_42_16 VSS nmos_3p3 w=17 l=6
+X15 a_52_11 CLK VDD VDD pmos_3p3 w=34 l=6
+X16 Q QN VSS VSS nmos_3p3 w=17 l=6
+X17 a_n24_106 a_n56_16 a_n40_106 VDD pmos_3p3 w=34 l=6
+X18 VDD SN a_n24_106 VDD pmos_3p3 w=34 l=6
+X19 VDD a_135_65 a_131_106 VDD pmos_3p3 w=34 l=6
+X20 VSS a_135_65 QN VSS nmos_3p3 w=17 l=6
+X21 a_131_106 CLK a_114_16 VDD pmos_3p3 w=34 l=6
+X22 a_n4_16 SN a_n40_106 VSS nmos_3p3 w=17 l=6
+X23 a_114_16 a_52_11 a_103_106 VDD pmos_3p3 w=34 l=6
+X24 VSS a_n56_16 a_135_65 VSS nmos_3p3 w=17 l=6
+X25 a_114_16 CLK a_103_16 VSS nmos_3p3 w=17 l=6
+X26 a_52_11 CLK VSS VSS nmos_3p3 w=17 l=6
+X27 Q QN VDD VDD pmos_3p3 w=34 l=6
+X28 a_42_16 D VSS VSS nmos_3p3 w=17 l=6
+X29 VDD a_n40_106 a_75_106 VDD pmos_3p3 w=34 l=6
+X30 a_103_106 a_n40_106 VDD VDD pmos_3p3 w=34 l=6
+X31 VDD a_135_65 QN VDD pmos_3p3 w=34 l=6
+X32 a_103_16 a_n40_106 VSS VSS nmos_3p3 w=17 l=6
+X33 a_n24_106 a_1_11 VDD VDD pmos_3p3 w=34 l=6
+X34 VSS a_1_11 a_n4_16 VSS nmos_3p3 w=17 l=6
+X35 VSS a_n40_106 a_75_16 VSS nmos_3p3 w=17 l=6
+.ends
+
+** hspice subcircuit dictionary

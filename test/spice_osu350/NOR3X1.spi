@@ -1,0 +1,20 @@
+.subckt NOR3X1 vdd vss B C A Y
+M0 vdd A a_2_64# vdd pfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M1 a_2_64# A vdd vdd pfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M2 a_25_64# B a_2_64# vdd pfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M3 a_2_64# B a_25_64# vdd pfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M4 Y C a_25_64# vdd pfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M5 a_25_64# C Y vdd pfet w=6u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M6 Y A vss Gnd nfet w=2u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M7 vss B Y Gnd nfet w=2u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M8 Y C vss Gnd nfet w=2u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+.ends NOR3X1

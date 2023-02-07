@@ -1,0 +1,26 @@
+.subckt XNOR2X1 A B vss vdd Y
+M0 vdd A a_2_6# vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M1 a_18_54# a_12_41# vdd vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M2 Y a_2_6# a_18_54# vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M3 a_35_54# A Y vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M4 vdd B a_35_54# vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M5 a_12_41# B vdd vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M6 vss A a_2_6# Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M7 a_18_6# a_12_41# vss Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M8 Y A a_18_6# Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M9 a_35_6# a_2_6# Y Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M10 vss B a_35_6# Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M11 a_12_41# B vss Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+.ends XNOR2X1

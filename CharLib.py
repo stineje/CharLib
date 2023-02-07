@@ -29,7 +29,6 @@ def main():
 
     # Dispatch based on operating mode
     characterizer = Characterizer()
-    print(args)
     if args.batch is not None:
         execute_batch(characterizer, args.batch)
     elif args.library is not None:
@@ -80,7 +79,6 @@ def execute_shell(characterizer: Characterizer):
         print("Keyboard interrupt detected. Exiting...")
 
 def execute_command(characterizer: Characterizer, command: str):
-    print(f'DEBUG: executing {command}')
     (cmd, *args) = command.split()
 
     # TODO: Add display commands to print all settings

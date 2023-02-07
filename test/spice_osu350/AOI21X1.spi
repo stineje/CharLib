@@ -1,0 +1,14 @@
+.subckt AOI21X1 vss vdd A B Y C
+M0 vdd A a_2_54# vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M1 a_2_54# B vdd vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M2 Y C a_2_54# vdd pfet w=8u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M3 a_12_6# A vss Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M4 Y B a_12_6# Gnd nfet w=4u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+M5 vss C Y Gnd nfet w=2u l=0.4u
++ ad=0p pd=0u as=0p ps=0u 
+.ends AOI21X1

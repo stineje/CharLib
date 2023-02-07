@@ -7,7 +7,6 @@ def runCombIn1Out1(targetLib, targetCell, expectationList, unate):
     harnessList2 = []  # list of harnessList
 
     for trial in range(len(expectationList)):
-        print(f'Trial: {trial}')
         tmp_Harness = HarnessSettings()
         tmp_Harness.set_timing_type_comb()
         tmp_Harness.set_timing_sense(unate)
