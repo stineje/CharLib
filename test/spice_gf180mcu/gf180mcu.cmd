@@ -41,12 +41,12 @@ set_operating_conditions PVT_3P5V_25C
 initialize
 
 ## add circuit
-add_cell -n INVX1 -l INV -i A -o Y -f Y=!A 
+add_cell -n gf180mcu_osu_sc_12T_inv_1 -l INV -i A -o Y -f Y=!A 
 add_slope {0.1 4.9} 
 add_load  {0.01 0.49} 
 add_area 1
-add_netlist test/spice_osu350/INVX1.spi
-add_model test/spice_osu350/model.sp
+add_netlist test/spice_gf180mcu/gf180mcu_osu_sc_12T_inv_1.spice
+add_model test/spice_gf180mcu/model.sp
 add_simulation_timestep auto
 characterize
 export
