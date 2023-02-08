@@ -80,6 +80,7 @@ def execute_shell(characterizer: Characterizer):
 
 def execute_command(characterizer: Characterizer, command: str):
     (cmd, *args) = command.split()
+    characterizer.print_debug(f'Executing {command}')
 
     # TODO: Add display commands to print all settings
     
@@ -229,8 +230,14 @@ def execute_command(characterizer: Characterizer, command: str):
                 if '}' in arg:
                     arg = arg.replace('}', '')
                 characterizer.target_cell().add_in_slope(float(arg))
-        elif(command.startswith('add_load')):
-            characterizer.target_cell().add_load(command)
+        elif cmd == 'add_load':
+            # Expected arg format: {1 2 ... N}
+            for arg in args:
+                if '{' in arg:
+                    arg = arg.replace('{', '')
+                if '}' in arg:
+                    arg = arg.replace('}', '')
+                characterizer.target_cell().add_out_load(float(arg))
         elif cmd == 'add_area':
             characterizer.target_cell().area = args[0]
         elif cmd == 'add_netlist':
@@ -239,8 +246,8 @@ def execute_command(characterizer: Characterizer, command: str):
             characterizer.target_cell().add_model(command)
         elif(command.startswith('add_simulation_timestep')):
             characterizer.target_cell().add_simulation_timestep(command)
-        elif(command.startswith('add_clock_slope')):
-            characterizer.target_cell().add_clock_slope(command)
+        elif cmd == 'add_clock_slope':
+            characterizer.target_cell().clock_slope = args[0]
         elif(command.startswith('add_simulation_setup_auto')):
             characterizer.target_cell().add_simulation_setup_lowest('add_simulation_setup_lowest auto')
             characterizer.target_cell().add_simulation_setup_highest('add_simulation_setup_highest auto')

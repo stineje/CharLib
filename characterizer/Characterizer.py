@@ -301,3 +301,15 @@ class Characterizer:
             print ("Target logic:"+cell.logic+" is not registered for characterization!\n")
             print ("Add characterization function for this program! -> die\n")
             exit()
+
+    def print_msg(self, message: str):
+        if not self.settings.suppress_message:
+            print(message)
+    
+    def print_sim(self, message: str):
+        if not self.settings.suppress_sim_message:
+            print(f'SIM: {message}')
+    
+    def print_debug(self, message: str):
+        if not self.settings.suppress_debug_message:
+            print(f'DEBUG: {message}')

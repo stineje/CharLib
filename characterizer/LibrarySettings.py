@@ -372,15 +372,3 @@ class LibrarySettings:
     @suppress_debug_message.setter
     def suppress_debug_message(self, value: str):
         self._suppress_debug_msg = str_to_bool(value)
-
-    def print_msg(self, message=""):
-        if not self.suppress_message:
-            print(message)
-    
-    def print_msg_sim(self, message=""):
-        if not self.suppress_sim_message:
-            print(message)
-    
-    def print_msg_dbg(self,  message=""):
-        if not self.suppress_debug_message:
-            print(message)

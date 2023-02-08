@@ -42,8 +42,8 @@ class LogicCell:
         self._netlist = None    # cell netlist
         self._definition = None # cell definition (from netlist)
         self._instance = None   # TODO: figure out what this represents, and briefly document here
-        self._in_slopes = []     # input pin slope
-        self.load = []          # output pin load
+        self._in_slopes = []    # input pin slopes
+        self._out_loads = []    # output pin loads
         self.sim_timestep = 0   # simulation timestep
 
         # From characterization results
@@ -218,40 +218,24 @@ class LogicCell:
             raise ValueError(f'Invalid value for input pin slope: {value}')
 
     @property
+    def out_loads(self) -> list:
+        return self._out_loads
+
+    def add_out_load(self, value: float):
+        if value is not None:
+            self._out_loads.append(float(value))
+        else:
+            raise ValueError(f'Invalid value for output pin load: {value}')
+
+    # TODO: def add_harness(self, port, )
+
+    @property
     def is_exported(self) -> bool:
         return self._is_exported
 
     def set_exported(self):
         self._is_exported = True
 
-    # TODO: def add_harness(self, port, )
-
-    def add_load(self, line="tmp"):
-        line = re.sub('\{','',line)
-        line = re.sub('\}','',line)
-        line = re.sub('^add_load ','',line)
-        tmp_array = line.split()
-        for w in tmp_array:
-            self.load.append(float(w))
-        #print (self.load)
-
-    def return_slope(self):
-        jlist = self.in_slopes
-        outline = "(\""
-        self.lut_prop = []
-        for j in range(len(jlist)-1):
-            outline += str(jlist[j])+", " 
-        outline += str(jlist[len(jlist)-1])+"\");" 
-        return outline
-
-    def return_load(self):
-        jlist = self.load
-        outline = "(\""
-        self.lut_prop = []
-        for j in range(len(jlist)-1):
-            outline += str(jlist[j])+", " 
-        outline += str(jlist[len(jlist)-1])+"\");" 
-        return outline
 
     def add_model(self, line="tmp"):
         tmp_array = line.split()
@@ -270,14 +254,94 @@ class LogicCell:
         ## average leak power of all harness
         self.leakage_power += harness.pleak 
 
-    def add_clock_slope(self, line="tmp"):
-        tmp_array = line.split()
-        ## if auto, amd slope is defined, use mininum slope
-        if (tmp_array[1] == 'auto'):
-            self.cslope = float(self.in_slopes[0]) 
-            print ("auto set clock slope as mininum slope.")
+    ## calculate ave of cin for each inports
+    ## cin is measured two times and stored into 
+    ## neighborhood harness, so cin of (2n)th and 
+    ## (2n+1)th harness are averaged out
+    def set_cin_avg(self, targetLib, port="data"):
+        tmp_cin = 0
+        tmp_index = 0
+        for targetHarness in self.harnesses[-1]:
+            if((port.lower() == 'clock')or(port.lower() == 'clk')):
+                tmp_cin += float(targetHarness.cclk)
+                ## if this is (2n+1) then store averaged 
+                ## cin into targetCell.cins
+                if((tmp_index % 2) == 1):
+                    self.cclks.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
+                    tmp_cin = 0
+                tmp_index += 1
+                #print("stored cins:"+str(tmp_index)+" for clk")
+            elif((port.lower() == 'reset')or(port.lower() == 'rst')):
+                tmp_cin += float(targetHarness.cin) # .cin stores rst cap. 
+                ## if this is (2n+1) then store averaged 
+                ## cin into targetCell.cins
+                if((tmp_index % 2) == 1):
+                    self.crsts.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
+                    tmp_cin = 0
+                tmp_index += 1
+                #print("stored cins:"+str(tmp_index)+" for rst")
+            elif(port.lower() == 'set'):
+                tmp_cin += float(targetHarness.cin) # .cin stores set cap.
+                ## if this is (2n+1) then store averaged 
+                ## cin into targetCell.cins
+                if((tmp_index % 2) == 1):
+                    self.csets.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
+                    tmp_cin = 0
+                tmp_index += 1
+                #print("stored cins:"+str(tmp_index)+" for set")
+            else:	
+                tmp_cin += float(targetHarness.cin) # else, .cin stores inport cap.
+                ## if this is (2n+1) then store averaged 
+                ## cin into targetCell.cins
+                if((tmp_index % 2) == 1):
+                    self.cins.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
+                    tmp_cin = 0
+                tmp_index += 1
+                #print("stored cins:"+str(tmp_index)+" for data")
+            #print("stored cins:"+str(tmp_index))
+
+class SequentialCell(LogicCell):
+    def __init__(self, name: str, logic: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
+        super().__init__(name, logic, in_ports, out_ports, function, area)
+        self.clock = clock_pin  # clock pin name
+        self.set = set_pin      # set pin name
+        self.reset = reset_pin  # reset pin name
+        self._flops = flops     # registers
+        self._clock_slope = 0   # input pin clock slope
+
+        # Characterization settings
+        self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
+        self.sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
+        self.sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
+        self.sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
+        self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
+        self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
+
+        # From characterization results
+        self.cclks = []     # clock pin capacitance
+        self.csets = []     # set pin capacitance
+        self.crsts = []     # reset pin capacitance
+
+    @property
+    def clock_slope(self) -> float:
+        return self._clock_slope
+
+    @clock_slope.setter
+    def clock_slope(self, value):
+        if value is not None:
+            if isinstance(value, float):
+                if value > 0:
+                    self._clock_slope = float(value)
+                else:
+                    raise ValueError('Clock slope must be greater than zero')
+            elif value == 'auto':
+                self._clock_slope = float(self._in_slopes[0])
+            else:
+                raise TypeError(f'Invalid type for clock slope: {type(value)}')
         else:
-            self.cslope = float(tmp_array[1]) 
+            raise ValueError(f'Invalid value for clock slope: {value}')
+
+    
 
     ## this defines lowest limit of setup edge
     def add_simulation_setup_lowest(self, line="tmp"):
@@ -343,71 +407,3 @@ class LogicCell:
             print ("auto set hold simulation timestep")
         else:
             self.sim_hold_timestep = float(tmp_array[1])
-
-    ## calculate ave of cin for each inports
-    ## cin is measured two times and stored into 
-    ## neighborhood harness, so cin of (2n)th and 
-    ## (2n+1)th harness are averaged out
-    def set_cin_avg(self, targetLib, harnessList, port="data"):
-        tmp_cin = 0
-        tmp_index = 0
-        for targetHarness in harnessList:
-            if((port.lower() == 'clock')or(port.lower() == 'clk')):
-                tmp_cin += float(targetHarness.cclk)
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.cclks.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for clk")
-            elif((port.lower() == 'reset')or(port.lower() == 'rst')):
-                tmp_cin += float(targetHarness.cin) # .cin stores rst cap. 
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.crsts.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for rst")
-            elif(port.lower() == 'set'):
-                tmp_cin += float(targetHarness.cin) # .cin stores set cap.
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.csets.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for set")
-            else:	
-                tmp_cin += float(targetHarness.cin) # else, .cin stores inport cap.
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.cins.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for data")
-            #print("stored cins:"+str(tmp_index))
-
-class SequentialCell(LogicCell):
-    def __init__(self, name: str, logic: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
-        super().__init__(name, logic, in_ports, out_ports, function, area)
-        self.clock = clock_pin  # clock pin name
-        self.set = set_pin      # set pin name
-        self.reset = reset_pin  # reset pin name
-        self.flops = flops      # registers
-        self.cslope = 0         # input pin clock slope
-
-        # Characterization settings
-        self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
-        self.sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
-        self.sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
-        self.sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
-        self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
-        self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
-
-        # From characterization results
-        self.cclks = []     # clock pin capacitance
-        self.csets = []     # set pin capacitance
-        self.crsts = []     # reset pin capacitance

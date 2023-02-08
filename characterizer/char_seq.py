@@ -43,8 +43,8 @@ def runFlop(targetLib, targetCell, expectationList2):
 
 
         # activate RST and SET if defined
-        #targetLib.print_msg("RST:"+str(RST_val))
-        #targetLib.print_msg("SET:"+str(SET_val))
+        #print("RST:"+str(RST_val))
+        #print("SET:"+str(SET_val))
         if((RST_val != None)and(SET_val != None)):
             tmp_Harness.set_target_set (targetCell.set, SET_val)
             tmp_Harness.set_target_reset (targetCell.reset, RST_val)
@@ -78,7 +78,7 @@ def runFlop(targetLib, targetCell, expectationList2):
         # normal operation (clock edge)
         if((D_val == '01') or (D_val == '10')):
             tmp_Harness.set_timing_flop_inout(D_val, CLK_val, Q_val)
-            targetLib.print_msg_sim("D2Q simualtion mode!\n")
+            print("D2Q simualtion mode!\n")
             # run spice and store result
             if targetLib.mt_sim:
                 runSpiceFlopDelayMT(targetLib, targetCell, tmp_Harness, spicef)
@@ -87,13 +87,13 @@ def runFlop(targetLib, targetCell, expectationList2):
         # reset operation (reset edge)
         elif((RST_val == '01') or (RST_val == '10')):
             tmp_Harness.set_timing_flop_reset(targetCell, RST_val, Q_val)
-            targetLib.print_msg_sim("R2Q simualtion mode!\n")
+            print("R2Q simualtion mode!\n")
             # run spice and store result
             runSpiceFlopRecoveryRemoval(targetLib, targetCell, tmp_Harness, spicef)
         # set operation (set edge)
         elif((SET_val == '01') or (SET_val == '10')):
             tmp_Harness.set_timing_flop_set(targetCell, SET_val, Q_val)
-            targetLib.print_msg_sim("S2Q simualtion mode!\n")
+            print("S2Q simualtion mode!\n")
             # run spice and store result
             runSpiceFlopRecoveryRemoval(targetLib, targetCell, tmp_Harness, spicef)
         else:
@@ -110,15 +110,15 @@ def runFlop(targetLib, targetCell, expectationList2):
         ## normal operation (clock edge)
         if((D_val == '01') or (D_val == '10')):
             ## set cin for clock
-            targetCell.set_cin_avg(targetLib, harnessList, "clk")
+            targetCell.set_cin_avg(targetLib, "clk")
             ## set cin for data
-            targetCell.set_cin_avg(targetLib, harnessList) 
+            targetCell.set_cin_avg(targetLib) 
         ## reset operation (reset edge)
         elif((RST_val == '01') or (RST_val == '10')):
-            targetCell.set_cin_avg(targetLib, harnessList, "rst")
+            targetCell.set_cin_avg(targetLib, "rst")
         ## set operation (set edge)
         elif((SET_val == '01') or (SET_val == '10')):
-            targetCell.set_cin_avg(targetLib, harnessList, "set")
+            targetCell.set_cin_avg(targetLib, "set")
         else:
             targetLib.print_error("any input vector is inputted! error\n")
 
@@ -151,7 +151,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
         res_list_cclk =   []
         res_list_pleak =   []
 
-        for tmp_load in targetCell.load:
+        for tmp_load in targetCell.out_loads:
             tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 10 # use x10 of max. slope for max val.
             tmp_min_setup = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup1 = tmp_max_val_loop # temporal value for setup 
@@ -177,7 +177,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
 
             tmp_tstep_mag = 20
             tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse setup search, timestep: "\
+            print("First stage sparse setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -188,7 +188,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
             tmp_tstep_mag = 2
             tmp_tstep_mag2 = tmp_tstep_mag1 
             tmp_tstep_mag1 = tmp_tstep_mag1 / tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse setup search, timestep: "\
+            print("First stage sparse setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -200,7 +200,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
             while(tmp_tstep_mag1 > tmp_tstep_mag ):
                 tmp_tstep_mag2 = tmp_tstep_mag1 
                 tmp_tstep_mag1 = tmp_tstep_mag1 / tmp_tstep_mag
-                targetLib.print_msg_sim("Mid. stage precise setup search, timestep: "\
+                print("Mid. stage precise setup search, timestep: "\
                     +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
                 ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                     tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -209,7 +209,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
                                                                         tmp_tsetup1 + targetCell.sim_setup_timestep * tmp_tstep_mag2  *3,\
                                                                         targetCell.sim_setup_timestep * tmp_tstep_mag1, tmp_min_hold, 3, spicef)
 
-            targetLib.print_msg_sim("Last stage precise setup search, timestep: "\
+            print("Last stage precise setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep))
             ( tmp_tsetup3, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -222,7 +222,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
             #if((targetHarness.target_inport_val == "01")or(targetHarness.target_inport_val == "10")):
             tmp_tstep_mag = 20
             tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse hold search, timestep: "\
+            print("First stage sparse hold search, timestep: "\
                 +str(targetCell.sim_hold_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -236,7 +236,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
             tmp_tstep_mag = 2
             tmp_tstep_mag2 = tmp_tstep_mag1
             tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse hold search, timestep: "\
+            print("First stage sparse hold search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -250,7 +250,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
             while(tmp_tstep_mag1 > tmp_tstep_mag ):
                 tmp_tstep_mag2 = tmp_tstep_mag1
                 tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-                targetLib.print_msg_sim("Mid. stage precise hold search, timestep: "\
+                print("Mid. stage precise hold search, timestep: "\
                     +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
                 ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                     tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -261,7 +261,7 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
                                                                         tmp_thold1 + targetCell.sim_hold_timestep * tmp_tstep_mag2 *1 ,\
                                                                         targetCell.sim_hold_timestep * tmp_tstep_mag1, tmp_tsetup3, 3, spicef)
 
-            targetLib.print_msg_sim("Last stage precise hold search, timestep: "\
+            print("Last stage precise hold search, timestep: "\
                 +str(targetCell.sim_hold_timestep))
             ( res_thold3, res_min_prop_in_out, res_min_prop_cin_out, res_min_setup, res_min_hold, res_min_trans_out, \
                 res_energy_start, res_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -322,44 +322,44 @@ def runSpiceFlopDelay(targetLib, targetCell, targetHarness, spicef):
         list2_pleak.append(res_list_pleak)
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_prop(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_tran(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_setup(list2_setup)
-    #targetHarness.print_list2_setup(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_setup(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_setup(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_setup()
     targetHarness.set_list2_hold(list2_hold)
-    #targetHarness.print_list2_hold(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_hold(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_hold(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_hold()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_eintl(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_ein(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_cin(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_eclk(list2_eclk)
-    #targetHarness.print_list2_eclk(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_eclk(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_eclk(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_eclk()
     targetHarness.set_list2_cclk(list2_cclk)
-    #targetHarness.print_list2_cclk(targetCell.load, targetCell.in_slopes)
-    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_cclk(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.average_list2_cclk(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_cclk()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_pleak(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
 
@@ -390,7 +390,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
         res_list_cclk =   []
         res_list_pleak =   []
 
-        for tmp_load in targetCell.load:
+        for tmp_load in targetCell.out_loads:
             tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 10 # use x10 of max. slope for max val.
             tmp_min_setup = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup1 = tmp_max_val_loop # temporal value for setup 
@@ -416,7 +416,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
 
             tmp_tstep_mag = 20
             tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse setup search, timestep: "\
+            print("First stage sparse setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -427,7 +427,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
             tmp_tstep_mag = 2
             tmp_tstep_mag2 = tmp_tstep_mag1 
             tmp_tstep_mag1 = tmp_tstep_mag1 / tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse setup search, timestep: "\
+            print("First stage sparse setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -439,7 +439,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
             while(tmp_tstep_mag1 > tmp_tstep_mag ):
                 tmp_tstep_mag2 = tmp_tstep_mag1 
                 tmp_tstep_mag1 = tmp_tstep_mag1 / tmp_tstep_mag
-                targetLib.print_msg_sim("Mid. stage precise setup search, timestep: "\
+                print("Mid. stage precise setup search, timestep: "\
                     +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
                 ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                     tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -448,7 +448,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
                                                                         tmp_tsetup1 + targetCell.sim_setup_timestep * tmp_tstep_mag2  *3,\
                                                                         targetCell.sim_setup_timestep * tmp_tstep_mag1, tmp_min_hold, 3, spicef)
 
-            targetLib.print_msg_sim("Last stage precise setup search, timestep: "\
+            print("Last stage precise setup search, timestep: "\
                 +str(targetCell.sim_setup_timestep))
             ( tmp_tsetup3, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -461,7 +461,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
             #if((targetHarness.target_inport_val == "01")or(targetHarness.target_inport_val == "10")):
             tmp_tstep_mag = 20
             tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse hold search, timestep: "\
+            print("First stage sparse hold search, timestep: "\
                 +str(targetCell.sim_hold_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -475,7 +475,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
             tmp_tstep_mag = 2
             tmp_tstep_mag2 = tmp_tstep_mag1
             tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse hold search, timestep: "\
+            print("First stage sparse hold search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -489,7 +489,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
             while(tmp_tstep_mag1 > tmp_tstep_mag ):
                 tmp_tstep_mag2 = tmp_tstep_mag1
                 tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-                targetLib.print_msg_sim("Mid. stage precise hold search, timestep: "\
+                print("Mid. stage precise hold search, timestep: "\
                     +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
                 ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                     tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -500,7 +500,7 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
                                                                         tmp_thold1 + targetCell.sim_hold_timestep * tmp_tstep_mag2 *1 ,\
                                                                         targetCell.sim_hold_timestep * tmp_tstep_mag1, tmp_tsetup3, 3, spicef)
 
-            targetLib.print_msg_sim("Last stage precise hold search, timestep: "\
+            print("Last stage precise hold search, timestep: "\
                 +str(targetCell.sim_hold_timestep))
             ( res_thold3, res_min_prop_in_out, res_min_prop_cin_out, res_min_setup, res_min_hold, res_min_trans_out, \
                 res_energy_start, res_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -561,44 +561,44 @@ def runSpiceFlopDelayMT(targetLib, targetCell, targetHarness, spicef):
         list2_pleak.append(res_list_pleak)
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_prop(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_tran(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_setup(list2_setup)
-    #targetHarness.print_list2_setup(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_setup(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_setup(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_setup()
     targetHarness.set_list2_hold(list2_hold)
-    #targetHarness.print_list2_hold(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_hold(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_hold(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_hold()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_eintl(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_ein(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_cin(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_eclk(list2_eclk)
-    #targetHarness.print_list2_eclk(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_eclk(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_eclk(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_eclk()
     targetHarness.set_list2_cclk(list2_cclk)
-    #targetHarness.print_list2_cclk(targetCell.load, targetCell.in_slopes)
-    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_cclk(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.average_list2_cclk(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_cclk()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_pleak(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
         
 
@@ -634,7 +634,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
         res_list_cclk =   []
         res_list_pleak =   []
 
-        for tmp_load in targetCell.load:
+        for tmp_load in targetCell.out_loads:
             tmp_max_val_loop = float(targetCell.in_slopes[-1]) * 10 # use x10 of max. slope for max val.
             tmp_min_setup = tmp_max_val_loop # temporal value for setup 
             tmp_tsetup1 = tmp_max_val_loop   # temporal value for setup 
@@ -664,7 +664,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
 
             tmp_tstep_mag = 20
             tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse recovery search, timestep: "\
+            print("First stage sparse recovery search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag1))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -675,7 +675,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
             tmp_tstep_mag = 2
             tmp_tstep_mag2 = tmp_tstep_mag1 
             tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse recovery search, timestep: "\
+            print("First stage sparse recovery search, timestep: "\
                 +str(targetCell.sim_setup_timestep*tmp_tstep_mag2))
             ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -687,7 +687,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
             while(tmp_tstep_mag1 > tmp_tstep_mag ):
                 tmp_tstep_mag2 = tmp_tstep_mag1 
                 tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-                targetLib.print_msg_sim("Mid. stage precise recovery search, timestep: "\
+                print("Mid. stage precise recovery search, timestep: "\
                     +str(targetCell.sim_setup_timestep*tmp_tstep_mag2))
                 ( tmp_tsetup1, tmp_min_prop_in_out, _, _, _, tmp_min_trans_out, \
                     tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
@@ -696,7 +696,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
                                                                         tmp_tsetup1 + targetCell.sim_setup_timestep * tmp_tstep_mag2 *3,\
                                                                         targetCell.sim_setup_timestep * tmp_tstep_mag2, tmp_min_hold, 3, spicefrr)
 
-            targetLib.print_msg_sim("Last stage precise recovery search, timestep: "+str(targetCell.sim_setup_timestep))
+            print("Last stage precise recovery search, timestep: "+str(targetCell.sim_setup_timestep))
             ( res_tsetup3, res_min_prop_in_out, res_min_prop_cin_out, res_min_setup, res_min_hold, res_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, _, _, _, _, _, _, _, _, _, _) \
              = setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
@@ -714,7 +714,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
 
             tmp_tstep_mag = 20
             tmp_tstep_mag1 = float(targetCell.in_slopes[-1])/float(targetCell.in_slopes[0])* tmp_tstep_mag
-            targetLib.print_msg_sim("First stage sparse removal search, timestep: "\
+            print("First stage sparse removal search, timestep: "\
                 +str(targetCell.sim_hold_timestep*tmp_tstep_mag1))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -728,7 +728,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
             tmp_tstep_mag = 2
             tmp_tstep_mag2 = tmp_tstep_mag1 
             tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-            targetLib.print_msg_sim("Mid. stage precise removal search, timestep: "\
+            print("Mid. stage precise removal search, timestep: "\
                 +str(targetCell.sim_hold_timestep*tmp_tstep_mag2))
             ( tmp_thold1, tmp_min_prop_in_out,tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
                 tmp_energy_start, tmp_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -742,7 +742,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
             while(tmp_tstep_mag1 > tmp_tstep_mag ):
                 tmp_tstep_mag2 = tmp_tstep_mag1 
                 tmp_tstep_mag1 = tmp_tstep_mag1 /  tmp_tstep_mag
-                targetLib.print_msg_sim("Mid. stage precise removal search, timestep: "\
+                print("Mid. stage precise removal search, timestep: "\
                     +str(targetCell.sim_hold_timestep*tmp_tstep_mag2))
                 #print("tmp_thold1: "+str(tmp_thold1))
                 #print("from: "+str(tmp_thold1 + targetCell.sim_hold_timestep * tmp_tstep_mag2 *3)+" to: "+str(tmp_thold1 - targetCell.sim_hold_timestep * tmp_tstep_mag2 *2))
@@ -755,7 +755,7 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
                                                                         tmp_thold1 - targetCell.sim_hold_timestep * tmp_tstep_mag2 *2,\
                                                                         -targetCell.sim_hold_timestep * tmp_tstep_mag2, -tmp_tsetup3, 3, spicefrr)
 
-            targetLib.print_msg_sim("Last stage precise removal search, timestep: "\
+            print("Last stage precise removal search, timestep: "\
                 +str(targetCell.sim_hold_timestep))
             ( res_thold3, res_min_prop_in_out, res_min_prop_cin_out, res_min_setup, res_min_hold, res_min_trans_out, \
                 res_energy_start, res_energy_end, tmp_energy_clk_start, tmp_energy_clk_end, \
@@ -816,44 +816,44 @@ def runSpiceFlopRecoveryRemoval(targetLib, targetCell, targetHarness, spicef):
         list2_pleak.append(res_list_pleak)
 
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_prop(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_prop(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_prop(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_tran(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_tran(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_tran(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_tran()
     targetHarness.set_list2_setup(list2_setup)
-    #targetHarness.print_list2_setup(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_setup(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_setup(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_setup(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_setup()
     targetHarness.set_list2_hold(list2_hold)
-    #targetHarness.print_list2_hold(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_hold(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_hold(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_hold(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_hold()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_eintl(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_eintl(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_eintl(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_ein(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_ein(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_ein(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.load, targetCell.in_slopes)
-    targetHarness.average_list2_cin(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_cin(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.average_list2_cin(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_cin()
     targetHarness.set_list2_eclk(list2_eclk)
-    #targetHarness.print_list2_eclk(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_eclk(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_eclk(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_eclk(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_eclk()
     targetHarness.set_list2_cclk(list2_cclk)
-    #targetHarness.print_list2_cclk(targetCell.load, targetCell.in_slopes)
-    targetHarness.average_list2_cclk(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_cclk(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.average_list2_cclk(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_cclk()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.load, targetCell.in_slopes)
-    targetHarness.write_list2_pleak(targetLib, targetCell.load, targetCell.in_slopes)
+    #targetHarness.print_list2_pleak(targetCell.out_loads, targetCell.in_slopes)
+    targetHarness.write_list2_pleak(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
 def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
@@ -880,7 +880,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
         first_stage_fail = 0
         for j in range(len(tranmag)):
             if(first_stage_fail == 0):
-                targetLib.print_msg_sim("dSetup: "+str(f'{tsetup:,.4f}')+str(targetLib.time_unit)+" dHold: "+str(f'{thold:,.4f}')+str(targetLib.time_unit)+" stage:"+str(j))
+                print("dSetup: "+str(f'{tsetup:,.4f}')+str(targetLib.time_unit)+" dHold: "+str(f'{thold:,.4f}')+str(targetLib.time_unit)+" stage:"+str(j))
                 cap_line = ".param cap ="+str(tmp_load)+str(targetLib.units.capacitance.symbol)+"\n"
                 slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag)+str(targetLib.time_unit)+"\n"
                 cslew_line = ".param cslew ="+str(targetCell.cslope)+str(targetLib.time_unit)+"\n"
@@ -890,7 +890,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
                 tsimend_line = ".param tsimendmag ="+str(tsimendmag[j])+" tranmag ="+str(tranmag[j])+"\n"
                 spicefo = str(spicef)+"_j"+str(j)+"_"+str(tmp_load)+"_"+str(tmp_slope)+"_setup"+str(f'{tsetup:,.4f}')+"_hold"+str(f'{thold:,.4f}')+".sp"
                 tran_line =".tran "+str(targetCell.sim_timestep*timestep_mag)+str(targetLib.time_unit)+" '_tsimend'\n"
-                #targetLib.print_msg(spicefo)
+                #print(spicefo)
         
                 ## Delay simulation
                 (res_prop_in_out, res_prop_cin_out, res_trans_out,res_energy_start, \
@@ -931,7 +931,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
                 print("spice deck: "+spicefo)
                 exit()
 
-            targetLib.print_msg_sim("Min. D2Q found. Break loop at dHold: "+str(f'{thold:,.4f}'))
+            print("Min. D2Q found. Break loop at dHold: "+str(f'{thold:,.4f}'))
 
             return ( float(thold + thold_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out, tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
             #return ( float(thold + thold_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out, float(res_setup), tmp_min_hold, tmp_min_trans_out, \
@@ -952,7 +952,7 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
             tmp_energy_start = float(res_energy_start)
         if(res_energy_end != "failed"):
             tmp_energy_end   = float(res_energy_end)
-        #targetLib.print_msg("res_energy_clk_start;"+res_energy_clk_start)
+        #print("res_energy_clk_start;"+res_energy_clk_start)
         if(res_energy_clk_start != "failed"):
             tmp_energy_clk_start = float(res_energy_clk_start)
         if(res_energy_clk_end != "failed"):
@@ -977,8 +977,8 @@ def holdSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, \
             tmp_min_setup = float(res_setup)
         if(res_hold != "failed"):
             tmp_min_hold = float(res_hold)
-            #targetLib.print_msg("tmp_min_hold: "+str(tmp_min_hold)+"\n")
-        #targetLib.print_msg("spicef: "+str(spicef)+"\n")
+            #print("tmp_min_hold: "+str(tmp_min_hold)+"\n")
+        #print("spicef: "+str(spicef)+"\n")
 
     # finish without premature ending
     print("Error! End of dhold search!!: "+str(f'{thold:,.4f}'))
@@ -1004,7 +1004,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
         first_stage_fail = 0
         for j in range(len(tranmag)):
             if(first_stage_fail == 0):
-                targetLib.print_msg_sim("dSetup: "+str(f'{tsetup:,.4f}')+str(targetLib.time_unit)+" dHold: "+str(f'{tmp_min_hold:,.4f}')+str(targetLib.time_unit)+" stage:"+str(j))
+                print("dSetup: "+str(f'{tsetup:,.4f}')+str(targetLib.time_unit)+" dHold: "+str(f'{tmp_min_hold:,.4f}')+str(targetLib.time_unit)+" stage:"+str(j))
                 cap_line = ".param cap ="+str(tmp_load)+str(targetLib.units.capacitance.symbol)+"\n"
                 slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag)+str(targetLib.time_unit)+"\n"
                 cslew_line = ".param cslew ="+str(targetCell.cslope)+str(targetLib.time_unit)+"\n"
@@ -1014,7 +1014,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
                 tsimend_line = ".param tsimendmag ="+str(tsimendmag[j])+" tranmag ="+str(tranmag[j])+"\n"
                 spicefo = str(spicef)+"_j"+str(j)+"_"+str(tmp_load)+"_"+str(tmp_slope)+"_setup"+str(f'{tsetup:,.4f}')+"_hold"+str(f'{tmp_min_hold:,.4f}')+".sp"
                 tran_line =".tran "+str(targetCell.sim_timestep*timestep_mag)+str(targetLib.time_unit)+" '_tsimend'\n"
-                #targetLib.print_msg_sim(spicefo)
+                #print(spicefo)
         
                 ## Delay simulation
                 (res_prop_in_out, res_prop_cin_out, res_trans_out, res_energy_start, \
@@ -1054,10 +1054,10 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
             or(float(res_prop_in_out) > tmp_min_prop_in_out) \
             or(first_stage_fail == 1)):
             if(tmp_max_val_loop == tmp_min_prop_in_out):
-                targetLib.print_msg_sim("Error: simulation failed! Check spice deck!")
-                targetLib.print_msg("spice deck: "+spicefo)
+                print("Error: simulation failed! Check spice deck!")
+                print("spice deck: "+spicefo)
                 exit()
-            targetLib.print_msg_sim("Min. D2Q found. Break loop at dSetup: "+str(f'{tsetup:,.4f}'))
+            print("Min. D2Q found. Break loop at dSetup: "+str(f'{tsetup:,.4f}'))
             # finish without premature ending
             #return float(tsetup - tsetup_tstep) 
             return ( float(tsetup - tsetup_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out,\
@@ -1080,7 +1080,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
             tmp_energy_start = float(res_energy_start)
         if(res_energy_end != "failed"):
             tmp_energy_end   = float(res_energy_end)
-        #targetLib.print_msg_sim("res_energy_clk_start;"+res_energy_clk_start)
+        #print("res_energy_clk_start;"+res_energy_clk_start)
         if(res_energy_clk_start != "failed"):
             tmp_energy_clk_start = float(res_energy_clk_start)
         if(res_energy_clk_end != "failed"):
@@ -1107,7 +1107,7 @@ def setupSearchFlop(targetLib, targetCell, targetHarness, tmp_load, tmp_slope, t
 #			tmp_min_hold = float(res_hold)  ## hold should be ideal
 
     # finish without premature ending
-    targetLib.print_msg_sim("Min. D2Q found at dSetup: "+str(f'{tsetup:,.4f}'))
+    print("Min. D2Q found at dSetup: "+str(f'{tsetup:,.4f}'))
     #return float(tsetup - tsetup_tstep) 
     return ( float(tsetup - tsetup_tstep), tmp_min_prop_in_out, tmp_min_prop_cin_out, \
                     tmp_min_setup, tmp_min_hold, tmp_min_trans_out, \
@@ -1121,7 +1121,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
         tran_line, estart_line, eend_line, eclkstart_line, eclkend_line, spicef):
     #print (spicef)
     #print ("generate AND2\n")
-    #targetLib.print_msg_sim(dir(targetLib))
+    #print(dir(targetLib))
     spicelis = spicef
     spicelis += ".lis"
 
@@ -1195,7 +1195,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
                 outlines.append("VIN VIN 0 DC '_vss' \n")
                 #outlines.append("VIN VIN 0 PWL(0 '_vdd' '_tclk4' '_vdd' '_tclk5' '_vss') \n")
             else:
-                targetLib.print_msg("Error: no VIN difinition!")
+                print("Error: no VIN difinition!")
                 exit()
             outlines.append("VHIGH VHIGH 0 DC '_vdd' \n")
             outlines.append("VLOW VLOW 0 DC '_vss' \n")
@@ -1407,7 +1407,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
             # parse subckt definition
             tmp_array = targetCell.instance.split()
             tmp_line = tmp_array[0] # XDUT
-            #targetLib.print_msg_sim(tmp_line)
+            #print(tmp_line)
             for w1 in tmp_array:
                 # match tmp_array and harness 
                 # search target inport
@@ -1429,7 +1429,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
                             tmp_line += ' LOW'
                             is_matched += 1
                         else:
-                            targetLib.print_msg('Illigal input value for stable input')
+                            print('Illigal input value for stable input')
                 # search target clock
                 w2 = targetHarness.target_clock
                 if(w1 == w2):
@@ -1525,14 +1525,14 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
             try:
                 res = subprocess.check_call(cmd)
             except:
-                targetLib.print_msg("Failed to lunch spice")
+                print("Failed to lunch spice")
 
     # read results
     with open(spicelis,'r') as f:
         for inline in f:
             if 'hspice' in str(targetLib.simulator):
                 inline = re.sub('\=',' ',inline)
-            #targetLib.print_msg(inline)
+            #print(inline)
             # search measure
             if(not (re.search("warning*", inline)) and not (re.search("failed",inline)) and not (re.search("Error",inline))):
                 if(re.search("prop_in_out", inline)): 
@@ -1594,7 +1594,7 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
 
 
     f.close()
-#	targetLib.print_msg(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end)+" "+str(res_setup)+" "+str(res_hold))
+#	print(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end)+" "+str(res_setup)+" "+str(res_hold))
     # check spice finish successfully
     try:
         res_prop_in_out
@@ -1680,10 +1680,10 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
 #		print("true2")
     if(res_tstart2_to_tend1 == "failed"):
         res_prop_in_out = "failed"
-        #targetLib.print_msg_sim("Parameter res_tstart2_to_tend1 is failed, stop hold search!")
+        #print("Parameter res_tstart2_to_tend1 is failed, stop hold search!")
     elif(float(res_tstart2_to_tend1) < 0):
         res_prop_in_out = "failed"
-        #targetLib.print_msg_sim("Time points in VIN waveform is negative, stop hold search!")
+        #print("Time points in VIN waveform is negative, stop hold search!")
 
     if(sim_mode == "delay"):
         return res_prop_in_out, res_prop_cin_out, res_trans_out, \
