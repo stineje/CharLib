@@ -310,12 +310,12 @@ class SequentialCell(LogicCell):
         self._clock_slope = 0   # input pin clock slope
 
         # Characterization settings
-        self.sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
-        self.sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
-        self.sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
-        self.sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
-        self.sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
-        self.sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
+        self._sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
+        self._sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
+        self._sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
+        self._sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
+        self._sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
+        self._sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
 
         # From characterization results
         self.cclks = []     # clock pin capacitance
@@ -329,30 +329,41 @@ class SequentialCell(LogicCell):
     @clock_slope.setter
     def clock_slope(self, value):
         if value is not None:
-            if isinstance(value, float):
+            if isinstance(value, (int, float)):
                 if value > 0:
                     self._clock_slope = float(value)
                 else:
                     raise ValueError('Clock slope must be greater than zero')
             elif value == 'auto':
+                if not self.in_slopes:
+                    raise ValueError('Cannot use auto clock slope unless in_slopes is set first!')
                 self._clock_slope = float(self._in_slopes[0])
             else:
                 raise TypeError(f'Invalid type for clock slope: {type(value)}')
         else:
             raise ValueError(f'Invalid value for clock slope: {value}')
 
-    
+    @property
+    def sim_setup_lowest(self) -> float:
+        return self._sim_setup_lowest
 
-    ## this defines lowest limit of setup edge
-    def add_simulation_setup_lowest(self, line="tmp"):
-        tmp_array = line.split()
-        ## if auto, amd slope is defined, use 10x of max slope 
-        ## "10" should be the same value of tstart1 and tclk5 in spice 
-        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
-            self.sim_setup_lowest = float(self.in_slopes[-1]) * -10 
-            print ("auto set setup simulation time lowest limit")
+    @sim_setup_lowest.setter
+    def sim_setup_lowest(self, value):
+        if value is not None:
+            if isinstance(value, (int, float)):
+                if value > 0:
+                    self._sim_setup_lowest = float(value)
+                else:
+                    raise ValueError('Value must be greater than zero')
+            elif value == 'auto':
+                if not self.in_slopes:
+                    raise ValueError('Cannot use auto for sim_setup_lowest unless in_slopes is set first!')
+                # Use -10 * max input pin slope
+                self._sim_setup_lowest = float(self._in_slopes[-1]) * -10
+            else:
+                raise TypeError(f'Invalid type for sim_setup_lowest: {type(value)}')
         else:
-            self.sim_setup_lowest = float(tmp_array[1]) 
+            raise ValueError(f'Invalid value for sim_setup_lowest: {value}')
             
     ## this defines highest limit of setup edge
     def add_simulation_setup_highest(self, line="tmp"):

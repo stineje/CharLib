@@ -252,8 +252,8 @@ def execute_command(characterizer: Characterizer, command: str):
             characterizer.target_cell().add_simulation_setup_lowest('add_simulation_setup_lowest auto')
             characterizer.target_cell().add_simulation_setup_highest('add_simulation_setup_highest auto')
             characterizer.target_cell().add_simulation_setup_timestep('add_simulation_setup_timestep auto')
-        elif(command.startswith('add_simulation_setup_lowest')):
-            characterizer.target_cell().add_simulation_setup_lowest(command)
+        elif cmd == 'add_simulation_setup_lowest':
+            characterizer.target_cell().sim_setup_lowest = args[0]
         elif(command.startswith('add_simulation_setup_highest')):
             characterizer.target_cell().add_simulation_setup_highest(command)
         elif(command.startswith('add_simulation_setup_timestep')):

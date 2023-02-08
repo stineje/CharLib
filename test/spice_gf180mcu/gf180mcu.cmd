@@ -29,9 +29,6 @@ set_logic_low_to_high_threshold 0.5
 set_work_dir work
 set_run_sim true
 set_mt_sim true
-set_supress_message false
-set_supress_sim_message false
-set_supress_debug_message true
 set_energy_meas_low_threshold 0.01
 set_energy_meas_high_threshold 0.99
 set_energy_meas_time_extent 10
@@ -45,7 +42,7 @@ add_slope {0.1 4.9}
 add_load  {0.01 0.49} 
 add_area 1
 add_netlist test/spice_gf180mcu/gf180mcu_osu_sc_12T_inv_1.spice
-add_model test/spice_gf180mcu/model.sp
+add_model test/spice_gf180mcu/sm141064.ngspice
 add_simulation_timestep auto
 characterize
 export
