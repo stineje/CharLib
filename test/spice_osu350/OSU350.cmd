@@ -25,7 +25,6 @@ set_logic_threshold_low 0.2
 set_logic_high_to_low_threshold 0.5
 set_logic_low_to_high_threshold 0.5
 set_work_dir work
-set_simulator /usr/bin/ngspice 
 set_run_sim true
 set_mt_sim true
 set_supress_message false

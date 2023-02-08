@@ -1,4 +1,5 @@
 from pathlib import Path
+from shutil import which
 from characterizer.UnitsSettings import UnitsSettings
 
 class NamedNode:
@@ -40,7 +41,7 @@ class LibrarySettings:
     def __init__(self):
         # Simulator Configuration
         self._work_dir = Path('work')
-        self._simulator = Path('/usr/bin/ngspice')
+        self._simulator = Path(which('ngspice'))
 
         # Key Library settings
         self._lib_name = None
