@@ -71,7 +71,7 @@ class EngineeringUnit:
             raise TypeError("EngineeringUnit.magnitude must be assigned as an integer or SI prefix")
                 
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         # Turn magnitude into a metric prefix
         mag_repr = None
         if self.magnitude == 1e30:
@@ -122,6 +122,9 @@ class EngineeringUnit:
         else: # Handle the case where magnitude is not 1e3N
             return f'{self.symbol} x {self.magnitude}'
 
+    def __repr__(self) -> str:
+        return f'EngineeringUnit({self.symbol}, {self.magnitude})'
+
 
 class UnitsSettings:
     def __init__(self) -> None:
@@ -130,8 +133,20 @@ class UnitsSettings:
         self._resistance = EngineeringUnit('Ω')
         self._current = EngineeringUnit('A', 1e-6)
         self._time = EngineeringUnit('s', 1e-9)
-        self._leakage_power = EngineeringUnit('W', 1e-9)
+        self._power = EngineeringUnit('W', 1e-9)
         self._energy = EngineeringUnit('J', 1e-12)
+        # TODO: Add temperature
+
+    def __str__(self) -> str:
+        lines = []
+        lines.append(f'Voltage unit:     {str(self.voltage)}')
+        lines.append(f'Current unit:     {str(self.current)}')
+        lines.append(f'Resistance unit:  {str(self.resistance)}')
+        lines.append(f'Capacitance unit: {str(self.capacitance)}')
+        lines.append(f'Time unit:        {str(self.time)}')
+        lines.append(f'Energy unit:      {str(self.energy)}')
+        lines.append(f'Power unit:       {str(self.power)}')
+        return '\n'.join(lines)
 
     @property
     def voltage(self):
@@ -254,26 +269,26 @@ class UnitsSettings:
             raise ValueError(f'Invalid time unit: {value}')
     
     @property
-    def leakage_power(self):
-        return self._leakage_power
+    def power(self):
+        return self._power
     
-    @leakage_power.setter
-    def leakage_power(self, value: str):
+    @power.setter
+    def power(self, value: str):
         # Valid symbols are "W" or "Watts"
         if value.lower().endswith('w'):
             if value.lower() == 'w':
-                self._leakage_power.symbol = 'W'
-                self._leakage_power.magnitude = 1
+                self._power.symbol = 'W'
+                self._power.magnitude = 1
             else:
-                self._leakage_power.symbol = value[-1]
-                self._leakage_power.magnitude = value[:-1]
+                self._power.symbol = value[-1]
+                self._power.magnitude = value[:-1]
         elif value.lower().endswith('watts'):
             if value.lower() == 'watts':
-                self._leakage_power.symbol = value
-                self._leakage_power.magnitude = 1
+                self._power.symbol = value
+                self._power.magnitude = 1
             else:
-                self._leakage_power.symbol = value[-5:]
-                self._leakage_power.magnitude = value[:-5]
+                self._power.symbol = value[-5:]
+                self._power.magnitude = value[:-5]
         else:
             raise ValueError(f'Invalid leakage power unit: {value}')
     

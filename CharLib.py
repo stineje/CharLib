@@ -71,8 +71,8 @@ def execute_shell(characterizer: Characterizer):
             command = input('CharLib > ')
             try:
                 execute_command(characterizer, command)
-            except ValueError:
-                print('Invalid command.')
+            except ValueError as e:
+                print(str(e))
             if command == 'exit' or command == 'quit':
                 exit_flag = True
     except KeyboardInterrupt:
@@ -81,8 +81,6 @@ def execute_shell(characterizer: Characterizer):
 def execute_command(characterizer: Characterizer, command: str):
     (cmd, *args) = command.split()
     characterizer.print_debug(f'Executing {command}')
-
-    # TODO: Add display commands to print all settings
     
     # set command
     if cmd.startswith('set_'):
@@ -108,7 +106,7 @@ def execute_command(characterizer: Characterizer, command: str):
         elif cmd == 'set_current_unit':
             characterizer.settings.units.current = args[0]
         elif cmd == 'set_leakage_power_unit':
-            characterizer.settings.units.leakage_power = args[0]
+            characterizer.settings.units.power = args[0]
         elif cmd == 'set_energy_unit':
             characterizer.settings.units.energy = args[0]
         elif cmd == 'set_vdd_name':
@@ -268,6 +266,25 @@ def execute_command(characterizer: Characterizer, command: str):
             characterizer.target_cell().add_simulation_hold_highest(command)
         elif(command.startswith('add_simulation_hold_timestep')):
             characterizer.target_cell().add_simulation_hold_timestep(command)
+
+    # get command
+    elif cmd.startswith('get_'):
+        if cmd == 'get_all': 
+            print(str(characterizer))
+        elif cmd == 'get_settings':
+            print(str(characterizer.settings))
+        elif cmd == 'get_cell_names':
+            if characterizer.cells:
+                for cell in characterizer.cells:
+                    print(str(cell.name))
+            else:
+                print('No cells to display. Add cells using the add_cell and add_flop commands.')
+        elif cmd == 'get_cells':
+            if characterizer.cells:
+                for cell in characterizer.cells:
+                    print(str(cell))
+            else:
+                print('No cells to display. Add cells using the add_cell and add_flop commands.')
 
     # execution
     elif cmd == 'create' or cmd == 'initialize':

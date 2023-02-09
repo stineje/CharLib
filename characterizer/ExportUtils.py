@@ -842,10 +842,13 @@ def exportVerilogFlop(targetLib, targetCell):
 
 ## export harness data to .lib
 def exitFiles(targetLib, num_gen_file):
-    outlines = []
-    outlines.append("}\n")
-    with open(targetLib.dotlib_name, 'a') as f:
-        f.writelines(outlines)
-        f.close()
-    print("\n-- dotlib file generation completed!!  ")
-    print("--  "+str(num_gen_file)+" cells generated!!  \n")
+    if targetLib.is_exported:
+        outlines = []
+        outlines.append("}\n")
+        with open(targetLib.dotlib_name, 'a') as f:
+            f.writelines(outlines)
+            f.close()
+        print("\n-- .lib file exported")
+    else:
+        print("\n-- Nothing to export")
+    print("-- "+str(num_gen_file)+" cells generated\n")

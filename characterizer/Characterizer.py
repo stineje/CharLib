@@ -13,6 +13,14 @@ class Characterizer:
         self.cells = []
         self.num_files_generated = 0
 
+    def __str__(self) -> str:
+        lines = []
+        lines.append(f'Library settings:')
+        for line in str(self.settings).split('\n'):
+            lines.append(f'    {line}')
+        # TODO: cells
+        return '\n'.join(lines)
+
     def target_cell(self) -> LogicCell:
         """Get last cell"""
         return self.cells[len(self.cells) - 1]
