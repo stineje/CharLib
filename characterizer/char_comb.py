@@ -27,7 +27,7 @@ def runCombIn1Out1(targetLib, targetCell, expectationList, unate):
         spicef = "delay1_"+str(targetCell.name)+"_"+str(targetCell.in_ports[0])\
             +str(tmp_inp0_val)+"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         ## run spice and store result
-        if targetLib.mt_sim:
+        if targetLib.use_multithreaded:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -67,7 +67,7 @@ def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
             +str(tmp_inp0_val)+"_"+str(targetCell.in_ports[1])+str(tmp_inp1_val)\
             +"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         # run spice and store result
-        if targetLib.mt_sim:
+        if targetLib.use_multithreaded:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -127,7 +127,7 @@ def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
             +"_"+str(targetCell.in_ports[2])+str(tmp_inp2_val)\
             +"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         # run spice and store result
-        if targetLib.mt_sim:
+        if targetLib.use_multithreaded:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
@@ -189,7 +189,7 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
             +"_"+str(targetCell.in_ports[3])+str(tmp_inp3_val)\
             +"_"+str(targetCell.out_ports[0])+str(tmp_outp0_val)
         # run spice and store result
-        if targetLib.mt_sim:
+        if targetLib.use_multithreaded:
             runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)

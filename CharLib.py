@@ -146,7 +146,7 @@ def execute_command(characterizer: Characterizer, command: str):
         elif cmd == 'set_run_sim':
             characterizer.settings.run_sim = args[0]
         elif cmd == 'set_mt_sim':
-            characterizer.settings.mt_sim = args[0]
+            characterizer.settings.use_multithreaded = args[0]
         elif cmd == 'set_supress_message':
             print('WARNING: "set_supress_message" will be replaced with "set_suppress_message" in the future.')
             characterizer.settings.suppress_message = args[0]

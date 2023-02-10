@@ -177,7 +177,9 @@ class LibrarySettings:
     @dotlib_name.setter
     def dotlib_name(self, value: str):
         if value is not None and len(value) > 0:
-            self._dotlib_name = value
+            if not str(value).endswith('.lib'):
+                raise ValueError(f'Dotlib name must end in .lib!')
+            self._dotlib_name = str(value)
         else:
             raise ValueError(f'Invalid value for dotlib_name: {value}')
 
@@ -191,7 +193,9 @@ class LibrarySettings:
     @verilog_name.setter
     def verilog_name(self, value: str):
         if value is not None and len(value) > 0:
-            self._verilog_name = value
+            if not str(value).endswith('.v'):
+                raise ValueError(f'Verilog name must end in .v!')
+            self._verilog_name = str(value)
         else:
             raise ValueError(f'Invalid value for verilog_name: {value}')
 
@@ -373,20 +377,20 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for run_sim: {value}')
 
     @property
-    def mt_sim(self) -> bool:
+    def use_multithreaded(self) -> bool:
         return self._use_multithreaded
 
-    @mt_sim.setter
-    def mt_sim(self, value):
+    @use_multithreaded.setter
+    def use_multithreaded(self, value):
         if value is not None:
             if isinstance(value, str):
                 self._use_multithreaded = str_to_bool(value)
             elif isinstance(value, bool):
                 self._use_multithreaded = value
             else:
-                raise TypeError(f'Invalid type for mt_sim: {type(value)}')
+                raise TypeError(f'Invalid type for use_multithreaded: {type(value)}')
         else:
-            raise ValueError(f'Invalid value for mt_sim: {value}')
+            raise ValueError(f'Invalid value for use_multithreaded: {value}')
     
     @property
     def is_exported(self) -> bool:

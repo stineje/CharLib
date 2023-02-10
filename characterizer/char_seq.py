@@ -80,7 +80,7 @@ def runFlop(targetLib, targetCell, expectationList2):
             tmp_Harness.set_timing_flop_inout(D_val, CLK_val, Q_val)
             print("D2Q simualtion mode!\n")
             # run spice and store result
-            if targetLib.mt_sim:
+            if targetLib.use_multithreaded:
                 runSpiceFlopDelayMT(targetLib, targetCell, tmp_Harness, spicef)
             else:
                 runSpiceFlopDelay(targetLib, targetCell, tmp_Harness, spicef)
