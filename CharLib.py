@@ -285,6 +285,9 @@ def execute_command(characterizer: Characterizer, command: str):
                     print(str(cell))
             else:
                 print('No cells to display. Add cells using the add_cell and add_flop commands.')
+        elif cmd == 'get_cell_by_name':
+            if characterizer.cells:
+                print(str([cell for cell in characterizer.cells if cell.name == args[0]][0]))
 
     # execution
     elif cmd == 'create' or cmd == 'initialize':

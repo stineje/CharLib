@@ -27,15 +27,17 @@ set_logic_low_to_high_threshold 0.5
 set_work_dir work
 set_run_sim true
 set_mt_sim true
-set_supress_message false
-set_supress_sim_message false
-set_supress_debug_message true
+set_suppress_message false
+set_suppress_sim_message false
+set_suppress_debug_message true
 set_energy_meas_low_threshold 0.01
 set_energy_meas_high_threshold 0.99
 set_energy_meas_time_extent 10
 set_operating_conditions PVT_3P5V_25C
 # initialize workspace
 initialize
+
+get_all
 
 ## add circuit
 add_cell -n INVX1 -l INV -i A -o Y -f Y=!A 
@@ -45,6 +47,9 @@ add_area 1
 add_netlist test/spice_osu350/INVX1.spi
 add_model test/spice_osu350/model.sp
 add_simulation_timestep auto
+
+get_cell_by_name INVX1
+
 characterize
 export
 

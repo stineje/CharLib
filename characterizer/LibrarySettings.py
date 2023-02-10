@@ -8,7 +8,7 @@ class NamedNode:
         self._voltage = voltage
 
     def __str__(self) -> str:
-        return f'name = {self.name}, voltage = {self.voltage}' # TODO Make this a bit nicer
+        return f'Name: {self.name}\nVoltage: {self.voltage}'
 
     def __repr__(self) -> str:
         return f'NamedNode({self.name}, {self.voltage})'
@@ -56,6 +56,7 @@ class LibrarySettings:
         # Simulator Settings
         self._simulator = Path(which('ngspice'))
         self._work_dir = Path('work')
+        self._results_dir = Path('results')
         self.vdd = NamedNode('VDD')
         self.vss = NamedNode('VSS')
         self.pwell = NamedNode('VPW')
@@ -94,16 +95,25 @@ class LibrarySettings:
         lines.append(f'Work directory:       {str(self.work_dir)}')
         lines.append(f'Process:              {self.process}')
         lines.append(f'Temperature:          {str(self.temperature)}')
-        lines.append(f'vdd:                  {str(self.vdd)} {str(self.units.voltage)}')
-        lines.append(f'vss:                  {str(self.vss)} {str(self.units.voltage)}')
-        lines.append(f'pwell:                {str(self.pwell)} {str(self.units.voltage)}')
-        lines.append(f'nwell:                {str(self.nwell)} {str(self.units.voltage)}')
-        lines.append(f'Logic Thresholds:')
+        lines.append(f'vdd:')
+        for line in str(self.vdd).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        for line in str(self.vss).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        for line in str(self.pwell).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        for line in str(self.nwell).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        lines.append(f'Logic thresholds:')
         lines.append(f'    Low:              {str(self.logic_threshold_low_voltage())} {str(self.units.voltage)}')
         lines.append(f'    High:             {str(self.logic_threshold_high_voltage())} {str(self.units.voltage)}')
-        lines.append(f'    High to Low:      {str(self.logic_high_to_low_threshold_voltage())} {str(self.units.voltage)}')
-        lines.append(f'    Low to High:      {str(self.logic_low_to_high_threshold_voltage())} {str(self.units.voltage)}')
-        lines.append(f'Energy Measurement Thresholds:')
+        lines.append(f'    High to low:      {str(self.logic_high_to_low_threshold_voltage())} {str(self.units.voltage)}')
+        lines.append(f'    Low to high:      {str(self.logic_low_to_high_threshold_voltage())} {str(self.units.voltage)}')
+        lines.append(f'Energy measurement thresholds:')
         lines.append(f'    Low:              {str(self.energy_meas_low_threshold_voltage())} {str(self.units.voltage)}')
         lines.append(f'    High:             {str(self.energy_meas_high_threshold_voltage())} {str(self.units.voltage)}')
         lines.append(f'Operating conditions: {self.operating_conditions}')

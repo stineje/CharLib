@@ -54,9 +54,34 @@ class LogicCell:
         # Behavioral settings
         self._is_exported = False   # whether the cell has been exported
 
+    def __str__(self) -> str:
+        lines = []
+        lines.append(f'Cell name:           {self.name}')
+        lines.append(f'Logic:               {self.logic}')
+        lines.append(f'Inputs:              {", ".join(self.in_ports)}')
+        lines.append(f'Outputs:             {", ".join(self.out_ports)}')
+        lines.append(f'Functions:')
+        for p,f in zip(self.out_ports,self.functions):
+            lines.append(f'    {p}={f}')
+        if self.area:
+            lines.append(f'Area:                {str(self.area)}')
+        if self.netlist:
+            lines.append(f'Netlist:             {str(self.netlist)}')
+            lines.append(f'Definition:          {self.definition.rstrip()}')
+            lines.append(f'Instance:            {self.instance}')
+        if self.in_slopes:
+            lines.append(f'Input pin simulation slopes:')
+            for slope in self.in_slopes:
+                lines.append(f'    {str(slope)}')
+        if self.out_loads:
+            lines.append(f'Output pin simulation loads:')
+            for load in self.out_loads:
+                lines.append(f'    {str(load)}')
+        lines.append(f'Simulation timestep: {str(self.sim_timestep)}')
+        return '\n'.join(lines)
+
     def __repr__(self):
-        # TODO
-        return self.name
+        return f'LogicCell({self.name},{self.logic},{self.in_ports},{self.out_ports},{self.functions},{self.area})'
 
     @property
     def name(self) -> str:
@@ -321,6 +346,26 @@ class SequentialCell(LogicCell):
         self.cclks = []     # clock pin capacitance
         self.csets = []     # set pin capacitance
         self.crsts = []     # reset pin capacitance
+
+    def __str__(self) -> str:
+        lines = super().__str__().split('\n')
+        function_line_index = lambda : lines.index(next([line for line in lines if line.startswith('Functions:')]))
+        # Insert pin names before functions line
+        if self.clock:
+            lines.insert(function_line_index, f'Clock pin:           {self.clock}')
+        if self.set:
+            lines.insert(function_line_index, f'Set pin:             {self.set}')
+        if self.reset:
+            lines.insert(function_line_index, f'Reset pin:           {self.reset}')
+        if self.flops:
+            lines.insert(function_line_index, f'Registers:           {", ".join(self.flops)}')
+
+    def __repr__(self):
+        return f'SequentialCell({self.name}, {self.logic}, {self.in_ports}, {self.out_ports}, {self.clock}, {self.set}, {self.reset}, {self.flops}, {self.functions}, {self. area})'
+
+    @property
+    def flops(self):
+        return self._flops
 
     @property
     def clock_slope(self) -> float:

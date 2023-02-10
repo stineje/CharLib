@@ -524,7 +524,7 @@ class HarnessSettings:
         for i in range(len(ilist)):
             for j in range(len(jlist)):
                 self.lut_pleak += self.list2_pleak[i][j]
-        self.pleak = str(self.lut_pleak / (len(ilist) * len(jlist))/targetLib.units.leakage_power.magnitude) # use average
+        self.pleak = str(self.lut_pleak / (len(ilist) * len(jlist))/targetLib.units.power.magnitude) # use average
     
     ## setup (for flop)
     def set_list2_setup(self, list2_setup=[]):

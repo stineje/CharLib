@@ -25,7 +25,7 @@ def exportLib(targetLib, targetCell):
     outlines.append(f'  delay_model : "{targetLib.delay_model}";\n')
     outlines.append(f'  capacitive_load_unit (1,{str(targetLib.units.capacitance)});\n')
     outlines.append(f'  current_unit : "1{str(targetLib.units.current)}";\n')
-    outlines.append(f'  leakage_power_unit : "1{str(targetLib.units.leakage_power)}";\n')
+    outlines.append(f'  leakage_power_unit : "1{str(targetLib.units.power)}";\n')
     outlines.append(f'  pulling_resistance_unit : "1{str(targetLib.units.resistance)}";\n')
     outlines.append(f'  time_unit : "1{str(targetLib.units.time)}";\n')
     outlines.append(f'  voltage_unit : "1{str(targetLib.units.voltage)}";\n')

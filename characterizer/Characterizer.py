@@ -23,7 +23,7 @@ class Characterizer:
 
     def target_cell(self) -> LogicCell:
         """Get last cell"""
-        return self.cells[len(self.cells) - 1]
+        return self.cells[-1]
 
     def add_cell(self, name, logic, in_ports, out_ports, function):
         # Create a new logic cell
