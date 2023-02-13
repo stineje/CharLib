@@ -4,7 +4,6 @@ from characterizer.HarnessSettings import HarnessSettings
 
 def runCombIn1Out1(targetLib, targetCell, expectationList, unate):
     harnessList = []   # harness for each trial
-    harnessList2 = []  # list of harnessList
 
     for trial in range(len(expectationList)):
         tmp_Harness = HarnessSettings()
@@ -58,7 +57,7 @@ def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
             tmp_Harness.set_target_inport (targetCell.in_ports[1], tmp_inp1_val)
             tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
         else:
-            print ("Illiegal input vector type!!")
+            print ("Illegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")
@@ -72,7 +71,7 @@ def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
         harnessList.append(tmp_Harness)
-        harnessList2.append(harnessList)
+        targetCell.harnesses.append(harnessList)
 
         # calculate avg of pleak
         #if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
@@ -116,7 +115,7 @@ def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
             tmp_Harness.set_stable_inport (targetCell.in_ports[0], tmp_inp0_val)
             tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
         else:
-            print ("Illiegal input vector type!!")
+            print ("Illegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")
@@ -132,12 +131,10 @@ def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
         harnessList.append(tmp_Harness)
-        harnessList2.append(harnessList)
+        targetCell.harnesses.append(harnessList)
 
     ## average cin of each harness
-    targetCell.set_cin_avg(targetLib) 
-
-    return harnessList2
+    targetCell.set_cin_avg(targetLib)
 #end runCombIn3Out1
 
 # TODO: def runCombIn3Out2
@@ -177,7 +174,7 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
             tmp_Harness.set_stable_inport (targetCell.in_ports[1], tmp_inp1_val)
             tmp_Harness.set_stable_inport (targetCell.in_ports[2], tmp_inp2_val)
         else:
-            print ("Illiegal input vector type!!")
+            print ("Illegal input vector type!!")
             print ("Check logic definition of this program!!")
             
         #tmp_Harness.set_leak_inportval ("1")
@@ -194,12 +191,11 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
         else:
             runSpiceCombDelay(targetLib, targetCell, tmp_Harness, spicef)
         harnessList.append(tmp_Harness)
-        harnessList2.append(harnessList)
+        targetCell.harnesses.append(harnessList)
     
     ## average cin of each harness
     targetCell.set_cin_avg(targetLib) 
 
-    return harnessList2
 #end  runCombIn4Out1
 
 def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
