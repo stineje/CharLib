@@ -26,6 +26,7 @@ RECOGNIZED_LOGIC = [
     'DFF_PCPU_NR',
     'DFF_PCPU_NRNS',
 ]
+# TODO: Automatically assign logic based on functions and number of inputs/outputs
  
 class LogicCell:
     def __init__ (self, name: str, logic: str, in_ports: list, out_ports: list, function: str, area: float = 0):
@@ -47,7 +48,7 @@ class LogicCell:
         self.sim_timestep = 0   # simulation timestep
 
         # From characterization results
-        self.harnesses = []     # list of harnessSettings
+        self.harnesses = []     # list of lists of harnesses (1 list of harnesses for each out_port tested)
         self.cins = []          # input pin capacitances
         self.leakage_power = [] # cell leakage power
 
@@ -252,8 +253,6 @@ class LogicCell:
         else:
             raise ValueError(f'Invalid value for output pin load: {value}')
 
-    # TODO: def add_harness(self, port, )
-
     @property
     def is_exported(self) -> bool:
         return self._is_exported
@@ -263,10 +262,12 @@ class LogicCell:
 
 
     def add_model(self, line="tmp"):
+        # TODO: Replace with model property
         tmp_array = line.split()
         self.model = tmp_array[1] 
 
     def add_simulation_timestep(self, line="tmp"):
+        # TODO: replace with sim_timestep property
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 1/10 of min slope
         if ((tmp_array[1] == 'auto') and (self.in_slopes[0] != None)):
@@ -284,6 +285,7 @@ class LogicCell:
     ## neighborhood harness, so cin of (2n)th and 
     ## (2n+1)th harness are averaged out
     def set_cin_avg(self, targetLib, port="data"):
+        # TODO: Replace with a method that calculates this instead of storing it
         tmp_cin = 0
         tmp_index = 0
         for targetHarness in self.harnesses[-1]:

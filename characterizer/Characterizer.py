@@ -51,7 +51,7 @@ class Characterizer:
             print ("INV\n")
             #                   [in0, out0]
             expectationList2 = [['01','10'], ['10','01']]
-            return runCombIn1Out1(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2,"neg")
         elif(cell.logic == 'BUF'):
             print ("BUF\n")
             #                   [in0, out0]

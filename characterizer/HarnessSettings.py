@@ -171,8 +171,8 @@ class HarnessSettings:
 
     def set_target_outport(self, outport="tmp", function="tmp", val="01"):
         self.target_outport = outport
-        self.target_function = function
-        self.target_outport_val = val
+        self.target_function = function # superfluous
+        self.target_outport_val = val   # Probably superfluous
         #print(self.target_outport_val)
         #print(self.target_outport)
         #print(self.target_function)

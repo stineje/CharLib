@@ -1,5 +1,8 @@
 import re, subprocess, sys, threading 
 
+from characterizer.LibrarySettings import LibrarySettings
+from characterizer.LogicCell import LogicCell
+from characterizer.Harness import CombinationalHarness
 from characterizer.HarnessSettings import HarnessSettings
 
 def runCombIn1Out1(targetLib, targetCell, expectationList, unate):
@@ -36,7 +39,63 @@ def runCombIn1Out1(targetLib, targetCell, expectationList, unate):
     ## average cin of each harness
     targetCell.set_cin_avg(targetLib)
 
-#end runCombIn1Out1
+def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expectationList, unate):
+    """Run delay characterization for an N-input 1-output combinational cell"""
+    harnesses = [] # One harness for each trial
+
+    for trial in range(len(expectationList)):
+        # expectationList entries will be formatted like [in1, ..., inN, direction]
+        (*input_vals, out_val) = expectationList[trial]
+
+        # Find the target input
+        stable_port_states = []
+        for i in input_vals:
+            if i == '01' or i == '10':
+                target_input_index = input_vals.index(i)
+                in_val = i
+            else:
+                stable_port_states.append(int(i))
+        target_input = target_cell.in_ports[target_input_index]
+
+        # Get target output
+        target_output = target_cell.out_ports[0]
+
+        # Determine input direction
+        if in_val == '01':
+            in_direction = 'rise'
+        elif in_val == '10':
+            in_direction = 'fall'
+        else:
+            raise ValueError(f'Invalid expectation vector for trial {trial}: {expectationList[trial]}')
+        
+        # Determine output direction
+        if out_val == '01':
+            out_direction = 'rise'
+        elif out_val == '10':
+            out_direction = 'fall'
+        else:
+            raise ValueError(f'Invalid expectation vector for trial {trial}: {expectationList[trial]}')
+        
+        # Generate harness
+        harness = CombinationalHarness(target_cell, target_input, target_output, in_direction, out_direction, stable_port_states, unate)
+        
+        # Generate spice file name
+        spice_filename = f'delay1_{target_cell.name}'
+        for input, val in zip(target_cell.in_ports, input_vals):
+            spice_filename += f'_{input}{val}'
+        spice_filename += f'_{target_output}{out_val}'
+
+        # Run delay characterization
+        if target_lib.use_multithreaded:
+            runSpiceCombDelayMultiThread(target_lib, target_cell, harness, spice_filename)
+        else:
+            runSpiceCombDelay(target_lib, target_cell, harness, spice_filename)
+        harnesses.append(harness)
+        target_cell.harnesses.append(harnesses) #TODO: Try deindenting this
+
+    target_cell.set_cin_avg(target_lib)
+
+
 def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
     harnessList = []
     harnessList2 = []
@@ -471,7 +530,7 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
     targetHarness.write_list2_pleak(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
-def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_line, slew_line, temp_line, estart_line, eend_line, spicef):
+def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targetHarness: CombinationalHarness, meas_energy, cap_line, slew_line, temp_line, estart_line, eend_line, spicef: str):
     #print (spicef)
     #print (estart_line)
     #print (eend_line)
@@ -513,14 +572,10 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         outlines.append(".tran "+str(targetCell.sim_timestep)+str(targetLib.units.time)+" '_tsimend'\n")
         outlines.append(" \n")
 
-        if(targetHarness.target_inport_val == "01"):
+        if(targetHarness.in_direction == 'rise'):
             outlines.append("VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') \n")
-        elif(targetHarness.target_inport_val == "10"):
+        elif(targetHarness.in_direction == 'fall'):
             outlines.append("VIN VIN 0 PWL(1p '_vdd' '_tstart' '_vdd' '_tend' '_vss' '_tsimend' '_vss') \n")
-        elif(targetHarness.target_inport_val == "11"):
-            outlines.append("VIN VIN 0 DC '_vdd' \n")
-        elif(targetHarness.target_inport_val == "00"):
-            outlines.append("VIN VIN 0 DC '_vss' \n")
         outlines.append("VHIGH VHIGH 0 DC '_vdd' \n")
         outlines.append("VLOW VLOW 0 DC '_vss' \n")
 
@@ -528,36 +583,18 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         ## delay measurement 
         outlines.append("** Delay \n")
         outlines.append("* Prop delay \n")
-        if(targetHarness.target_inport_val == "01"):
-            outlines.append(".measure Tran PROP_IN_OUT trig v(VIN) val='"+str(targetLib.logic_low_to_high_threshold_voltage())+"' rise=1 \n")
-        elif(targetHarness.target_inport_val == "10"):
-            outlines.append(".measure Tran PROP_IN_OUT trig v(VIN) val='"+str(targetLib.logic_high_to_low_threshold_voltage())+"' fall=1 \n")
-        if(targetHarness.target_outport_val == "10"):
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_high_to_low_threshold_voltage())+"' fall=1 \n")
-        elif(targetHarness.target_outport_val == "01"):
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_low_to_high_threshold_voltage())+"' rise=1 \n")
+        outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(targetLib.logic_low_to_high_threshold_voltage())}' {targetHarness.in_direction}=1\n")
+        outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_high_to_low_threshold_voltage())}' {targetHarness.out_direction}=1\n")
         outlines.append("* Trans delay \n")
-
-        if(targetHarness.target_outport_val == "10"):
-            outlines.append(".measure Tran TRANS_OUT trig v(VOUT) val='"+str(targetLib.logic_threshold_high_voltage())+"' fall=1\n")
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_threshold_low_voltage())+"' fall=1 \n")
-        elif(targetHarness.target_outport_val == "01"):
-            outlines.append(".measure Tran TRANS_OUT trig v(VOUT) val='"+str(targetLib.logic_threshold_low_voltage())+"' rise=1\n")
-            outlines.append("+ targ v(VOUT) val='"+str(targetLib.logic_threshold_high_voltage())+"' rise=1 \n")
+        outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(targetLib.logic_threshold_high_voltage())}' {targetHarness.out_direction}=1\n")
+        outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_threshold_low_voltage())}' {targetHarness.out_direction}=1\n")
 
         # get ENERGY_START and ENERGY_END for energy calculation in 2nd round 
         if(meas_energy == 0):
             outlines.append("* For energy calculation \n")
-            if(targetHarness.target_inport_val == "01"):
-                outlines.append(".measure Tran ENERGY_START when v(VIN)='"+str(targetLib.energy_meas_low_threshold_voltage())+"' rise=1 \n")
-            elif(targetHarness.target_inport_val == "10"):
-                outlines.append(".measure Tran ENERGY_START when v(VIN)='"+str(targetLib.energy_meas_high_threshold_voltage())+"' fall=1 \n")
-            if(targetHarness.target_outport_val == "01"):
-                outlines.append(".measure Tran ENERGY_END when v(VOUT)='"+str(targetLib.energy_meas_high_threshold_voltage())+"' rise=1 \n")
-            elif(targetHarness.target_outport_val == "10"):
-                outlines.append(".measure Tran ENERGY_END when v(VOUT)='"+str(targetLib.energy_meas_low_threshold_voltage())+"' fall=1 \n")
+            outlines.append(f".measure Tran ENERGY_START when v(VIN)='{str(targetLib.energy_meas_low_threshold_voltage())}' {targetHarness.in_direction}=1\n")
+            outlines.append(f".measure Tran ENERGY_END when v(VOUT)='{str(targetLib.energy_meas_high_threshold_voltage())}' {targetHarness.out_direction}=1\n")
 
-        ##
         ## energy measurement 
         elif(meas_energy == 1):
             outlines.append(estart_line)
@@ -598,6 +635,7 @@ def genFileLogic_trial1(targetLib, targetCell, targetHarness, meas_energy, cap_l
         # parse subckt definition
         tmp_array = targetCell.instance.split()
         tmp_line = tmp_array[0] # XDUT
+        # TODO: Figure this out so it doesn't use stable inport_val
         #print(tmp_line)
         for w1 in tmp_array:
             # match tmp_array and harness 
