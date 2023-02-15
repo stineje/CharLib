@@ -43,47 +43,16 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
     """Run delay characterization for an N-input 1-output combinational cell"""
     harnesses = [] # One harness for each trial
 
-    for trial in range(len(expectationList)):
-        # expectationList entries will be formatted like [in1, ..., inN, direction]
-        (*input_vals, out_val) = expectationList[trial]
-
-        # Find the target input
-        stable_port_states = []
-        for i in input_vals:
-            if i == '01' or i == '10':
-                target_input_index = input_vals.index(i)
-                in_val = i
-            else:
-                stable_port_states.append(int(i))
-        target_input = target_cell.in_ports[target_input_index]
-
-        # Get target output
-        target_output = target_cell.out_ports[0]
-
-        # Determine input direction
-        if in_val == '01':
-            in_direction = 'rise'
-        elif in_val == '10':
-            in_direction = 'fall'
-        else:
-            raise ValueError(f'Invalid expectation vector for trial {trial}: {expectationList[trial]}')
-        
-        # Determine output direction
-        if out_val == '01':
-            out_direction = 'rise'
-        elif out_val == '10':
-            out_direction = 'fall'
-        else:
-            raise ValueError(f'Invalid expectation vector for trial {trial}: {expectationList[trial]}')
-        
+    for trial in range(len(expectationList)):       
         # Generate harness
-        harness = CombinationalHarness(target_cell, target_input, target_output, in_direction, out_direction, stable_port_states, unate)
+        harness = CombinationalHarness(target_cell, expectationList, unate)
         
         # Generate spice file name
         spice_filename = f'delay1_{target_cell.name}'
-        for input, val in zip(target_cell.in_ports, input_vals):
-            spice_filename += f'_{input}{val}'
-        spice_filename += f'_{target_output}{out_val}'
+        spice_filename += f'_{harness.target_in_port}{harness.target_inport_val}'
+        for input, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
+            spice_filename += f'_{input}{state}'
+        spice_filename += f'_{harness.target_out_port}{harness.target_outport_val}'
 
         # Run delay characterization
         if target_lib.use_multithreaded:
@@ -467,6 +436,7 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
             #tmp_list_eend.append(res_energy_end)
 
             ## intl. energy calculation
+            # TODO: Check this calculation
             ## intl. energy is the sum of short-circuit energy and drain-diffusion charge/discharge energy
             ## larger Ql: intl. Q, load Q 
             ## smaller Qs: intl. Q
@@ -484,12 +454,15 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
 #			print(str(abs(res_q_vdd_dyn*targetLib.vdd.voltage)))
 
             ## input energy
+            # TODO: Check this calculation
             tmp_list_ein.append(abs(res_q_in_dyn)*targetLib.vdd.voltage)
 
             ## Cin = Qin / V
+            # TODO: Check this calculation
             tmp_list_cin.append(abs(res_q_in_dyn)/(targetLib.vdd.voltage))
 
             ## Pleak = average of Pleak_vdd and Pleak_vss
+            # TODO: Check this calculation
             ## P = I * V
             tmp_list_pleak.append((abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage)) #
             #print("calculated pleak: "+str(float(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*targetLib.vdd.voltage*targetLib.units.voltage.magnitude)) #
@@ -632,67 +605,63 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
         outlines.append("C0 WOUT VSS_DYN 'cap'\n")
         outlines.append(" \n")
         outlines.append(".SUBCKT DUT IN OUT HIGH LOW VDD VSS VNW VPW \n")
+
         # parse subckt definition
-        tmp_array = targetCell.instance.split()
-        tmp_line = tmp_array[0] # XDUT
+        port_list = targetCell.instance.split()
+        circuit_name = port_list.pop(-1)
+        tmp_line = port_list.pop(0)
         # TODO: Figure this out so it doesn't use stable inport_val
-        #print(tmp_line)
-        for w1 in tmp_array:
+        for port in port_list:
             # match tmp_array and harness 
             # search target inport
             is_matched = 0
-            w2 = targetHarness.target_inport
-            if(w1 == w2):
+            if port == targetHarness.target_in_port:
                 tmp_line += ' IN'
                 is_matched += 1
             # search stable inport
-            for w2 in targetHarness.stable_inport:
-                if(w1 == w2):
-                    # this is stable inport
-                    # search index for this port
-                    index_val = targetHarness.stable_inport_val[targetHarness.stable_inport.index(w2)]
-                    if(index_val == '1'):
+            for stable_port, state in zip(targetHarness.stable_in_ports, targetHarness.stable_in_port_states):
+                if port == stable_port:
+                    if state == 1:
                         tmp_line += ' HIGH'
                         is_matched += 1
-                    elif(index_val == '0'):
+                    elif state == 0:
                         tmp_line += ' LOW'
                         is_matched += 1
                     else:
-                        print('Illigal input value for stable input')
+                        raise ValueError(f'Invalid state for port {port}')
             # one target outport for one simulation
-            w2 = targetHarness.target_outport
             #print(w1+" "+w2+"\n")
-            if(w1 == w2):
+            if(port == targetHarness.target_out_port):
                 tmp_line += ' OUT'
                 is_matched += 1
-            # search non-terget outport
-            for w2 in targetHarness.nontarget_outport:
-                if(w1 == w2):
-                    # this is non-terget outport
-                    # search outdex for this port
-                    index_val = targetHarness.nontarget_outport_val[targetHarness.nontarget_outport.index(w2)]
-                    tmp_line += ' WFLOAT'+str(index_val)
+            # search non-target outport
+            # TODO
+            # for w2 in targetHarness.nontarget_out_ports:
+            #     if port == w2:
+            #         # this is non-target outport
+            #         # search outdex for this port
+            #         index_val = targetHarness.nontarget_out_port_states[targetHarness.nontarget_out_ports.index(w2)]
+            #         tmp_line += f' WFLOAT{str(index_val)}'
+            #         is_matched += 1
+            if port.upper() == targetLib.vdd.name.upper():
+                    tmp_line += f' {port.upper()}'
                     is_matched += 1
-            if(w1.upper() == targetLib.vdd.name.upper()):
-                    tmp_line += ' '+w1.upper() 
+            if port.upper() == targetLib.vss.name.upper():
+                    tmp_line += f' {port.upper()}'
                     is_matched += 1
-            if(w1.upper() == targetLib.vss.name.upper()):
-                    tmp_line += ' '+w1.upper() 
+            if port.upper() == targetLib.pwell.name.upper():
+                    tmp_line += f' {port.upper()}'
                     is_matched += 1
-            if(w1.upper() == targetLib.pwell.name.upper()):
-                    tmp_line += ' '+w1.upper() 
-                    is_matched += 1
-            if(w1.upper() == targetLib.nwell.name.upper()):
-                    tmp_line += ' '+w1.upper() 
+            if port.upper() == targetLib.nwell.name.upper():
+                    tmp_line += f' {port.upper()}'
                     is_matched += 1
             ## show error if this port has not matched
             if(is_matched == 0):
                 ## if w1 is wire name, abort
-                ## check this is instance tmp_array[0] or circuit name tmp_array[-1]
-                if((w1 != tmp_array[0]) and (w1 != tmp_array[-1])): 
-                    targetLib.print_error("port: "+str(w1)+" has not matched in netlist parse!!")
+                ## check this is instance name or circuit name
+                raise ValueError(f"port: {str(port)} has not matched in netlist parse!!")
                     
-        tmp_line += " "+str(tmp_array[len(tmp_array)-1])+"\n" # CIRCUIT NAME
+        tmp_line += f" {circuit_name}\n"
         outlines.append(tmp_line)
         #print(tmp_line)
 

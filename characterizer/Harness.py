@@ -6,30 +6,39 @@ class Harness:
     A Harness defines characterization parameters from one input to one
     output of a standard cell circuit."""
 
-    def __init__(self, target_cell: LogicCell, target_in_port: str, target_out_port: str, in_direction: str, out_direction: str, stable_in_port_states: list = []) -> None:
-        self._target_in_port = target_in_port   # This pin will change while other inputs will be held stable
-        self._stable_in_ports = []              # Pin names to hold stable
-        self._stable_in_port_states = []        # States for stable pins
-        self._target_out_port = target_out_port # This output will be measured for an expected result
-        self._nontarget_out_ports = []          # Output pins we aren't checking
+    def __init__(self, target_cell: LogicCell, test_vector: list) -> None:
+        self._stable_in_ports = []              # input pins to hold stable
+        self._stable_in_port_states = []        # states for stable pins
+        self._nontarget_out_ports = []          # output pins that we aren't specifically evaluating
+        self._nontarget_out_port_states = []    # states for nontarget outputs
+        
+        # Parse inputs from test vector
+        # Test vector should be formatted like [in1, ..., inN, out1, ..., outM]
+        num_inputs = len(target_cell.in_ports)
+        num_outputs = len(target_cell.out_ports)
+        input_test_vector = test_vector[0:num_inputs-1]
+        output_test_vector = test_vector[num_inputs:num_inputs+num_outputs-1]
+        state_to_direction = lambda s: 'rise' if s == '01' else 'fall' if s == '10' else s
 
-        # Set stable_in_ports
-        for port in target_cell.in_ports:
-            if not port == self.target_in_port:
-                self._stable_in_ports.append(port)
-        for state in stable_in_port_states:
-            self._stable_in_port_states.append(int(state))
-        if len(self.stable_in_port_states) < len(self.stable_in_ports):
-            raise ValueError(f'Too few states provided for stable_in_port_states! Exactly {str(len(self.stable_in_ports))} states required for cell {target_cell.name}')
+        # Get inputs from test vector
+        for in_port, state in zip(target_cell.in_ports, input_test_vector):
+            if len(state) > 1:
+                self._target_in_port = in_port
+                self.in_direction = state_to_direction(state)
+            else:
+                self._stable_in_ports.append(in_port)
+                self._stable_in_port_states.append(state)
 
-        # Set nontarget_out_ports
-        for port in target_cell.out_ports:
-            if not port == self.target_out_port:
-                self._nontarget_out_ports.append(port)
+        # Get outputs from test vector
+        for out_port, state in zip(target_cell.out_ports, output_test_vector):
+            if len(state) > 1:
+                self._target_out_port = out_port
+                self.out_direction = state_to_direction(state)
+            else:
+                self._nontarget_out_ports.append(out_port)
+                self._nontarget_out_port_states.append(state)
 
-        # Used for lib file generation
-        self.in_direction = in_direction        # rise or fall 
-        self.out_direction = out_direction      # rise or fall
+        # TODO: Make sure that we're properly initialized
 
     @property
     def target_in_port(self) -> str:
@@ -117,8 +126,8 @@ class Harness:
 
 
 class CombinationalHarness (Harness):
-    def __init__(self, target_cell: LogicCell, target_in_port: str, target_out_port: str, in_direction: str, out_direction: str, stable_in_port_states: list = [], timing_sense: str = 'non_unate') -> None:
-        super().__init__(target_cell, target_in_port, target_out_port, in_direction, out_direction)
+    def __init__(self, target_cell: LogicCell, test_vector, timing_sense: str = 'non_unate') -> None:
+        super().__init__(target_cell, test_vector)
 
         # Used for lib file generation
         self.timing_sense = timing_sense    # Describes the relationship b/t target input and target output
@@ -147,8 +156,10 @@ class CombinationalHarness (Harness):
 
 
 class SequentialHarness (Harness):
-    def __init__(self, target_cell: SequentialCell, target_in_port: str, target_out_port: str, in_direction: str, out_direction: str, stable_in_port_states: list = []) -> None:
-        super().__init__(target_cell, target_in_port, target_out_port, in_direction, out_direction)
+    def __init__(self, target_cell: SequentialCell, test_vector) -> None:
+        super().__init__(target_cell, test_vector)
         self.clock = target_cell.clock  # Clock pin
         self.set = target_cell.set      # Set pin (optional)
         self.reset = target_cell.reset  # Reset pin (optional)
+
+        # TODO
