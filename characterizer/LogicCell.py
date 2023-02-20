@@ -79,6 +79,10 @@ class LogicCell:
             for load in self.out_loads:
                 lines.append(f'    {str(load)}')
         lines.append(f'Simulation timestep: {str(self.sim_timestep)}')
+        if self.harnesses:
+            lines.append(f'Harnesses:')
+            for harness in self.harnesses:
+                lines.append(f'    {str(harness)}')
         return '\n'.join(lines)
 
     def __repr__(self):

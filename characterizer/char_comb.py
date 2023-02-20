@@ -510,167 +510,167 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
     #print (spicef)
     #print ("generate AND2\n")
     #print(dir(targetLib))
-    with open(spicef,'w') as f:
-        outlines = []
-        outlines.append("*title: delay meas.\n")
-        outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
-        outlines.append(".inc '../"+targetCell.model+"'\n")
-        outlines.append(".inc '../"+str(targetCell.netlist)+"'\n")
-        outlines.append(temp_line)
-        outlines.append(".param _vdd = "+str(targetLib.vdd.voltage)+"\n")
-        outlines.append(".param _vss = "+str(targetLib.vss.voltage)+"\n")
-        outlines.append(".param _vnw = "+str(targetLib.nwell.voltage)+"\n")
-        outlines.append(".param _vpw = "+str(targetLib.pwell.voltage)+"\n")
-        outlines.append(".param cap = 10f \n")
-        outlines.append(".param slew = 100p \n")
-        outlines.append(".param _tslew = slew\n")
-        outlines.append(".param _tstart = slew\n")
-        outlines.append(".param _tend = '_tstart + _tslew'\n")
-        outlines.append(".param _tsimend = '_tslew * 10000' \n")
-        outlines.append(".param _Energy_meas_end_extent = "+str(targetLib.energy_meas_time_extent)+"\n")
+    outlines = []
+    outlines.append("*title: delay meas.\n")
+    outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
+    outlines.append(".inc '../"+targetCell.model+"'\n")
+    outlines.append(".inc '../"+str(targetCell.netlist)+"'\n")
+    outlines.append(temp_line)
+    outlines.append(".param _vdd = "+str(targetLib.vdd.voltage)+"\n")
+    outlines.append(".param _vss = "+str(targetLib.vss.voltage)+"\n")
+    outlines.append(".param _vnw = "+str(targetLib.nwell.voltage)+"\n")
+    outlines.append(".param _vpw = "+str(targetLib.pwell.voltage)+"\n")
+    outlines.append(".param cap = 10f \n")
+    outlines.append(".param slew = 100p \n")
+    outlines.append(".param _tslew = slew\n")
+    outlines.append(".param _tstart = slew\n")
+    outlines.append(".param _tend = '_tstart + _tslew'\n")
+    outlines.append(".param _tsimend = '_tslew * 10000' \n")
+    outlines.append(".param _Energy_meas_end_extent = "+str(targetLib.energy_meas_time_extent)+"\n")
+    outlines.append(" \n")
+    outlines.append("VDD_DYN VDD_DYN 0 DC '_vdd' \n")
+    outlines.append("VSS_DYN VSS_DYN 0 DC '_vss' \n")
+    outlines.append("VNW_DYN VNW_DYN 0 DC '_vnw' \n")
+    outlines.append("VPW_DYN VPW_DYN 0 DC '_vpw' \n")
+    outlines.append("* output load calculation\n")
+    outlines.append("VOCAP VOUT WOUT DC 0\n")
+    #outlines.append("VDD_LEAK VDD_LEAK 0 DC '_vdd' \n")
+    #outlines.append("VSS_LEAK VSS_LEAK 0 DC '_vss' \n")
+    #outlines.append("VNW_LEAK VNW_LEAK 0 DC '_vnw' \n")
+    #outlines.append("VPW_LEAK VPW_LEAK 0 DC '_vpw' \n")
+    outlines.append(" \n")
+    ## in auto mode, simulation timestep is 1/10 of min. input slew
+    ## simulation runs 1000x of input slew time
+    outlines.append(".tran "+str(targetCell.sim_timestep)+str(targetLib.units.time)+" '_tsimend'\n")
+    outlines.append(" \n")
+
+    if(targetHarness.in_direction == 'rise'):
+        outlines.append("VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') \n")
+    elif(targetHarness.in_direction == 'fall'):
+        outlines.append("VIN VIN 0 PWL(1p '_vdd' '_tstart' '_vdd' '_tend' '_vss' '_tsimend' '_vss') \n")
+    outlines.append("VHIGH VHIGH 0 DC '_vdd' \n")
+    outlines.append("VLOW VLOW 0 DC '_vss' \n")
+
+    ##
+    ## delay measurement 
+    outlines.append("** Delay \n")
+    outlines.append("* Prop delay \n")
+    outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(targetLib.logic_low_to_high_threshold_voltage())}' {targetHarness.in_direction}=1\n")
+    outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_high_to_low_threshold_voltage())}' {targetHarness.out_direction}=1\n")
+    outlines.append("* Trans delay \n")
+    outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(targetLib.logic_threshold_high_voltage())}' {targetHarness.out_direction}=1\n")
+    outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_threshold_low_voltage())}' {targetHarness.out_direction}=1\n")
+
+    # get ENERGY_START and ENERGY_END for energy calculation in 2nd round 
+    if(meas_energy == 0):
+        outlines.append("* For energy calculation \n")
+        outlines.append(f".measure Tran ENERGY_START when v(VIN)='{str(targetLib.energy_meas_low_threshold_voltage())}' {targetHarness.in_direction}=1\n")
+        outlines.append(f".measure Tran ENERGY_END when v(VOUT)='{str(targetLib.energy_meas_high_threshold_voltage())}' {targetHarness.out_direction}=1\n")
+
+    ## energy measurement 
+    elif(meas_energy == 1):
+        outlines.append(estart_line)
+        outlines.append(eend_line)
+        outlines.append("* \n")
+        outlines.append("** In/Out Q, Capacitance \n")
+        outlines.append("* \n")
+        outlines.append(".measure Tran Q_IN_DYN integ i(VIN) from='ENERGY_START' to='ENERGY_END'  \n")
+        outlines.append(".measure Tran Q_OUT_DYN integ i(VOCAP) from='ENERGY_START' to='ENERGY_END*_Energy_meas_end_extent' \n")
         outlines.append(" \n")
-        outlines.append("VDD_DYN VDD_DYN 0 DC '_vdd' \n")
-        outlines.append("VSS_DYN VSS_DYN 0 DC '_vss' \n")
-        outlines.append("VNW_DYN VNW_DYN 0 DC '_vnw' \n")
-        outlines.append("VPW_DYN VPW_DYN 0 DC '_vpw' \n")
-        outlines.append("* output load calculation\n")
-        outlines.append("VOCAP VOUT WOUT DC 0\n")
-        #outlines.append("VDD_LEAK VDD_LEAK 0 DC '_vdd' \n")
-        #outlines.append("VSS_LEAK VSS_LEAK 0 DC '_vss' \n")
-        #outlines.append("VNW_LEAK VNW_LEAK 0 DC '_vnw' \n")
-        #outlines.append("VPW_LEAK VPW_LEAK 0 DC '_vpw' \n")
+        outlines.append("* \n")
+        outlines.append("** Energy \n")
+        outlines.append("*  (Total charge, Short-Circuit Charge) \n")
+        outlines.append(".measure Tran Q_VDD_DYN integ i(VDD_DYN) from='ENERGY_START' to='ENERGY_END*_Energy_meas_end_extent'  \n")
+        outlines.append(".measure Tran Q_VSS_DYN integ i(VSS_DYN) from='ENERGY_START' to='ENERGY_END*_Energy_meas_end_extent'  \n")
         outlines.append(" \n")
-        ## in auto mode, simulation timestep is 1/10 of min. input slew
-        ## simulation runs 1000x of input slew time
-        outlines.append(".tran "+str(targetCell.sim_timestep)+str(targetLib.units.time)+" '_tsimend'\n")
+        outlines.append("* Leakage current \n")
+        outlines.append(".measure Tran I_VDD_LEAK avg i(VDD_DYN) from='_tstart*0.1' to='_tstart'  \n")
+        outlines.append(".measure Tran I_VSS_LEAK avg i(VSS_DYN) from='_tstart*0.1' to='_tstart'  \n")
         outlines.append(" \n")
+        outlines.append("* Gate leak current \n")
+        outlines.append(".measure Tran I_IN_LEAK avg i(VIN) from='_tstart*0.1' to='_tstart'  \n")
+    else:
+        print("Error, meas_energy should 0 (disable) or 1 (enable)")
+        exit()
 
-        if(targetHarness.in_direction == 'rise'):
-            outlines.append("VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') \n")
-        elif(targetHarness.in_direction == 'fall'):
-            outlines.append("VIN VIN 0 PWL(1p '_vdd' '_tstart' '_vdd' '_tend' '_vss' '_tsimend' '_vss') \n")
-        outlines.append("VHIGH VHIGH 0 DC '_vdd' \n")
-        outlines.append("VLOW VLOW 0 DC '_vss' \n")
+    ## for ngspice batch mode 
+    outlines.append("*comment out .control for ngspice batch mode \n")
+    outlines.append("*.control \n")
+    outlines.append("*run \n")
+    outlines.append("*plot V(VIN) V(VOUT) \n")
+    outlines.append("*.endc \n")
 
-        ##
-        ## delay measurement 
-        outlines.append("** Delay \n")
-        outlines.append("* Prop delay \n")
-        outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(targetLib.logic_low_to_high_threshold_voltage())}' {targetHarness.in_direction}=1\n")
-        outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_high_to_low_threshold_voltage())}' {targetHarness.out_direction}=1\n")
-        outlines.append("* Trans delay \n")
-        outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(targetLib.logic_threshold_high_voltage())}' {targetHarness.out_direction}=1\n")
-        outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_threshold_low_voltage())}' {targetHarness.out_direction}=1\n")
+    outlines.append("XINV VIN VOUT VHIGH VLOW VDD_DYN VSS_DYN VNW_DYN VPW_DYN DUT \n")
+    outlines.append("C0 WOUT VSS_DYN 'cap'\n")
+    outlines.append(" \n")
+    outlines.append(".SUBCKT DUT IN OUT HIGH LOW VDD VSS VNW VPW \n")
 
-        # get ENERGY_START and ENERGY_END for energy calculation in 2nd round 
-        if(meas_energy == 0):
-            outlines.append("* For energy calculation \n")
-            outlines.append(f".measure Tran ENERGY_START when v(VIN)='{str(targetLib.energy_meas_low_threshold_voltage())}' {targetHarness.in_direction}=1\n")
-            outlines.append(f".measure Tran ENERGY_END when v(VOUT)='{str(targetLib.energy_meas_high_threshold_voltage())}' {targetHarness.out_direction}=1\n")
-
-        ## energy measurement 
-        elif(meas_energy == 1):
-            outlines.append(estart_line)
-            outlines.append(eend_line)
-            outlines.append("* \n")
-            outlines.append("** In/Out Q, Capacitance \n")
-            outlines.append("* \n")
-            outlines.append(".measure Tran Q_IN_DYN integ i(VIN) from='ENERGY_START' to='ENERGY_END'  \n")
-            outlines.append(".measure Tran Q_OUT_DYN integ i(VOCAP) from='ENERGY_START' to='ENERGY_END*_Energy_meas_end_extent' \n")
-            outlines.append(" \n")
-            outlines.append("* \n")
-            outlines.append("** Energy \n")
-            outlines.append("*  (Total charge, Short-Circuit Charge) \n")
-            outlines.append(".measure Tran Q_VDD_DYN integ i(VDD_DYN) from='ENERGY_START' to='ENERGY_END*_Energy_meas_end_extent'  \n")
-            outlines.append(".measure Tran Q_VSS_DYN integ i(VSS_DYN) from='ENERGY_START' to='ENERGY_END*_Energy_meas_end_extent'  \n")
-            outlines.append(" \n")
-            outlines.append("* Leakage current \n")
-            outlines.append(".measure Tran I_VDD_LEAK avg i(VDD_DYN) from='_tstart*0.1' to='_tstart'  \n")
-            outlines.append(".measure Tran I_VSS_LEAK avg i(VSS_DYN) from='_tstart*0.1' to='_tstart'  \n")
-            outlines.append(" \n")
-            outlines.append("* Gate leak current \n")
-            outlines.append(".measure Tran I_IN_LEAK avg i(VIN) from='_tstart*0.1' to='_tstart'  \n")
-        else:
-            print("Error, meas_energy should 0 (disable) or 1 (enable)")
-            exit()
-
-        ## for ngspice batch mode 
-        outlines.append("*comment out .control for ngspice batch mode \n")
-        outlines.append("*.control \n")
-        outlines.append("*run \n")
-        outlines.append("*plot V(VIN) V(VOUT) \n")
-        outlines.append("*.endc \n")
-
-        outlines.append("XINV VIN VOUT VHIGH VLOW VDD_DYN VSS_DYN VNW_DYN VPW_DYN DUT \n")
-        outlines.append("C0 WOUT VSS_DYN 'cap'\n")
-        outlines.append(" \n")
-        outlines.append(".SUBCKT DUT IN OUT HIGH LOW VDD VSS VNW VPW \n")
-
-        # parse subckt definition
-        port_list = targetCell.instance.split()
-        circuit_name = port_list.pop(-1)
-        tmp_line = port_list.pop(0)
-        # TODO: Figure this out so it doesn't use stable inport_val
-        for port in port_list:
-            # match tmp_array and harness 
-            # search target inport
-            is_matched = 0
-            if port == targetHarness.target_in_port:
-                tmp_line += ' IN'
+    # parse subckt definition
+    port_list = targetCell.instance.split()
+    circuit_name = port_list.pop(-1)
+    tmp_line = port_list.pop(0)
+    for port in port_list:
+        # match tmp_array and harness 
+        # search target inport
+        is_matched = 0
+        if port == targetHarness.target_in_port:
+            tmp_line += ' IN'
+            is_matched += 1
+        # search stable inport
+        for stable_port, state in zip(targetHarness.stable_in_ports, targetHarness.stable_in_port_states):
+            if port == stable_port:
+                if state == 1:
+                    tmp_line += ' HIGH'
+                    is_matched += 1
+                elif state == 0:
+                    tmp_line += ' LOW'
+                    is_matched += 1
+                else:
+                    raise ValueError(f'Invalid state for port {port}')
+        # one target outport for one simulation
+        #print(w1+" "+w2+"\n")
+        if(port == targetHarness.target_out_port):
+            tmp_line += ' OUT'
+            is_matched += 1
+        # search non-target outport
+        # TODO
+        # for w2 in targetHarness.nontarget_out_ports:
+        #     if port == w2:
+        #         # this is non-target outport
+        #         # search outdex for this port
+        #         index_val = targetHarness.nontarget_out_port_states[targetHarness.nontarget_out_ports.index(w2)]
+        #         tmp_line += f' WFLOAT{str(index_val)}'
+        #         is_matched += 1
+        if port.upper() == targetLib.vdd.name.upper():
+                tmp_line += f' {port.upper()}'
                 is_matched += 1
-            # search stable inport
-            for stable_port, state in zip(targetHarness.stable_in_ports, targetHarness.stable_in_port_states):
-                if port == stable_port:
-                    if state == 1:
-                        tmp_line += ' HIGH'
-                        is_matched += 1
-                    elif state == 0:
-                        tmp_line += ' LOW'
-                        is_matched += 1
-                    else:
-                        raise ValueError(f'Invalid state for port {port}')
-            # one target outport for one simulation
-            #print(w1+" "+w2+"\n")
-            if(port == targetHarness.target_out_port):
-                tmp_line += ' OUT'
+        if port.upper() == targetLib.vss.name.upper():
+                tmp_line += f' {port.upper()}'
                 is_matched += 1
-            # search non-target outport
-            # TODO
-            # for w2 in targetHarness.nontarget_out_ports:
-            #     if port == w2:
-            #         # this is non-target outport
-            #         # search outdex for this port
-            #         index_val = targetHarness.nontarget_out_port_states[targetHarness.nontarget_out_ports.index(w2)]
-            #         tmp_line += f' WFLOAT{str(index_val)}'
-            #         is_matched += 1
-            if port.upper() == targetLib.vdd.name.upper():
-                    tmp_line += f' {port.upper()}'
-                    is_matched += 1
-            if port.upper() == targetLib.vss.name.upper():
-                    tmp_line += f' {port.upper()}'
-                    is_matched += 1
-            if port.upper() == targetLib.pwell.name.upper():
-                    tmp_line += f' {port.upper()}'
-                    is_matched += 1
-            if port.upper() == targetLib.nwell.name.upper():
-                    tmp_line += f' {port.upper()}'
-                    is_matched += 1
-            ## show error if this port has not matched
-            if(is_matched == 0):
-                ## if w1 is wire name, abort
-                ## check this is instance name or circuit name
-                raise ValueError(f"port: {str(port)} has not matched in netlist parse!!")
-                    
-        tmp_line += f" {circuit_name}\n"
-        outlines.append(tmp_line)
-        #print(tmp_line)
-
-        outlines.append(".ends \n")
-        outlines.append(" \n")
-        outlines.append(cap_line)
-        outlines.append(slew_line)
+        if port.upper() == targetLib.pwell.name.upper():
+                tmp_line += f' {port.upper()}'
+                is_matched += 1
+        if port.upper() == targetLib.nwell.name.upper():
+                tmp_line += f' {port.upper()}'
+                is_matched += 1
+        ## show error if this port has not matched
+        if(is_matched == 0):
+            ## if w1 is wire name, abort
+            ## check this is instance name or circuit name
+            raise ValueError(f"port: {str(port)} has not matched in netlist parse!!")
                 
-        outlines.append(".end \n") 
+    tmp_line += f" {circuit_name}\n"
+    outlines.append(tmp_line)
+    #print(tmp_line)
+
+    outlines.append(".ends \n")
+    outlines.append(" \n")
+    outlines.append(cap_line)
+    outlines.append(slew_line)
+            
+    outlines.append(".end \n")
+    
+    with open(spicef,'w') as f:
         f.writelines(outlines)
         f.close()
 
