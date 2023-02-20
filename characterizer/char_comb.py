@@ -43,9 +43,9 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
     """Run delay characterization for an N-input 1-output combinational cell"""
     harnesses = [] # One harness for each trial
 
-    for trial in range(len(expectationList)):       
+    for test_vector in expectationList:
         # Generate harness
-        harness = CombinationalHarness(target_cell, expectationList, unate)
+        harness = CombinationalHarness(target_cell, test_vector, unate)
         
         # Generate spice file name
         spice_filename = f'delay1_{target_cell.name}'

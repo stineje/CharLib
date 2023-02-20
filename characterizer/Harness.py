@@ -14,13 +14,17 @@ class Harness:
         
         # Parse inputs from test vector
         # Test vector should be formatted like [in1, ..., inN, out1, ..., outM]
+        print(test_vector)
         num_inputs = len(target_cell.in_ports)
         num_outputs = len(target_cell.out_ports)
-        input_test_vector = test_vector[0:num_inputs-1]
-        output_test_vector = test_vector[num_inputs:num_inputs+num_outputs-1]
+        input_test_vector = test_vector[0:num_inputs]
+        print(input_test_vector)
+        output_test_vector = test_vector[num_inputs:num_inputs+num_outputs]
+        print(output_test_vector)
         state_to_direction = lambda s: 'rise' if s == '01' else 'fall' if s == '10' else s
 
         # Get inputs from test vector
+        print("Input")
         for in_port, state in zip(target_cell.in_ports, input_test_vector):
             if len(state) > 1:
                 self._target_in_port = in_port
@@ -28,6 +32,8 @@ class Harness:
             else:
                 self._stable_in_ports.append(in_port)
                 self._stable_in_port_states.append(state)
+        if not self._target_in_port:
+            raise ValueError(f'Unable to parse target input port from test vector {test_vector}')
 
         # Get outputs from test vector
         for out_port, state in zip(target_cell.out_ports, output_test_vector):
@@ -37,8 +43,8 @@ class Harness:
             else:
                 self._nontarget_out_ports.append(out_port)
                 self._nontarget_out_port_states.append(state)
-
-        # TODO: Make sure that we're properly initialized
+        if not self._target_out_port:
+            raise ValueError(f'Unable to parse target output port from test vector {test_vector}')
 
     @property
     def target_in_port(self) -> str:
