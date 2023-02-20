@@ -388,7 +388,7 @@ def runSpiceCombDelaySingle(targetLib, targetCell, targetHarness, spicef, \
 
     print("end thread :"+str(threading.current_thread().name))
 
-def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
+def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetHarness: CombinationalHarness, spicef):
     list2_prop =   []
     list2_tran =   []
     list2_estart = []
@@ -412,6 +412,8 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
         tmp_list_pleak =   []
         for tmp_load in targetCell.out_loads:
             tmp_loop += 1
+
+            # TODO: Move the following line generation into genFileLogic_trial1 - redundant
             cap_line = ".param cap ="+str(tmp_load*targetLib.units.capacitance.magnitude)+"\n"
             slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag*targetLib.units.time.magnitude)+"\n"
             temp_line = ".temp "+str(targetLib.temperature)+"\n"
@@ -421,6 +423,7 @@ def runSpiceCombDelay(targetLib, targetCell, targetHarness, spicef):
             res_prop_in_out, res_trans_out, res_energy_start, res_energy_end, \
                 = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, cap_line, slew_line, temp_line, "none", "none", spicefo)
 
+            # TODO: Move the following line generation into genFileLogic_trial1 - redundant
             estart_line = ".param ENERGY_START = "+str(res_energy_start)+"\n"
             eend_line = ".param ENERGY_END = "+str(res_energy_end)+"\n"
 

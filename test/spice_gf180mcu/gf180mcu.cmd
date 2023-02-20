@@ -1,8 +1,8 @@
 # common settings for library
-set_lib_name         OSU350
-set_dotlib_name      OSU350.lib
-set_verilog_name     OSU350.v
-set_cell_name_suffix OSU350_
+set_lib_name         GF180
+set_dotlib_name      GF180.lib
+set_verilog_name     GF180.v
+set_cell_name_suffix GF180_
 set_cell_name_prefix _V1
 set_voltage_unit V
 set_capacitance_unit pF
