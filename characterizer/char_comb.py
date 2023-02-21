@@ -397,10 +397,10 @@ def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetH
     list2_ein =   []
     list2_cin =   []
     list2_pleak =   []
-    tmp_loop = 0
     ## calculate whole slope length from logic threshold
     tmp_slope_mag = 1 / (targetLib.logic_threshold_high - targetLib.logic_threshold_low)
 
+    # Test each input slope with each output load
     for tmp_slope in targetCell.in_slopes:
         tmp_list_prop =   []
         tmp_list_tran =   []
@@ -411,9 +411,6 @@ def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetH
         tmp_list_cin =   []
         tmp_list_pleak =   []
         for tmp_load in targetCell.out_loads:
-            tmp_loop += 1
-
-            # TODO: Move the following line generation into genFileLogic_trial1 - redundant
             cap_line = ".param cap ="+str(tmp_load*targetLib.units.capacitance.magnitude)+"\n"
             slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag*targetLib.units.time.magnitude)+"\n"
             temp_line = ".temp "+str(targetLib.temperature)+"\n"
@@ -423,7 +420,6 @@ def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetH
             res_prop_in_out, res_trans_out, res_energy_start, res_energy_end, \
                 = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, cap_line, slew_line, temp_line, "none", "none", spicefo)
 
-            # TODO: Move the following line generation into genFileLogic_trial1 - redundant
             estart_line = ".param ENERGY_START = "+str(res_energy_start)+"\n"
             eend_line = ".param ENERGY_END = "+str(res_energy_end)+"\n"
 
@@ -658,29 +654,22 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
                 is_matched += 1
         ## show error if this port has not matched
         if(is_matched == 0):
-            ## if w1 is wire name, abort
-            ## check this is instance name or circuit name
             raise ValueError(f"port: {str(port)} has not matched in netlist parse!!")
-                
+
     tmp_line += f" {circuit_name}\n"
     outlines.append(tmp_line)
-    #print(tmp_line)
-
     outlines.append(".ends \n")
     outlines.append(" \n")
     outlines.append(cap_line)
     outlines.append(slew_line)
-            
     outlines.append(".end \n")
     
     with open(spicef,'w') as f:
         f.writelines(outlines)
         f.close()
 
-    spicelis = spicef
-    spicelis += ".lis"
-    spicerun = spicef
-    spicerun += ".run"
+    spicelis = spicef + ".lis"
+    spicerun = spicef + ".run"
 
     if 'ngspice' in str(targetLib.simulator):
         cmd = f'{str(targetLib.simulator.resolve())} -b {str(spicef)} 1> {str(spicelis)} 2> /dev/null \n'
@@ -701,66 +690,23 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
             print ("Failed to launch spice")
 
     # read results
+    results = {}
+    desired_measurements = [
+        'prop_in_out',
+        'trans_out',
+    ]
+    if meas_energy:
+        desired_measurements += ['q_in_dyn', 'q_out_dyn', 'q_vdd_dyn', 'q_vss_dyn', 'i_vdd_leak', 'i_vss_leak', 'i_in_leak']
+    else:
+        desired_measurements += ['energy_start', 'energy_end']
     with open(spicelis,'r') as f:
         for inline in f:
+            if any([x in inline for x in ['failed', 'Error']]):
+                pass # TODO: fail with error
             if 'hspice' in str(targetLib.simulator):
                 inline = re.sub('\=',' ',inline)
-            #print(inline)
-            # search measure
-            if 'failed' not in inline and 'Error' not in inline:
-                if 'prop_in_out' in inline:
-                    sparray = inline.split() # separate words with spaces
-                    res_prop_in_out = "{:e}".format(float(sparray[2].strip()))
-                elif 'trans_out' in inline:
-                    sparray = inline.split() # separate words with spaces
-                    res_trans_out = "{:e}".format(float(sparray[2].strip()))
-                if meas_energy == 0:
-                    if 'energy_start' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_energy_start = "{:e}".format(float(sparray[2].strip()))
-                    elif 'energy_end' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_energy_end = "{:e}".format(float(sparray[2].strip()))
-                if meas_energy == 1:
-                    if 'q_in_dyn' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_q_in_dyn = "{:e}".format(float(sparray[2].strip()))
-                    elif 'q_out_dyn' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_q_out_dyn = "{:e}".format(float(sparray[2].strip()))
-                    elif 'q_vdd_dyn' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_q_vdd_dyn = "{:e}".format(float(sparray[2].strip()))
-                    elif 'q_vss_dyn' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_q_vss_dyn = "{:e}".format(float(sparray[2].strip()))
-                    elif 'i_vdd_leak' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_i_vdd_leak = "{:e}".format(float(sparray[2].strip()))
-                    elif 'i_vss_leak' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_i_vss_leak = "{:e}".format(float(sparray[2].strip()))
-                    elif 'i_in_leak' in inline:
-                        sparray = inline.split() # separate words with spaces
-                        res_i_in_leak = "{:e}".format(float(sparray[2].strip()))
+            measurement = next((m for m in inline if m in desired_measurements), False)
+            if measurement:
+                results[measurement] = '{:e}'.format(float(inline.split()[2]))
         f.close()
-    #print(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end))
-    # check spice finish successfully
-    try:
-        res_prop_in_out
-    except NameError:
-        print("Value res_prop_in_out is not defined!!")
-        print("Check simulation result in work directory")
-        sys.exit()
-    try:
-        res_trans_out
-    except NameError:
-        print("Value res_trans_out is not defined!!")
-        print("Check simulation result in work directory")
-        sys.exit()
-    if(meas_energy == 0):
-        return float(res_prop_in_out), float(res_trans_out), float(res_energy_start), float(res_energy_end)
-    elif(meas_energy == 1):
-        return float(res_prop_in_out), float(res_trans_out), \
-                float(res_q_in_dyn), float(res_q_out_dyn), float(res_q_vdd_dyn), float(res_q_vss_dyn), \
-                float(res_i_in_leak), float(res_i_vdd_leak), float(res_i_vss_leak)
+    return results
