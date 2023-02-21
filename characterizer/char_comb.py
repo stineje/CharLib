@@ -347,7 +347,7 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
     targetHarness.write_list2_pleak(targetLib, targetCell.out_loads, targetCell.in_slopes)
     #targetHarness.print_lut_pleak()
 
-def runSpiceCombDelaySingle(targetLib, targetCell, targetHarness, spicef, \
+def runSpiceCombDelaySingle(targetLib: LibrarySettings, targetCell: LogicCell, targetHarness: CombinationalHarness, spicef, \
                                         tmp_slope, tmp_load, tmp_slope_mag, \
                                         results_prop_in_out, results_trans_out,\
                                         results_energy_start, results_energy_end,\
@@ -355,36 +355,32 @@ def runSpiceCombDelaySingle(targetLib, targetCell, targetHarness, spicef, \
                                         results_i_in_leak, results_i_vdd_leak, results_i_vss_leak):
 
     print("start thread :"+str(threading.current_thread().name))
-
     cap_line = ".param cap ="+str(tmp_load*targetLib.units.capacitance.magnitude)+"\n"
     slew_line = ".param slew ="+str(tmp_slope*tmp_slope_mag*targetLib.units.time.magnitude)+"\n"
     temp_line = ".temp "+str(targetLib.temperature)+"\n"
     spicefo = str(spicef)+"_"+str(tmp_load)+"_"+str(tmp_slope)+".sp"
 
     ## 1st trial, extract energy_start and energy_end
-    res_prop_in_out, res_trans_out, res_energy_start, res_energy_end, \
-        = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, cap_line, slew_line, temp_line, "none", "none", spicefo)
-
-    estart_line = ".param ENERGY_START = "+str(res_energy_start)+"\n"
-    eend_line = ".param ENERGY_END = "+str(res_energy_end)+"\n"
+    results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, cap_line, slew_line, temp_line, "none", "none", spicefo)
+    tmp_energy_start = results['energy_start']
+    tmp_energy_end = results['energy_end']
+    estart_line = ".param ENERGY_START = "+str(tmp_energy_start)+"\n"
+    eend_line = ".param ENERGY_END = "+str(tmp_energy_end)+"\n"
 
     ## 2nd trial, extract energy
-    res_prop_in_out, res_trans_out, \
-        res_q_in_dyn, res_q_out_dyn, res_q_vdd_dyn, res_q_vss_dyn, \
-        res_i_in_leak, res_i_vdd_leak, res_i_vss_leak \
-        = genFileLogic_trial1(targetLib, targetCell, targetHarness, 1, cap_line, slew_line, temp_line, estart_line, eend_line, spicefo)
+    results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 1, cap_line, slew_line, temp_line, estart_line, eend_line, spicefo)
     #print(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end))
-    results_prop_in_out[threading.current_thread().name] = res_prop_in_out
-    results_trans_out[threading.current_thread().name]   = res_trans_out
-    results_energy_start[threading.current_thread().name]= res_energy_start
-    results_energy_end[threading.current_thread().name]  = res_energy_end
-    results_q_in_dyn[threading.current_thread().name]    = res_q_in_dyn
-    results_q_out_dyn[threading.current_thread().name]   = res_q_out_dyn
-    results_q_vdd_dyn[threading.current_thread().name]   = res_q_vdd_dyn
-    results_q_vss_dyn[threading.current_thread().name]   = res_q_vss_dyn
-    results_i_in_leak[threading.current_thread().name]   = res_i_in_leak
-    results_i_vdd_leak[threading.current_thread().name]  = res_i_vdd_leak
-    results_i_vss_leak[threading.current_thread().name]  = res_i_vss_leak
+    results_prop_in_out[threading.current_thread().name] = results['prop_in_out']
+    results_trans_out[threading.current_thread().name]   = results['trans_out']
+    results_energy_start[threading.current_thread().name]= float(tmp_energy_start)
+    results_energy_end[threading.current_thread().name]  = float(tmp_energy_end)
+    results_q_in_dyn[threading.current_thread().name]    = float(results['q_in_dyn'])
+    results_q_out_dyn[threading.current_thread().name]   = float(results['q_out_dyn'])
+    results_q_vdd_dyn[threading.current_thread().name]   = float(results['q_vdd_dyn'])
+    results_q_vss_dyn[threading.current_thread().name]   = float(results['q_vss_dyn'])
+    results_i_in_leak[threading.current_thread().name]   = float(results['i_in_leak'])
+    results_i_vdd_leak[threading.current_thread().name]  = float(results['i_vdd_leak'])
+    results_i_vss_leak[threading.current_thread().name]  = float(results['i_vss_leak'])
 
     print("end thread :"+str(threading.current_thread().name))
 
@@ -417,35 +413,29 @@ def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetH
             spicefo = str(spicef)+"_"+str(tmp_load)+"_"+str(tmp_slope)+".sp"
 
             ## 1st trial, extract energy_start and energy_end
-            res_prop_in_out, res_trans_out, res_energy_start, res_energy_end, \
-                = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, cap_line, slew_line, temp_line, "none", "none", spicefo)
-
-            estart_line = ".param ENERGY_START = "+str(res_energy_start)+"\n"
-            eend_line = ".param ENERGY_END = "+str(res_energy_end)+"\n"
+            results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, cap_line, slew_line, temp_line, "none", "none", spicefo)
+            estart_line = ".param ENERGY_START = "+str(results['energy_start'])+"\n"
+            eend_line = ".param ENERGY_END = "+str(results['energy_end'])+"\n"
 
             ## 2nd trial, extract energy
-            res_prop_in_out, res_trans_out, \
-                res_q_in_dyn, res_q_out_dyn, res_q_vdd_dyn, res_q_vss_dyn, \
-                res_i_in_leak, res_i_vdd_leak, res_i_vss_leak \
-                = genFileLogic_trial1(targetLib, targetCell, targetHarness, 1, cap_line, slew_line, temp_line, estart_line, eend_line, spicefo)
+            results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 1, cap_line, slew_line, temp_line, estart_line, eend_line, spicefo)
             #print(str(res_prop_in_out)+" "+str(res_trans_out)+" "+str(res_energy_start)+" "+str(res_energy_end))
-            tmp_list_prop.append(res_prop_in_out)
-            tmp_list_tran.append(res_trans_out)
+            tmp_list_prop.append(results['prop_in_out'])
+            tmp_list_tran.append(results['trans_out'])
             #tmp_list_estart.append(res_energy_start)
             #tmp_list_eend.append(res_energy_end)
 
             ## intl. energy calculation
-            # TODO: Check this calculation
             ## intl. energy is the sum of short-circuit energy and drain-diffusion charge/discharge energy
             ## larger Ql: intl. Q, load Q 
             ## smaller Qs: intl. Q
             ## Eintl = QsV
-            if(abs(res_q_vdd_dyn) < abs(res_q_vss_dyn)):
-                tmp_list_eintl.append(abs(res_q_vdd_dyn*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
-                #print(str(abs(res_q_vdd_dyn*targetLib.vdd.voltage)))
+            if(abs(results['q_vdd_dyn']) < abs(results['q_vss_dyn'])):
+                # TODO: check this calculation
+                tmp_list_eintl.append(abs(results['q_vdd_dyn']*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold-abs((results['energy_end'] - results['energy_start'])*(abs(results['i_vdd_leak'])+abs(results['i_vdd_leak']))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
             else:
-                tmp_list_eintl.append(abs(res_q_vss_dyn*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold-abs((res_energy_end - res_energy_start)*(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
-                #print(str(abs(res_q_vss_dyn*targetLib.vdd.voltage)))
+                # TODO: check this calculation
+                tmp_list_eintl.append(abs(results['q_vss_dyn']*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold-abs((results['energy_end'] - results['energy_start'])*(abs(results['i_vdd_leak'])+abs(results['i_vdd_leak']))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
 
             ## intl. energy calculation
             ## Use VDD as intl. energy
@@ -454,16 +444,16 @@ def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetH
 
             ## input energy
             # TODO: Check this calculation
-            tmp_list_ein.append(abs(res_q_in_dyn)*targetLib.vdd.voltage)
+            tmp_list_ein.append(abs(results['q_in_dyn'])*targetLib.vdd.voltage)
 
             ## Cin = Qin / V
             # TODO: Check this calculation
-            tmp_list_cin.append(abs(res_q_in_dyn)/(targetLib.vdd.voltage))
+            tmp_list_cin.append(abs(results['q_in_dyn'])/(targetLib.vdd.voltage))
 
             ## Pleak = average of Pleak_vdd and Pleak_vss
             # TODO: Check this calculation
             ## P = I * V
-            tmp_list_pleak.append((abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*(targetLib.vdd.voltage)) #
+            tmp_list_pleak.append((abs(results['i_vdd_leak'])+abs(results['i_vdd_leak']))/2*(targetLib.vdd.voltage)) #
             #print("calculated pleak: "+str(float(abs(res_i_vdd_leak)+abs(res_i_vdd_leak))/2*targetLib.vdd.voltage*targetLib.units.voltage.magnitude)) #
 
         list2_prop.append(tmp_list_prop)
@@ -475,40 +465,20 @@ def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetH
         list2_cin.append(tmp_list_cin)
         list2_pleak.append(tmp_list_pleak)
 
-    #print(list2_prop)
-
     targetHarness.set_list2_prop(list2_prop)
-    #targetHarness.print_list2_prop(targetCell.out_loads, targetCell.in_slopes)
     targetHarness.write_list2_prop(targetLib, targetCell.out_loads, targetCell.in_slopes)
-    #targetHarness.print_lut_prop()
     targetHarness.set_list2_tran(list2_tran)
-    #targetHarness.print_list2_tran(targetCell.out_loads, targetCell.in_slopes)
     targetHarness.write_list2_tran(targetLib, targetCell.out_loads, targetCell.in_slopes)
-    #targetHarness.print_lut_tran()
     targetHarness.set_list2_eintl(list2_eintl)
-    #targetHarness.print_list2_eintl(targetCell.out_loads, targetCell.in_slopes)
     targetHarness.write_list2_eintl(targetLib, targetCell.out_loads, targetCell.in_slopes)
-    #targetHarness.print_lut_eintl()
     targetHarness.set_list2_ein(list2_ein)
-    #targetHarness.print_list2_ein(targetCell.out_loads, targetCell.in_slopes)
     targetHarness.write_list2_ein(targetLib, targetCell.out_loads, targetCell.in_slopes)
-    #targetHarness.print_lut_ein()
     targetHarness.set_list2_cin(list2_cin)
-    #targetHarness.print_list2_cin(targetCell.out_loads, targetCell.in_slopes)
     targetHarness.average_list2_cin(targetLib, targetCell.out_loads, targetCell.in_slopes)
-    #targetHarness.print_lut_cin()
     targetHarness.set_list2_pleak(list2_pleak)
-    #targetHarness.print_list2_pleak(targetCell.out_loads, targetCell.in_slopes)
     targetHarness.write_list2_pleak(targetLib, targetCell.out_loads, targetCell.in_slopes)
-    #targetHarness.print_lut_pleak()
 
 def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targetHarness: CombinationalHarness, meas_energy, cap_line, slew_line, temp_line, estart_line, eend_line, spicef: str):
-    #print (spicef)
-    #print (estart_line)
-    #print (eend_line)
-    #print (spicef)
-    #print ("generate AND2\n")
-    #print(dir(targetLib))
     outlines = []
     outlines.append("*title: delay meas.\n")
     outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
@@ -627,7 +597,6 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
                 else:
                     raise ValueError(f'Invalid state for port {port}')
         # one target outport for one simulation
-        #print(w1+" "+w2+"\n")
         if(port == targetHarness.target_out_port):
             tmp_line += ' OUT'
             is_matched += 1
@@ -681,15 +650,15 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
         f.writelines(outlines)
         f.close()
 
+    # run spice simulation
     cmd = ['sh', spicerun]
-            
     if targetLib.run_sim:
         try:
             subprocess.run(cmd)
         except:
             print ("Failed to launch spice")
 
-    # read results
+    # read results from lis file
     results = {}
     desired_measurements = [
         'prop_in_out',
@@ -705,7 +674,7 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
                 pass # TODO: fail with error
             if 'hspice' in str(targetLib.simulator):
                 inline = re.sub('\=',' ',inline)
-            measurement = next((m for m in inline if m in desired_measurements), False)
+            measurement = next((m for m in desired_measurements if m in inline), False)
             if measurement:
                 results[measurement] = '{:e}'.format(float(inline.split()[2]))
         f.close()
