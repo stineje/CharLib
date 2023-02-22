@@ -39,11 +39,13 @@ class Harness:
         output pins of the cell under test. A Harness does not keep track of
         changes to target_cell. If target_cell is changed after the Harness
         was generated, a new Harness should be generated."""
+
         self._stable_in_ports = []              # input pins to hold stable
         self._stable_in_port_states = []        # states for stable pins
         self._nontarget_out_ports = []          # output pins that we aren't specifically evaluating
         self._nontarget_out_port_states = []    # states for nontarget outputs
-        
+        self.results = []                       # list of characterization results dictionaries
+
         # Parse inputs from test vector
         # Test vector should be formatted like [in1, ..., inN, out1, ..., outM]
         num_inputs = len(target_cell.in_ports)

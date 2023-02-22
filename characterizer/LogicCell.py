@@ -41,11 +41,12 @@ class LogicCell:
 
         # Characterization settings
         self._netlist = None    # cell netlist
+        self.model = None       # cell model definition TODO: convert to property - should probably be a Path
         self._definition = None # cell definition (from netlist)
         self._instance = None   # TODO: figure out what this represents, and briefly document here
         self._in_slopes = []    # input pin slopes
         self._out_loads = []    # output pin loads
-        self.sim_timestep = 0   # simulation timestep
+        self.sim_timestep = 0   # simulation timestep TODO: convert to property
 
         # From characterization results
         self.harnesses = []     # list of lists of harnesses (1 list of harnesses for each out_port tested)
