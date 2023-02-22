@@ -5,11 +5,9 @@ from characterizer.LogicCell import LogicCell
 from characterizer.Harness import CombinationalHarness
 from characterizer.HarnessSettings import HarnessSettings
 
-def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expectationList, unate):
+def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expectation_list, unate):
     """Run delay characterization for an N-input 1-output combinational cell"""
-    harnesses = [] # One harness for each trial
-
-    for test_vector in expectationList:
+    for test_vector in expectation_list:
         # Generate harness
         harness = CombinationalHarness(target_cell, test_vector, unate)
         
@@ -25,20 +23,21 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
             runSpiceCombDelayMultiThread(target_lib, target_cell, harness, spice_filename)
         else:
             runSpiceCombDelay(target_lib, target_cell, harness, spice_filename)
-        harnesses.append(harness)
-        target_cell.harnesses.append(harnesses) #TODO: Try deindenting this
 
-    # This should be calculated by the cell instead
+        # Save harness to the cell
+        target_cell.harnesses.append(harness)
+
+    # This should be calculated by the cell instead of stored
     #target_cell.set_cin_avg(target_lib)
 
-def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
+def runSpiceCombDelayMultiThread(target_lib, target_cell, target_harness, spicef):
     # One trial for each input slope / output load combination
     thread_id = 0
     threadlist = []
-    for tmp_slope in targetCell.in_slopes:
-        for tmp_load in targetCell.out_loads:
+    for tmp_slope in target_cell.in_slopes:
+        for tmp_load in target_cell.out_loads:
             thread = threading.Thread(target=runSpiceCombDelaySingle,
-                    args=([targetLib, targetCell, targetHarness, spicef, tmp_slope, tmp_load]),
+                    args=([target_lib, target_cell, target_harness, spicef, tmp_slope, tmp_load]),
                     name="%d" % thread_id)
             threadlist.append(thread)
             thread_id += 1
@@ -49,7 +48,7 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
 
     # These calculations should be performed by Harness instead
     # thread_id = 0
-    # for tmp_slope in targetCell.in_slopes:
+    # for tmp_slope in target_cell.in_slopes:
     #     tmp_list_prop =   []
     #     tmp_list_tran =   []
     #     tmp_list_estart = []
@@ -58,10 +57,7 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
     #     tmp_list_ein =   []
     #     tmp_list_cin =   []
     #     tmp_list_pleak =   []
-    #     for tmp_load in targetCell.out_loads:
-    #         #print(str(thread_id))
-    #         #print(str(results_prop_in_out))
-    #         #print(str(results_prop_in_out[str(thread_id)]))
+    #     for tmp_load in target_cell.out_loads:
     #         tmp_list_prop.append(results_prop_in_out[str(thread_id)])
     #         tmp_list_tran.append(results_trans_out[str(thread_id)])
 
@@ -74,19 +70,19 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
     #             res_q = results_q_vdd_dyn[str(thread_id)]
     #         else:
     #             res_q = results_q_vss_dyn[str(thread_id)]
-    #         tmp_list_eintl.append(abs(res_q*targetLib.vdd.voltage*targetLib.energy_meas_high_threshold \
+    #         tmp_list_eintl.append(abs(res_q*target_lib.vdd.voltage*target_lib.energy_meas_high_threshold \
     #             - abs((results_energy_end[str(thread_id)] - results_energy_start[str(thread_id)])*(abs(results_i_vdd_leak[str(thread_id)]) \
-    #             + abs(results_i_vdd_leak[str(thread_id)]))/2*(targetLib.vdd.voltage*targetLib.energy_meas_high_threshold))))
+    #             + abs(results_i_vdd_leak[str(thread_id)]))/2*(target_lib.vdd.voltage*target_lib.energy_meas_high_threshold))))
 
     #         ## input energy
-    #         tmp_list_ein.append(abs(results_q_in_dyn[str(thread_id)])*targetLib.vdd.voltage)
+    #         tmp_list_ein.append(abs(results_q_in_dyn[str(thread_id)])*target_lib.vdd.voltage)
 
     #         ## Cin = Qin / V
-    #         tmp_list_cin.append(abs(results_q_in_dyn[str(thread_id)])/(targetLib.vdd.voltage))
+    #         tmp_list_cin.append(abs(results_q_in_dyn[str(thread_id)])/(target_lib.vdd.voltage))
 
     #         ## Pleak = average of Pleak_vdd and Pleak_vss
     #         ## P = I * V
-    #         tmp_list_pleak.append((abs(results_i_vdd_leak[str(thread_id)])+abs(results_i_vdd_leak[str(thread_id)]))/2*(targetLib.vdd.voltage)) #
+    #         tmp_list_pleak.append((abs(results_i_vdd_leak[str(thread_id)])+abs(results_i_vdd_leak[str(thread_id)]))/2*(target_lib.vdd.voltage)) #
     #         thread_id += 1
 
     #     list2_prop.append(tmp_list_prop)
@@ -98,64 +94,63 @@ def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
     #     list2_cin.append(tmp_list_cin)
     #     list2_pleak.append(tmp_list_pleak)
 
-def runSpiceCombDelaySingle(targetLib: LibrarySettings, targetCell: LogicCell, targetHarness: CombinationalHarness, spicef, tmp_slope, tmp_load):
-
+def runSpiceCombDelaySingle(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spicef, in_slope, out_load):
     print("start thread :"+str(threading.current_thread().name))
-    spicefo = str(spicef)+"_"+str(tmp_load)+"_"+str(tmp_slope)+".sp"
+    spicefo = str(spicef)+"_"+str(out_load)+"_"+str(in_slope)+".sp"
 
     ## 1st trial, extract energy_start and energy_end
-    trial_results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, tmp_slope, tmp_load, "none", "none", spicefo)
+    trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 0, in_slope, out_load, "none", "none", spicefo)
     energy_start = trial_results['energy_start']
     energy_end = trial_results['energy_end']
     estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
     eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
 
     ## 2nd trial
-    trial_results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 1, tmp_slope, tmp_load, estart_line, eend_line, spicefo)
+    trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 1, in_slope, out_load, estart_line, eend_line, spicefo)
     trial_results['energy_start'] = energy_start
     trial_results['energy_end'] = energy_end
 
     print("end thread :"+str(threading.current_thread().name))
-    targetHarness.results.append(trial_results)
+    target_harness.results.append(trial_results)
 
-def runSpiceCombDelay(targetLib: LibrarySettings, targetCell: LogicCell, targetHarness: CombinationalHarness, spicef):
+def runSpiceCombDelay(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spicef):
     # Test each input slope with each output load
-    for tmp_slope in targetCell.in_slopes:
-        for tmp_load in targetCell.out_loads:
+    for tmp_slope in target_cell.in_slopes:
+        for tmp_load in target_cell.out_loads:
             spicefo = str(spicef)+"_"+str(tmp_load)+"_"+str(tmp_slope)+".sp"
 
             ## 1st trial, extract energy_start and energy_end
-            trial_results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 0, tmp_slope, tmp_load, "none", "none", spicefo)
+            trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 0, tmp_slope, tmp_load, "none", "none", spicefo)
             energy_start = trial_results['energy_start']
             energy_end = trial_results['energy_end']
             estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
             eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
 
             ## 2nd trial
-            trial_results = genFileLogic_trial1(targetLib, targetCell, targetHarness, 1, tmp_slope, tmp_load, estart_line, eend_line, spicefo)
+            trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 1, tmp_slope, tmp_load, estart_line, eend_line, spicefo)
             trial_results['energy_start'] = energy_start
             trial_results['energy_end'] = energy_end
 
-            targetHarness.results.append(trial_results)
+            target_harness.results.append(trial_results)
 
-def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targetHarness: CombinationalHarness, meas_energy: bool, in_slope, out_load, estart_line, eend_line, spicef: str):
+def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, meas_energy: bool, in_slope, out_load, estart_line, eend_line, spicef: str):
     outlines = []
     outlines.append("*title: delay meas.\n")
     outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
-    outlines.append(f".inc '../{targetCell.model}'\n")
-    outlines.append(f".inc '../{str(targetCell.netlist)}'\n")
-    outlines.append(f".temp {str(targetLib.temperature)}\n")
-    outlines.append(f".param _vdd = {str(targetLib.vdd.voltage)}\n")
-    outlines.append(f".param _vss = {str(targetLib.vss.voltage)}\n")
-    outlines.append(f".param _vnw = {str(targetLib.nwell.voltage)}\n")
-    outlines.append(f".param _vpw = {str(targetLib.pwell.voltage)}\n")
+    outlines.append(f".inc '../{target_cell.model}'\n")
+    outlines.append(f".inc '../{str(target_cell.netlist)}'\n")
+    outlines.append(f".temp {str(target_lib.temperature)}\n")
+    outlines.append(f".param _vdd = {str(target_lib.vdd.voltage)}\n")
+    outlines.append(f".param _vss = {str(target_lib.vss.voltage)}\n")
+    outlines.append(f".param _vnw = {str(target_lib.nwell.voltage)}\n")
+    outlines.append(f".param _vpw = {str(target_lib.pwell.voltage)}\n")
     outlines.append(".param cap = 10f \n") # TODO: is this correct?
     outlines.append(".param slew = 100p \n") # TODO: is this correct?
     outlines.append(".param _tslew = slew\n")
     outlines.append(".param _tstart = slew\n")
     outlines.append(".param _tend = '_tstart + _tslew'\n")
     outlines.append(".param _tsimend = '_tslew * 10000' \n")
-    outlines.append(f".param _Energy_meas_end_extent = {str(targetLib.energy_meas_time_extent)}\n")
+    outlines.append(f".param _Energy_meas_end_extent = {str(target_lib.energy_meas_time_extent)}\n")
     outlines.append(" \n")
     outlines.append("VDD_DYN VDD_DYN 0 DC '_vdd' \n")
     outlines.append("VSS_DYN VSS_DYN 0 DC '_vss' \n")
@@ -170,12 +165,12 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
     outlines.append(" \n")
     ## in auto mode, simulation timestep is 1/10 of min. input slew
     ## simulation runs 1000x of input slew time
-    outlines.append(f".tran {str(targetCell.sim_timestep)}{str(targetLib.units.time)} '_tsimend'\n")
+    outlines.append(f".tran {str(target_cell.sim_timestep)}{str(target_lib.units.time)} '_tsimend'\n")
     outlines.append(" \n")
 
-    if targetHarness.in_direction == 'rise':
+    if target_harness.in_direction == 'rise':
         outlines.append("VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') \n")
-    elif targetHarness.in_direction == 'fall':
+    elif target_harness.in_direction == 'fall':
         outlines.append("VIN VIN 0 PWL(1p '_vdd' '_tstart' '_vdd' '_tend' '_vss' '_tsimend' '_vss') \n")
     outlines.append("VHIGH VHIGH 0 DC '_vdd' \n")
     outlines.append("VLOW VLOW 0 DC '_vss' \n")
@@ -184,17 +179,17 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
     ## delay measurement 
     outlines.append("** Delay \n")
     outlines.append("* Prop delay \n")
-    outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(targetLib.logic_low_to_high_threshold_voltage())}' {targetHarness.in_direction}=1\n")
-    outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_high_to_low_threshold_voltage())}' {targetHarness.out_direction}=1\n")
+    outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(target_lib.logic_low_to_high_threshold_voltage())}' {target_harness.in_direction}=1\n")
+    outlines.append(f"+ targ v(VOUT) val='{str(target_lib.logic_high_to_low_threshold_voltage())}' {target_harness.out_direction}=1\n")
     outlines.append("* Trans delay \n")
-    outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(targetLib.logic_threshold_high_voltage())}' {targetHarness.out_direction}=1\n")
-    outlines.append(f"+ targ v(VOUT) val='{str(targetLib.logic_threshold_low_voltage())}' {targetHarness.out_direction}=1\n")
+    outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(target_lib.logic_threshold_high_voltage())}' {target_harness.out_direction}=1\n")
+    outlines.append(f"+ targ v(VOUT) val='{str(target_lib.logic_threshold_low_voltage())}' {target_harness.out_direction}=1\n")
 
     # get ENERGY_START and ENERGY_END for energy calculation in 2nd round 
     if not meas_energy:
         outlines.append("* For energy calculation \n")
-        outlines.append(f".measure Tran ENERGY_START when v(VIN)='{str(targetLib.energy_meas_low_threshold_voltage())}' {targetHarness.in_direction}=1\n")
-        outlines.append(f".measure Tran ENERGY_END when v(VOUT)='{str(targetLib.energy_meas_high_threshold_voltage())}' {targetHarness.out_direction}=1\n")
+        outlines.append(f".measure Tran ENERGY_START when v(VIN)='{str(target_lib.energy_meas_low_threshold_voltage())}' {target_harness.in_direction}=1\n")
+        outlines.append(f".measure Tran ENERGY_END when v(VOUT)='{str(target_lib.energy_meas_high_threshold_voltage())}' {target_harness.out_direction}=1\n")
 
     ## energy measurement 
     elif meas_energy:
@@ -235,18 +230,18 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
     outlines.append(".SUBCKT DUT IN OUT HIGH LOW VDD VSS VNW VPW \n")
 
     # parse subckt definition
-    port_list = targetCell.instance.split()
+    port_list = target_cell.instance.split()
     circuit_name = port_list.pop(-1)
     tmp_line = port_list.pop(0)
     for port in port_list:
         # match tmp_array and harness 
         # search target inport
         is_matched = 0
-        if port == targetHarness.target_in_port:
+        if port == target_harness.target_in_port:
             tmp_line += ' IN'
             is_matched += 1
         # search stable inport
-        for stable_port, state in zip(targetHarness.stable_in_ports, targetHarness.stable_in_port_states):
+        for stable_port, state in zip(target_harness.stable_in_ports, target_harness.stable_in_port_states):
             if port == stable_port:
                 if state == 1:
                     tmp_line += ' HIGH'
@@ -257,28 +252,28 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
                 else:
                     raise ValueError(f'Invalid state for port {port}')
         # one target outport for one simulation
-        if port == targetHarness.target_out_port:
+        if port == target_harness.target_out_port:
             tmp_line += ' OUT'
             is_matched += 1
         # search non-target outport
         # TODO
-        # for w2 in targetHarness.nontarget_out_ports:
+        # for w2 in target_harness.nontarget_out_ports:
         #     if port == w2:
         #         # this is non-target outport
         #         # search outdex for this port
-        #         index_val = targetHarness.nontarget_out_port_states[targetHarness.nontarget_out_ports.index(w2)]
+        #         index_val = target_harness.nontarget_out_port_states[target_harness.nontarget_out_ports.index(w2)]
         #         tmp_line += f' WFLOAT{str(index_val)}'
         #         is_matched += 1
-        if port.upper() == targetLib.vdd.name.upper():
+        if port.upper() == target_lib.vdd.name.upper():
                 tmp_line += f' {port.upper()}'
                 is_matched += 1
-        if port.upper() == targetLib.vss.name.upper():
+        if port.upper() == target_lib.vss.name.upper():
                 tmp_line += f' {port.upper()}'
                 is_matched += 1
-        if port.upper() == targetLib.pwell.name.upper():
+        if port.upper() == target_lib.pwell.name.upper():
                 tmp_line += f' {port.upper()}'
                 is_matched += 1
-        if port.upper() == targetLib.nwell.name.upper():
+        if port.upper() == target_lib.nwell.name.upper():
                 tmp_line += f' {port.upper()}'
                 is_matched += 1
         ## show error if this port has not matched
@@ -288,9 +283,9 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
     outlines.append(tmp_line)
     outlines.append(".ends \n")
     outlines.append(" \n")
-    outlines.append(f".param cap ={str(out_load*targetLib.units.capacitance.magnitude)}\n")
-    in_slope_mag = 1 / (targetLib.logic_threshold_high - targetLib.logic_threshold_low)
-    outlines.append(f".param slew ={str(in_slope*in_slope_mag*targetLib.units.time.magnitude)}\n")
+    outlines.append(f".param cap ={str(out_load*target_lib.units.capacitance.magnitude)}\n")
+    in_slope_mag = 1 / (target_lib.logic_threshold_high - target_lib.logic_threshold_low)
+    outlines.append(f".param slew ={str(in_slope*in_slope_mag*target_lib.units.time.magnitude)}\n")
     outlines.append(".end \n")
     
     with open(spicef,'w') as f:
@@ -300,10 +295,10 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
     spicelis = spicef + ".lis"
     spicerun = spicef + ".run"
 
-    if 'ngspice' in str(targetLib.simulator):
-        cmd = f'{str(targetLib.simulator.resolve())} -b {str(spicef)} 1> {str(spicelis)} 2> /dev/null \n'
-    elif 'hspice' in str(targetLib.simulator):
-        cmd = f'{str(targetLib.simulator.resolve())} {str(spicef)} -o {str(spicelis)} 2> /dev/null \n'
+    if 'ngspice' in str(target_lib.simulator):
+        cmd = f'{str(target_lib.simulator.resolve())} -b {str(spicef)} 1> {str(spicelis)} 2> /dev/null \n'
+    elif 'hspice' in str(target_lib.simulator):
+        cmd = f'{str(target_lib.simulator.resolve())} {str(spicef)} -o {str(spicelis)} 2> /dev/null \n'
     with open(spicerun,'w') as f:
         outlines = []
         outlines.append(cmd) 
@@ -312,7 +307,7 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
 
     # run spice simulation
     cmd = ['sh', spicerun]
-    if targetLib.run_sim:
+    if target_lib.run_sim:
         try:
             subprocess.run(cmd)
         except:
@@ -332,7 +327,7 @@ def genFileLogic_trial1(targetLib: LibrarySettings, targetCell: LogicCell, targe
         for inline in f:
             if any([x in inline for x in ['failed', 'Error']]):
                 pass # TODO: fail with error
-            if 'hspice' in str(targetLib.simulator):
+            if 'hspice' in str(target_lib.simulator):
                 inline = re.sub('\=',' ',inline)
             measurement = next((m for m in desired_measurements if m in inline), False)
             if measurement:
