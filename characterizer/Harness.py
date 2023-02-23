@@ -1,4 +1,5 @@
 from characterizer.LogicCell import LogicCell, SequentialCell
+from characterizer.UnitsSettings import UnitsSettings
 
 class Harness:
     """Characterization parameters for one path through a cell
@@ -37,14 +38,14 @@ class Harness:
         Note that target_cell is only required for initialization checks,
         such as ensuring that test_vector correctly maps to the input and
         output pins of the cell under test. A Harness does not keep track of
-        changes to target_cell. If target_cell is changed after the Harness
+        changes to target_cell. If target_cell is altered after the Harness
         was generated, a new Harness should be generated."""
 
         self._stable_in_ports = []              # input pins to hold stable
         self._stable_in_port_states = []        # states for stable pins
         self._nontarget_out_ports = []          # output pins that we aren't specifically evaluating
         self._nontarget_out_port_states = []    # states for nontarget outputs
-        self.results = []                       # list of characterization results dictionaries
+        self.results =  {}                      # nested dictionary of characterization results grouped by in_slope and out_load
 
         # Parse inputs from test vector
         # Test vector should be formatted like [in1, ..., inN, out1, ..., outM]
@@ -76,6 +77,12 @@ class Harness:
         if not self._target_out_port:
             raise ValueError(f'Unable to parse target output port from test vector {test_vector}')
 
+        # Initialize results from target_cell input slopes and loads
+        for in_slope in target_cell.in_slopes:
+            self.results[str(in_slope)] = {}
+            for out_load in target_cell.out_loads:
+                self.results[str(in_slope)][str(out_load)] = {}
+
     def __str__(self) -> str:
         lines = []
         lines.append(f'Route Under Test: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
@@ -87,6 +94,7 @@ class Harness:
             lines.append(f'Nontarget Output Ports:')
             for port, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
                 lines.append(f'    {port}: {state}')
+        # TODO: Display results if available
         return '\n'.join(lines)
 
     @property
@@ -179,6 +187,16 @@ class Harness:
     def direction_power(self) -> str:
         return f'{self.out_direction}_power'
 
+    def get_lut_prop_delay(self, in_slopes, out_loads, units: UnitsSettings) -> str:
+        lines = []
+        lines.append(f'index_1("{",".join(in_slopes)}");')
+        lines.append(f'index_2("{",".join(out_loads)}");')
+        delay_groups = []
+        for in_slope in in_slopes:
+            prop_delays = [self.results[in_slope][out_load]["prop_in_out"]/units.time.magnitude for out_load in out_loads]
+            delay_groups.append(f'"{",".join(prop_delays)}"')
+        lines.append(f'values({",".join(delay_groups)});')
+        return '\n'.join(lines)
 
 class CombinationalHarness (Harness):
     def __init__(self, target_cell: LogicCell, test_vector, timing_sense: str = 'non_unate') -> None:

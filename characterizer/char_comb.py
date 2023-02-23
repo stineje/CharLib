@@ -3,7 +3,6 @@ import re, subprocess, sys, threading
 from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicCell import LogicCell
 from characterizer.Harness import CombinationalHarness
-from characterizer.HarnessSettings import HarnessSettings
 
 def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expectation_list, unate):
     """Run delay characterization for an N-input 1-output combinational cell"""
@@ -42,57 +41,9 @@ def runSpiceCombDelayMultiThread(target_lib, target_cell, target_harness, spicef
             threadlist.append(thread)
             thread_id += 1
     for thread in threadlist:
-        thread.start() 
+        thread.start()
     for thread in threadlist:
-        thread.join() 
-
-    # These calculations should be performed by Harness instead
-    # thread_id = 0
-    # for tmp_slope in target_cell.in_slopes:
-    #     tmp_list_prop =   []
-    #     tmp_list_tran =   []
-    #     tmp_list_estart = []
-    #     tmp_list_eend =   []
-    #     tmp_list_eintl =   []
-    #     tmp_list_ein =   []
-    #     tmp_list_cin =   []
-    #     tmp_list_pleak =   []
-    #     for tmp_load in target_cell.out_loads:
-    #         tmp_list_prop.append(results_prop_in_out[str(thread_id)])
-    #         tmp_list_tran.append(results_trans_out[str(thread_id)])
-
-    #         ## intl. energy calculation
-    #         ## intl. energy is the sum of short-circuit energy and drain-diffusion charge/discharge energy
-    #         ## larger Ql: intl. Q, load Q 
-    #         ## smaller Qs: intl. Q
-    #         ## Eintl = QsV
-    #         if abs(results_q_vdd_dyn[str(thread_id)]) < abs(results_q_vss_dyn[str(thread_id)]):
-    #             res_q = results_q_vdd_dyn[str(thread_id)]
-    #         else:
-    #             res_q = results_q_vss_dyn[str(thread_id)]
-    #         tmp_list_eintl.append(abs(res_q*target_lib.vdd.voltage*target_lib.energy_meas_high_threshold \
-    #             - abs((results_energy_end[str(thread_id)] - results_energy_start[str(thread_id)])*(abs(results_i_vdd_leak[str(thread_id)]) \
-    #             + abs(results_i_vdd_leak[str(thread_id)]))/2*(target_lib.vdd.voltage*target_lib.energy_meas_high_threshold))))
-
-    #         ## input energy
-    #         tmp_list_ein.append(abs(results_q_in_dyn[str(thread_id)])*target_lib.vdd.voltage)
-
-    #         ## Cin = Qin / V
-    #         tmp_list_cin.append(abs(results_q_in_dyn[str(thread_id)])/(target_lib.vdd.voltage))
-
-    #         ## Pleak = average of Pleak_vdd and Pleak_vss
-    #         ## P = I * V
-    #         tmp_list_pleak.append((abs(results_i_vdd_leak[str(thread_id)])+abs(results_i_vdd_leak[str(thread_id)]))/2*(target_lib.vdd.voltage)) #
-    #         thread_id += 1
-
-    #     list2_prop.append(tmp_list_prop)
-    #     list2_tran.append(tmp_list_tran)
-    #     #list2_estart.append(tmp_list_estart)
-    #     #list2_eend.append(tmp_list_eend)
-    #     list2_eintl.append(tmp_list_eintl)
-    #     list2_ein.append(tmp_list_ein)
-    #     list2_cin.append(tmp_list_cin)
-    #     list2_pleak.append(tmp_list_pleak)
+        thread.join()
 
 def runSpiceCombDelaySingle(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spicef, in_slope, out_load):
     print("start thread :"+str(threading.current_thread().name))
@@ -110,8 +61,10 @@ def runSpiceCombDelaySingle(target_lib: LibrarySettings, target_cell: LogicCell,
     trial_results['energy_start'] = energy_start
     trial_results['energy_end'] = energy_end
 
+    if not target_harness.results.get(str(in_slope)):
+        target_harness.results[str(in_slope)] = {}
+    target_harness.results[str(in_slope)][str(out_load)] = trial_results
     print("end thread :"+str(threading.current_thread().name))
-    target_harness.results.append(trial_results)
 
 def runSpiceCombDelay(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spicef):
     # Test each input slope with each output load
@@ -131,7 +84,9 @@ def runSpiceCombDelay(target_lib: LibrarySettings, target_cell: LogicCell, targe
             trial_results['energy_start'] = energy_start
             trial_results['energy_end'] = energy_end
 
-            target_harness.results.append(trial_results)
+            if not target_harness.results.get(str(tmp_slope)):
+                target_harness.results[str(tmp_slope)] = {}
+            target_harness.results[str(tmp_slope)][str(tmp_load)] = trial_results
 
 def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, meas_energy: bool, in_slope, out_load, estart_line, eend_line, spicef: str):
     outlines = []
@@ -333,4 +288,9 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
             if measurement:
                 results[measurement] = '{:e}'.format(float(inline.split()[2]))
         f.close()
+
+    # Add in_slope and out_load to results so that we can identify this result later
+    results['in_slope'] = in_slope
+    results['out_load'] = out_load
+
     return results
