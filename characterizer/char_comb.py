@@ -4,11 +4,11 @@ from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicCell import LogicCell
 from characterizer.Harness import CombinationalHarness
 
-def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expectation_list, unate):
+def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expectation_list):
     """Run delay characterization for an N-input 1-output combinational cell"""
     for test_vector in expectation_list:
         # Generate harness
-        harness = CombinationalHarness(target_cell, test_vector, unate)
+        harness = CombinationalHarness(target_cell, test_vector)
         
         # Generate spice file name
         spice_filename = f'delay1_{target_cell.name}'
@@ -25,9 +25,6 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
 
         # Save harness to the cell
         target_cell.harnesses.append(harness)
-
-    # This should be calculated by the cell instead of stored
-    #target_cell.set_cin_avg(target_lib)
 
 def runSpiceCombDelayMultiThread(target_lib, target_cell, target_harness, spicef):
     # One trial for each input slope / output load combination
@@ -190,7 +187,7 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
     tmp_line = port_list.pop(0)
     for port in port_list:
         # match tmp_array and harness 
-        # search target inport
+        # check target inport
         is_matched = 0
         if port == target_harness.target_in_port:
             tmp_line += ' IN'
@@ -206,19 +203,15 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
                     is_matched += 1
                 else:
                     raise ValueError(f'Invalid state for port {port}')
-        # one target outport for one simulation
+        # check target outport
         if port == target_harness.target_out_port:
             tmp_line += ' OUT'
             is_matched += 1
-        # search non-target outport
-        # TODO
-        # for w2 in target_harness.nontarget_out_ports:
-        #     if port == w2:
-        #         # this is non-target outport
-        #         # search outdex for this port
-        #         index_val = target_harness.nontarget_out_port_states[target_harness.nontarget_out_ports.index(w2)]
-        #         tmp_line += f' WFLOAT{str(index_val)}'
-        #         is_matched += 1
+        # search non-target outports
+        for nontarget_port, state in zip(target_harness.nontarget_out_ports, target_harness.nontarget_out_port_states):
+            if port == nontarget_port:
+                tmp_line += f' WFLOAT{str(state)}'
+                is_matched += 1
         if port.upper() == target_lib.vdd.name.upper():
                 tmp_line += f' {port.upper()}'
                 is_matched += 1
@@ -254,6 +247,7 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
         cmd = f'{str(target_lib.simulator.resolve())} -b {str(spicef)} 1> {str(spicelis)} 2> /dev/null \n'
     elif 'hspice' in str(target_lib.simulator):
         cmd = f'{str(target_lib.simulator.resolve())} {str(spicef)} -o {str(spicelis)} 2> /dev/null \n'
+
     with open(spicerun,'w') as f:
         outlines = []
         outlines.append(cmd) 

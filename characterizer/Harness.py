@@ -1,5 +1,5 @@
 from characterizer.LogicCell import LogicCell, SequentialCell
-from characterizer.UnitsSettings import UnitsSettings
+from characterizer.UnitsSettings import EngineeringUnit
 
 class Harness:
     """Characterization parameters for one path through a cell
@@ -187,45 +187,46 @@ class Harness:
     def direction_power(self) -> str:
         return f'{self.out_direction}_power'
 
-    def get_lut_prop_delay(self, in_slopes, out_loads, units: UnitsSettings) -> str:
-        lines = []
-        lines.append(f'index_1("{",".join(in_slopes)}");')
-        lines.append(f'index_2("{",".join(out_loads)}");')
-        delay_groups = []
+    @property
+    def timing_sense(self) -> str:
+        # Determine timing_sense from target i/o directions
+        if self.in_direction == self.out_direction:
+            return 'positive_unate'
+        else:
+            return 'negative_unate'
+
+    def _get_lut_results_by_key(self, in_slopes, out_loads, units, key):
+        value_groups = []
         for in_slope in in_slopes:
-            prop_delays = [self.results[in_slope][out_load]["prop_in_out"]/units.time.magnitude for out_load in out_loads]
-            delay_groups.append(f'"{",".join(prop_delays)}"')
-        lines.append(f'values({",".join(delay_groups)});')
-        return '\n'.join(lines)
+            values = [self.results[in_slope][out_load][key]/units for out_load in out_loads]
+            value_groups.append(f'"{",".join(values)}"')
+        return f'values({",".join(value_groups)});'
+
+    def get_lut_prop(self, in_slopes, out_loads, time_unit: EngineeringUnit) -> list:
+        lines = [f'index_1("{",".join(in_slopes)}");']
+        lines.append(f'index_2("{",".join(out_loads)}");')
+        lines.append(self._get_lut_results_by_key(in_slopes, out_loads, time_unit.magnitude, 'prop_in_out'))
+        return lines
+
+    def get_lut_tran(self, in_slopes, out_loads, time_unit: EngineeringUnit):
+        lines = [f'index_1("{",".join(in_slopes)}");']
+        lines.append(f'index_2("{",".join(out_loads)}");')
+        lines.append(self._get_lut_results_by_key(in_slopes, out_loads, time_unit.magnitude, 'trans_out'))
+        return lines
+
+    def get_lut_eintl(self, in_slopes, out_loads, energy_unit: EngineeringUnit, voltage_unit: EngineeringUnit):
+        lines = [f'index_1("{",".join(in_slopes)}");']
+        lines.append(f'index_2("{",".join(out_loads)}");')
+        # TODO: Internal energy calculations from results
+        return lines
 
 class CombinationalHarness (Harness):
-    def __init__(self, target_cell: LogicCell, test_vector, timing_sense: str = 'non_unate') -> None:
+    def __init__(self, target_cell: LogicCell, test_vector) -> None:
         super().__init__(target_cell, test_vector)
-
-        # Used for lib file generation
-        self.timing_sense = timing_sense    # Describes the relationship b/t target input and target output (shouldn't this be calculated from test_vector instead?)
 
     @property
     def timing_type(self) -> str:
         return "combinational"
-
-    @property
-    def timing_sense(self) -> str:
-        return self._timing_sense
-
-    @timing_sense.setter
-    def timing_sense(self, value: str):
-        if not isinstance(value, str):
-            raise TypeError(f'Invalid type for harness timing_sense: {type(value)}')
-        else:
-            if value == 'pos' or value == 'positive_unate':
-                self._timing_sense = 'positive_unate'
-            elif value == 'neg' or value == 'negative_unate':
-                self._timing_sense = 'negative_unate'
-            elif value == 'non' or value == 'non_unate':
-                self._timing_sense = 'non_unate'
-            else:
-                raise ValueError(f'Invalid value for harness timing_sense: {value}')
 
 
 class SequentialHarness (Harness):

@@ -1,8 +1,6 @@
 import re
 from pathlib import Path
 
-from characterizer.HarnessSettings import HarnessSettings
-
 RECOGNIZED_LOGIC = [
     'INV',
     'BUF',

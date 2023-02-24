@@ -52,25 +52,25 @@ class Characterizer:
             print ("INV\n")
             #                   [in0, out0]
             expectationList2 = [['01','10'], ['10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'BUF'):
             print ("BUF\n")
             #                   [in0, out0]
             expectationList2 = [['01','01'], ['10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'AND2'):
             print ("AND2\n")
             #                   [in0, in1, out0]
             expectationList2 = [['01','1','01'], ['10','1','10'],
                                 ['1','01','01'], ['1','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'AND3'):
             print ("AND3\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['01','1','1','01'], ['10','1','1','10'],
                                 ['1','01','1','01'], ['1','10','1','10'],
                                 ['1','1','01','01'], ['1','1','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'AND4'):
             print ("AND4\n")
             #                   [in0, in1, in2, in3,  out0]
@@ -78,20 +78,20 @@ class Characterizer:
                                 ['1','01','1','1','01'], ['1','10','1','1','10'],
                                 ['1','1','01','1','01'], ['1','1','10','1','10'],
                                 ['1','1','1','01','01'], ['1','1','1','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'OR2'):
             print ("OR2\n")
             #                   [in0, in1, out0]
             expectationList2 = [['01','0','01'], ['10','0','10'],
                                 ['0','01','01'], ['0','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'OR3'):
             print ("OR3\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['01','0','0','01'], ['10','0','0','10'],
                                 ['0','01','0','01'], ['0','10','0','10'],
                                 ['0','0','01','01'], ['0','0','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'OR4'):
             print ("OR4\n")
             #                   [in0, in1, in2, in3, out0]
@@ -99,20 +99,20 @@ class Characterizer:
                                 ['0','01','0','0','01'], ['0','10','0','0','10'],
                                 ['0','0','01','0','01'], ['0','0','10','0','10'],
                                 ['0','0','0','01','01'], ['0','0','0','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'NAND2'):
             print ("NAND2\n")
             #                   [in0, in1, out0]
             expectationList2 = [['01','1','10'], ['10','1','01'],
                                 ['1','01','10'], ['1','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'NAND3'):
             print ("NAND3\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['01','1','1','10'], ['10','1','1','01'],
                                 ['1','01','1','10'], ['1','10','1','01'],
                                 ['1','1','01','10'], ['1','1','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'NAND4'):
             print ("NAND4\n")
             #                   [in0, in1, in2, in3, out0]
@@ -120,20 +120,20 @@ class Characterizer:
                                 ['1','01','1','1','10'], ['1','10','1','1','01'],
                                 ['1','1','01','1','10'], ['1','1','10','1','01'],
                                 ['1','1','1','01','10'], ['1','1','1','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'NOR2'):
             print ("NOR2\n")
             #                   [in0, in1, out0]
             expectationList2 = [['01','0','10'], ['10','0','01'],
                                 ['0','01','10'], ['0','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'NOR3'):
             print ("NOR3\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['01','0','0','10'], ['10','0','0','01'],
                                 ['0','01','0','10'], ['0','10','0','01'],
                                 ['0','0','01','10'], ['0','0','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'NOR4'):
             print ("NOR4\n")
             #                   [in0, in1, in2, in3, out0]
@@ -141,14 +141,14 @@ class Characterizer:
                                 ['0','01','0','0','10'], ['0','10','0','0','01'],
                                 ['0','0','01','0','10'], ['0','0','10','0','01'],
                                 ['0','0','0','01','10'], ['0','0','0','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'AO21'):
             print ("AO21\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['10','1','0','10'], ['01','1','0','01'],
                                 ['1','10','0','10'], ['1','01','0','01'],
                                 ['0','0','10','10'], ['0','0','01','01']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'AO22'):
             print ("AO22\n")
             #                   [in0, in1, in2, in3, out0]
@@ -156,14 +156,14 @@ class Characterizer:
                                 ['1','10','0','0','10'], ['1','01','0','0','01'],
                                 ['0','0','10','1','10'], ['0','0','01','1','01'],
                                 ['0','0','1','10','10'], ['0','0','1','01','01']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'OA21'):
             print ("OA21\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['10','0','1','10'], ['01','0','1','01'],
                                 ['0','10','1','10'], ['0','01','1','01'],
                                 ['0','1','10','10'], ['0','1','01','01']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'OA22'):
             print ("OA22\n")
             #                   [in0, in1, in2, in3, out0]
@@ -171,14 +171,14 @@ class Characterizer:
                                 ['0','10','0','1','10'], ['0','01','0','1','01'],
                                 ['0','1','10','0','10'], ['0','1','01','0','01'],
                                 ['0','1','0','10','10'], ['0','1','0','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'AOI21'):
             print ("AOI21\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['10','1','0','01'], ['01','1','0','10'],
                                 ['1','10','0','01'], ['1','01','0','10'],
                                 ['0','0','10','01'], ['0','0','01','10']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'AOI22'):
             print ("AOI22\n")
             #                   [in0, in1, in2, in3, out0]
@@ -186,14 +186,14 @@ class Characterizer:
                                 ['1','10','0','0','01'], ['1','01','0','0','10'],
                                 ['0','0','10','1','01'], ['0','0','01','1','10'],
                                 ['0','0','1','10','01'], ['0','0','1','01','10']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'OAI21'):
             print ("OAI21\n")
             #                   [in0, in1, in2, out0]
             expectationList2 = [['10','0','1','01'], ['01','0','1','10'],
                                 ['0','10','1','01'], ['0','01','1','10'],
                                 ['0','1','10','01'], ['0','1','01','10']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'OAI22'):
             print ("OAI22\n")
             #                   [in0, in1, in2, in3, out0]
@@ -201,7 +201,7 @@ class Characterizer:
                                 ['0','10','0','1','01'], ['0','01','0','1','10'],
                                 ['0','1','10','0','01'], ['0','1','01','0','10'],
                                 ['0','1','0','10','01'], ['0','1','0','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"neg")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'XOR2'):
             print ("XOR2\n")
             #                   [in0, in1, out0]
@@ -209,7 +209,7 @@ class Characterizer:
                                 ['01','1','10'], ['10','1','01'],
                                 ['0','01','01'], ['0','10','10'],
                                 ['1','01','10'], ['1','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'XNOR2'):
             print ("XNOR2\n")
             #                   [in0, in1, out0]
@@ -217,7 +217,7 @@ class Characterizer:
                                 ['01','1','01'], ['10','1','10'],
                                 ['0','01','10'], ['0','10','01'],
                                 ['1','01','01'], ['1','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'SEL2'):
             print ("SEL2\n")
             #                   [in0, in1, sel, out]
@@ -225,7 +225,7 @@ class Characterizer:
                                 ['0','01','1','01'], ['0','10','1','10'],
                                 ['1','0','01','10'], ['1','0','10','01'],
                                 ['0','1','01','01'], ['0','1','10','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'HA'):
             # TODO: Add support for multi-input multi-output combinational logic
             print ("HA\n")
@@ -234,7 +234,7 @@ class Characterizer:
                                 ['0','01','0','01'],  ['0','10','0','10'],
                                 ['01','1','01','10'], ['10','1','10','10'],
                                 ['1','01','01','10'], ['1','10','10','01']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
         elif(cell.logic == 'FA'):
             # TODO: Add support for multi-input multi-output combinational logic
             print ("FA\n")
@@ -251,7 +251,7 @@ class Characterizer:
                                 ['01','1','1','1','01'],  ['10','1','1','1','10'],
                                 ['1','01','1','1','01'],  ['1','10','1','1','10'],
                                 ['1','1','01','1','01'],  ['1','1','10','1','10']]
-            return runCombinational(self.settings, cell, expectationList2,"pos")
+            return runCombinational(self.settings, cell, expectationList2)
 
         ## Branch to sequential logics
         elif(cell.logic == 'DFF_PCPU'):

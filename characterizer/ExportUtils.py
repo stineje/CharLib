@@ -1,7 +1,9 @@
 
 import re, sys
 
+from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicCell import LogicCell, SequentialCell
+from characterizer.Harness import CombinationalHarness
 
 def exportFiles(targetLib, targetCell):
     if not targetLib.is_exported:
@@ -17,21 +19,21 @@ def exportFiles(targetLib, targetCell):
             exportVerilogFlop(targetLib, targetCell)
 
 ## export library definition to .lib
-def exportLib(targetLib, targetCell):
+def exportLib(target_lib: LibrarySettings, target_cell: LogicCell):
     """Export library definition to liberty file"""
     outlines = []
     ## general settings
-    outlines.append(f'library ({targetLib.lib_name}) {{\n')
-    outlines.append(f'  delay_model : "{targetLib.delay_model}";\n')
-    outlines.append(f'  capacitive_load_unit (1,{str(targetLib.units.capacitance)});\n')
-    outlines.append(f'  current_unit : "1{str(targetLib.units.current)}";\n')
-    outlines.append(f'  leakage_power_unit : "1{str(targetLib.units.power)}";\n')
-    outlines.append(f'  pulling_resistance_unit : "1{str(targetLib.units.resistance)}";\n')
-    outlines.append(f'  time_unit : "1{str(targetLib.units.time)}";\n')
-    outlines.append(f'  voltage_unit : "1{str(targetLib.units.voltage)}";\n')
-    outlines.append(f'  voltage_map ({str(targetLib.vdd.name)}, {str(targetLib.vdd.voltage)});\n')
-    outlines.append(f'  voltage_map ({str(targetLib.vss.name)}, {str(targetLib.vss.voltage)});\n')
-    outlines.append(f'  voltage_map (GND , {str(targetLib.vss.voltage)});\n')
+    outlines.append(f'library ({target_lib.lib_name}) {{\n')
+    outlines.append(f'  delay_model : "{target_lib.delay_model}";\n')
+    outlines.append(f'  capacitive_load_unit (1,{str(target_lib.units.capacitance)});\n')
+    outlines.append(f'  current_unit : "1{str(target_lib.units.current)}";\n')
+    outlines.append(f'  leakage_power_unit : "1{str(target_lib.units.power)}";\n')
+    outlines.append(f'  pulling_resistance_unit : "1{str(target_lib.units.resistance)}";\n')
+    outlines.append(f'  time_unit : "1{str(target_lib.units.time)}";\n')
+    outlines.append(f'  voltage_unit : "1{str(target_lib.units.voltage)}";\n')
+    outlines.append(f'  voltage_map ({str(target_lib.vdd.name)}, {str(target_lib.vdd.voltage)});\n')
+    outlines.append(f'  voltage_map ({str(target_lib.vss.name)}, {str(target_lib.vss.voltage)});\n')
+    outlines.append(f'  voltage_map (GND , {str(target_lib.vss.voltage)});\n')
     outlines.append(f'  default_cell_leakage_power : 0;\n')
     outlines.append(f'  default_fanout_load : 1;\n')
     outlines.append(f'  default_max_transition : 1000;\n')
@@ -41,97 +43,96 @@ def exportLib(targetLib, targetCell):
     outlines.append(f'  default_max_fanout : 100;\n')
     outlines.append(f'  default_output_pin_cap : 0;\n')
     outlines.append(f'  in_place_swap_mode : match_footprint;\n')
-    outlines.append(f'  input_threshold_pct_fall : {str(targetLib.logic_high_to_low_threshold*100)};\n')
-    outlines.append(f'  input_threshold_pct_rise : {str(targetLib.logic_low_to_high_threshold*100)};\n')
+    outlines.append(f'  input_threshold_pct_fall : {str(target_lib.logic_high_to_low_threshold*100)};\n')
+    outlines.append(f'  input_threshold_pct_rise : {str(target_lib.logic_low_to_high_threshold*100)};\n')
     outlines.append(f'  nom_process : 1;\n')
-    outlines.append(f'  nom_temperature : "{str(targetLib.temperature)}";\n')
-    outlines.append(f'  nom_voltage : "{str(targetLib.vdd.voltage)}";\n')
-    outlines.append(f'  output_threshold_pct_fall : {str(targetLib.logic_high_to_low_threshold*100)};\n')
-    outlines.append(f'  output_threshold_pct_rise : {str(targetLib.logic_low_to_high_threshold*100)};\n')
+    outlines.append(f'  nom_temperature : "{str(target_lib.temperature)}";\n')
+    outlines.append(f'  nom_voltage : "{str(target_lib.vdd.voltage)}";\n')
+    outlines.append(f'  output_threshold_pct_fall : {str(target_lib.logic_high_to_low_threshold*100)};\n')
+    outlines.append(f'  output_threshold_pct_rise : {str(target_lib.logic_low_to_high_threshold*100)};\n')
     outlines.append(f'  slew_derate_from_library : 1;\n')
-    outlines.append(f'  slew_lower_threshold_pct_fall : {str(targetLib.logic_threshold_low*100)};\n')
-    outlines.append(f'  slew_lower_threshold_pct_rise : {str(targetLib.logic_threshold_low*100)};\n')
-    outlines.append(f'  slew_upper_threshold_pct_fall : {str(targetLib.logic_threshold_high*100)};\n')
-    outlines.append(f'  slew_upper_threshold_pct_rise : {str(targetLib.logic_threshold_high*100)};\n')
+    outlines.append(f'  slew_lower_threshold_pct_fall : {str(target_lib.logic_threshold_low*100)};\n')
+    outlines.append(f'  slew_lower_threshold_pct_rise : {str(target_lib.logic_threshold_low*100)};\n')
+    outlines.append(f'  slew_upper_threshold_pct_fall : {str(target_lib.logic_threshold_high*100)};\n')
+    outlines.append(f'  slew_upper_threshold_pct_rise : {str(target_lib.logic_threshold_high*100)};\n')
     ## operating conditions
-    outlines.append(f'  operating_conditions ({targetLib.operating_conditions}) {{\n')
+    outlines.append(f'  operating_conditions ({target_lib.operating_conditions}) {{\n')
     outlines.append(f'    process : 1;\n')
-    outlines.append(f'    temperature : {str(targetLib.temperature)};\n')
-    outlines.append(f'    voltage : {str(targetLib.vdd.voltage)};\n')
+    outlines.append(f'    temperature : {str(target_lib.temperature)};\n')
+    outlines.append(f'    voltage : {str(target_lib.vdd.voltage)};\n')
     outlines.append(f'  }}\n')
-    outlines.append(f'  default_operating_conditions : {targetLib.operating_conditions};\n')
+    outlines.append(f'  default_operating_conditions : {target_lib.operating_conditions};\n')
     outlines.append(f'  lu_table_template (constraint_template) {{\n')
     outlines.append(f'    variable_1 : constrained_pin_transition;\n')
     outlines.append(f'    variable_2 : related_pin_transition;\n')
-    outlines.append(f'    index_1 {targetCell.in_slopes}\n')
-    outlines.append(f'    index_2 {targetCell.in_slopes}\n')
+    outlines.append(f'    index_1 {target_cell.in_slopes}\n')
+    outlines.append(f'    index_2 {target_cell.in_slopes}\n')
     outlines.append(f'  }}\n')
     outlines.append(f'  lu_table_template (delay_template) {{\n')
     outlines.append(f'    variable_1 : input_net_transition;\n')
     outlines.append(f'    variable_2 : total_output_net_capacitance;\n')
-    outlines.append(f'    index_1 {targetCell.in_slopes}\n')
-    outlines.append(f'    index_2 {targetCell.out_loads}\n')
+    outlines.append(f'    index_1 {target_cell.in_slopes}\n')
+    outlines.append(f'    index_2 {target_cell.out_loads}\n')
     outlines.append(f'  }}\n')
     outlines.append(f'  lu_table_template (recovery_template) {{\n')
     outlines.append(f'    variable_1 : related_pin_transition;\n')
     outlines.append(f'    variable_2 : constrained_pin_transition;\n')
-    outlines.append(f'    index_1 {targetCell.in_slopes}\n')
-    outlines.append(f'    index_2 {targetCell.in_slopes}\n')
+    outlines.append(f'    index_1 {target_cell.in_slopes}\n')
+    outlines.append(f'    index_2 {target_cell.in_slopes}\n')
     outlines.append(f'  }}\n')
     outlines.append(f'  lu_table_template (removal_template) {{\n')
     outlines.append(f'    variable_1 : related_pin_transition;\n')
     outlines.append(f'    variable_2 : constrained_pin_transition;\n')
-    outlines.append(f'    index_1 {targetCell.in_slopes}\n')
-    outlines.append(f'    index_2 {targetCell.in_slopes}\n')
+    outlines.append(f'    index_1 {target_cell.in_slopes}\n')
+    outlines.append(f'    index_2 {target_cell.in_slopes}\n')
     outlines.append(f'  }}\n')
     outlines.append(f'  lu_table_template (mpw_constraint_template) {{\n')
     outlines.append(f'    variable_1 : constrained_pin_transition;\n')
-    outlines.append(f'    index_1 {targetCell.in_slopes}\n')
+    outlines.append(f'    index_1 {target_cell.in_slopes}\n')
     outlines.append(f'  }}\n')
     outlines.append(f'  power_lut_template (passive_power_template) {{\n')
     outlines.append(f'    variable_1 : input_transition_time;\n')
-    outlines.append(f'    index_1 {targetCell.in_slopes}\n')
+    outlines.append(f'    index_1 {target_cell.in_slopes}\n')
     outlines.append(f'  }}\n')
     outlines.append(f'  power_lut_template (power_template) {{\n')
     outlines.append(f'    variable_1 : input_transition_time;\n')
     outlines.append(f'    variable_2 : total_output_net_capacitance;\n')
-    outlines.append(f'    index_1 {targetCell.in_slopes}\n')
-    outlines.append(f'    index_2 {targetCell.out_loads}\n')
+    outlines.append(f'    index_1 {target_cell.in_slopes}\n')
+    outlines.append(f'    index_2 {target_cell.out_loads}\n')
     outlines.append(f'  }}\n')
-    outlines.append(f'  input_voltage (default_{targetLib.vdd.name}_{targetLib.vss.name}_input) {{\n')
-    outlines.append(f'    vil : {str(targetLib.vss.voltage)};\n')
-    outlines.append(f'    vih : {str(targetLib.vdd.voltage)};\n')
-    outlines.append(f'    vimin : {str(targetLib.vss.voltage)};\n')
-    outlines.append(f'    vimax : {str(targetLib.vdd.voltage)};\n')
+    outlines.append(f'  input_voltage (default_{target_lib.vdd.name}_{target_lib.vss.name}_input) {{\n')
+    outlines.append(f'    vil : {str(target_lib.vss.voltage)};\n')
+    outlines.append(f'    vih : {str(target_lib.vdd.voltage)};\n')
+    outlines.append(f'    vimin : {str(target_lib.vss.voltage)};\n')
+    outlines.append(f'    vimax : {str(target_lib.vdd.voltage)};\n')
     outlines.append(f'  }}\n')
-    outlines.append(f'  output_voltage (default_{targetLib.vdd.name}_{targetLib.vss.name}_output) {{\n')
-    outlines.append(f'    vol : {str(targetLib.vss.voltage)};\n')
-    outlines.append(f'    voh : {str(targetLib.vdd.voltage)};\n')
-    outlines.append(f'    vomin : {str(targetLib.vss.voltage)};\n')
-    outlines.append(f'    vomax : {str(targetLib.vdd.voltage)};\n')
+    outlines.append(f'  output_voltage (default_{target_lib.vdd.name}_{target_lib.vss.name}_output) {{\n')
+    outlines.append(f'    vol : {str(target_lib.vss.voltage)};\n')
+    outlines.append(f'    voh : {str(target_lib.vdd.voltage)};\n')
+    outlines.append(f'    vomin : {str(target_lib.vss.voltage)};\n')
+    outlines.append(f'    vomax : {str(target_lib.vdd.voltage)};\n')
     outlines.append(f'  }}\n')
     
-    with open(targetLib.dotlib_name, 'w') as f:
+    with open(target_lib.dotlib_name, 'w') as f:
         f.writelines(outlines)
         f.close()
-    targetLib.set_exported()
+    target_lib.set_exported()
 
     ## for verilog file 
     outlines = []
-    outlines.append(f'// Verilog model for {targetLib.lib_name};\n')
+    outlines.append(f'// Verilog model for {target_lib.lib_name};\n')
     # TODO: Implement this
-    with open(targetLib.verilog_name, 'w') as f:
+    with open(target_lib.verilog_name, 'w') as f:
         f.writelines(outlines)
         f.close()
 
 ## export harness data to .lib
-def exportHarness(targetLib, targetCell):
-    harnesses = targetCell.harnesses
+def exportHarness(targetLib: LibrarySettings, targetCell: LogicCell):
     outlines = []
     outlines.append(f'  cell ({targetCell.name}) {{\n') ## cell start
     outlines.append(f'    area : {str(targetCell.area)};\n')
     ##outlines.append("    cell_leakage_power : "+targetCell.leakage_power+";\n")
-    outlines.append(f'    cell_leakage_power : {harnesses[0][0].pleak};\n') ## use leak of 1st harness
+    outlines.append(f'    cell_leakage_power : {targetCell.harnesses[0].pleak};\n') ## use leak of 1st harness
     outlines.append(f'    pg_pin ({targetLib.vdd.name}) {{\n')
     outlines.append(f'      pg_type : primary_power;\n')
     outlines.append(f'      voltage_name : "{targetLib.vdd.name}";\n')
@@ -142,72 +143,72 @@ def exportHarness(targetLib, targetCell):
     outlines.append(f'    }}\n')
 
     ## select one output pin from pinlist(target_outports) 
-    for target_outport in targetCell.out_ports:
-        index1 = targetCell.out_ports.index(target_outport) 
-        outlines.append(f'    pin ({target_outport}) {{\n') ## out pin start
+    for out_port in targetCell.out_ports:
+        out_port_index = targetCell.out_ports.index(out_port) 
+        outlines.append(f'    pin ({out_port}) {{\n') ## out pin start
         outlines.append(f'      direction : output;\n')
-        outlines.append(f'      function : "{targetCell.functions[index1]})"\n')
+        outlines.append(f'      function : "{targetCell.functions[out_port_index]})"\n')
         outlines.append(f'      related_power_pin : "{targetLib.vdd.name}";\n')
         outlines.append(f'      related_ground_pin : "{targetLib.vss.name}";\n')
         outlines.append(f'      max_capacitance : "{str(targetCell.out_loads[-1])}";\n') ## use max val. of load table
         outlines.append(f'      output_voltage : default_{targetLib.vdd.name}_{targetLib.vss.name}_output;\n')
         ## timing
-        for target_inport in targetCell.in_ports:
+        for in_port in targetCell.in_ports:
             outlines.append(f'      timing () {{\n')
-            index2 = targetCell.in_ports.index(target_inport) 
-            outlines.append(f'        related_pin : "{target_inport}";\n')
-            outlines.append(f'        timing_sense : "{harnesses[index1][index2*2].timing_sense}";\n')
-            outlines.append(f'        timing_type : "{harnesses[index1][index2*2].timing_type}";\n')
+            in_port_index = targetCell.in_ports.index(in_port)
+            outlines.append(f'        related_pin : "{in_port}";\n')
+            outlines.append(f'        timing_sense : "{targetCell.harnesses[in_port_index*2].timing_sense}";\n')
+            outlines.append(f'        timing_type : "{targetCell.harnesses[in_port_index*2].timing_type}";\n')
             ## rise
             ## propagation delay
-            outlines.append(f'        {harnesses[index1][index2*2].direction_prop} (delay_template) {{\n')
-            for lut_line in harnesses[index1][index2*2].lut_prop:
+            outlines.append(f'        {targetCell.harnesses[in_port_index*2].direction_prop} (delay_template) {{\n')
+            for lut_line in targetCell.harnesses[in_port_index*2].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## transition delay
-            outlines.append(f'        {harnesses[index1][index2*2].direction_tran} (delay_template) {{\n')
-            for lut_line in harnesses[index1][index2*2].lut_tran:
+            outlines.append(f'        {targetCell.harnesses[in_port_index*2].direction_tran} (delay_template) {{\n')
+            for lut_line in targetCell.harnesses[in_port_index*2].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## fall
             ## propagation delay
-            outlines.append(f'        {harnesses[index1][index2*2+1].direction_prop} (delay_template) {{\n')
-            for lut_line in harnesses[index1][index2*2+1].lut_prop:
+            outlines.append(f'        {targetCell.harnesses[in_port_index*2+1].direction_prop} (delay_template) {{\n')
+            for lut_line in targetCell.harnesses[in_port_index*2+1].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## transition delay
-            outlines.append(f'        {harnesses[index1][index2*2+1].direction_tran} (delay_template) {{\n')
-            for lut_line in harnesses[index1][index2*2+1].lut_tran:
+            outlines.append(f'        {targetCell.harnesses[in_port_index*2+1].direction_tran} (delay_template) {{\n')
+            for lut_line in targetCell.harnesses[in_port_index*2+1].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             outlines.append(f'      }}\n') ## timing end 
         ## power
-        for target_inport in targetCell.in_ports:
+        for in_port in targetCell.in_ports:
             outlines.append(f'      internal_power () {{\n')
-            index2 = targetCell.in_ports.index(target_inport) 
-            outlines.append(f'        related_pin : "{target_inport}";\n')
+            in_port_index = targetCell.in_ports.index(in_port) 
+            outlines.append(f'        related_pin : "{in_port}";\n')
             ## rise(fall)
-            outlines.append(f'        {harnesses[index1][index2*2].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2].lut_eintl:
+            outlines.append(f'        {targetCell.harnesses[in_port_index*2].direction_power} (power_template) {{\n')
+            for lut_line in targetCell.harnesses[in_port_index*2].lut_eintl:
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## fall(rise)
-            outlines.append(f'        {harnesses[index1][index2*2+1].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2+1].lut_eintl:
+            outlines.append(f'        {targetCell.harnesses[in_port_index*2+1].direction_power} (power_template) {{\n')
+            for lut_line in targetCell.harnesses[in_port_index*2+1].lut_eintl:
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             outlines.append(f'      }}\n') ## power end 
         outlines.append(f'    }}\n') ## out pin end
 
     ## select one input pin from pinlist(target_inports) 
-    for target_inport in targetCell.in_ports:
-        index1 = targetCell.in_ports.index(target_inport) 
-        outlines.append(f'    pin ({target_inport}){{\n') ## out pin start
+    for in_port in targetCell.in_ports:
+        out_port_index = targetCell.in_ports.index(in_port) 
+        outlines.append(f'    pin ({in_port}){{\n') ## out pin start
         outlines.append(f'      direction : input; \n')
         outlines.append(f'      related_power_pin : {targetLib.vdd.name};\n')
         outlines.append(f'      related_ground_pin : {targetLib.vss.name};\n')
         outlines.append(f'      max_transition : {str(targetCell.in_slopes[-1])};\n')
-        outlines.append(f'      capacitance : "{str(targetCell.cins[index1])}";\n')
+        outlines.append(f'      capacitance : "{str(targetCell.cins[out_port_index])}";\n')
         outlines.append(f'      input_voltage : default_{targetLib.vdd.name}_{targetLib.vss.name}_input;\n')
         outlines.append(f'    }}\n') ## in pin end
 
