@@ -280,7 +280,7 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
                 inline = re.sub('\=',' ',inline)
             measurement = next((m for m in desired_measurements if m in inline), False)
             if measurement:
-                results[measurement] = '{:e}'.format(float(inline.split()[2]))
+                results[measurement] = float(inline.split()[2])
         f.close()
 
     # Add in_slope and out_load to results so that we can identify this result later

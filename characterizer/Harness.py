@@ -1,5 +1,5 @@
 from characterizer.LogicCell import LogicCell, SequentialCell
-from characterizer.UnitsSettings import EngineeringUnit
+from characterizer.UnitsSettings import UnitsSettings, EngineeringUnit
 
 class Harness:
     """Characterization parameters for one path through a cell
@@ -195,29 +195,49 @@ class Harness:
         else:
             return 'negative_unate'
 
-    def _get_lut_results_by_key(self, in_slopes, out_loads, units, key):
+    def _get_lut_value_groups_by_key(self, in_slopes, out_loads, unit, key: str):
         value_groups = []
         for in_slope in in_slopes:
-            values = [self.results[in_slope][out_load][key]/units for out_load in out_loads]
-            value_groups.append(f'"{",".join(values)}"')
+            values = [self.results[str(in_slope)][str(out_load)][key]/unit for out_load in out_loads]
+            value_groups.append(f'"{",".join([str(value) for value in values])}"')
         return f'values({",".join(value_groups)});'
 
-    def get_lut_prop(self, in_slopes, out_loads, time_unit: EngineeringUnit) -> list:
-        lines = [f'index_1("{",".join(in_slopes)}");']
-        lines.append(f'index_2("{",".join(out_loads)}");')
-        lines.append(self._get_lut_results_by_key(in_slopes, out_loads, time_unit.magnitude, 'prop_in_out'))
+    def get_propagation_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit) -> list:
+        lines = [f'index_1("{",".join([str(slope) for slope in in_slopes])}");']
+        lines.append(f'index_2("{",".join([str(load) for load in out_loads])}");')
+        lines.append(self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'prop_in_out'))
         return lines
 
-    def get_lut_tran(self, in_slopes, out_loads, time_unit: EngineeringUnit):
-        lines = [f'index_1("{",".join(in_slopes)}");']
-        lines.append(f'index_2("{",".join(out_loads)}");')
-        lines.append(self._get_lut_results_by_key(in_slopes, out_loads, time_unit.magnitude, 'trans_out'))
+    def get_transition_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit):
+        lines = [f'index_1("{",".join([str(slope) for slope in in_slopes])}");']
+        lines.append(f'index_2("{",".join([str(load) for load in out_loads])}");')
+        lines.append(self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'trans_out'))
         return lines
 
-    def get_lut_eintl(self, in_slopes, out_loads, energy_unit: EngineeringUnit, voltage_unit: EngineeringUnit):
-        lines = [f'index_1("{",".join(in_slopes)}");']
-        lines.append(f'index_2("{",".join(out_loads)}");')
-        # TODO: Internal energy calculations from results
+    def _calc_internal_energy(self, in_slope: str, out_load: str, energy_meas_high_threshold_voltage: float):
+        """Calculates internal energy for a particular slope/load combination"""
+        # Fetch calculation parameters
+        # TODO: Check units. Currently we treat results as if they are in base units - unsure whether this is correct
+        e_start = self.results[in_slope][out_load]['energy_start']
+        e_end = self.results[in_slope][out_load]['energy_end']
+        q_vdd_dyn = self.results[in_slope][out_load]['q_vdd_dyn']
+        q_vss_dyn = self.results[in_slope][out_load]['q_vss_dyn']
+        i_vdd_leak = abs(self.results[in_slope][out_load]['i_vdd_leak'])
+        i_vss_leak = abs(self.results[in_slope][out_load]['i_vss_leak'])
+        # Perform the calculation
+        energy_delta = e_end - e_start
+        avg_current = (i_vdd_leak + i_vss_leak) / 2
+        internal_charge = min(q_vss_dyn, q_vdd_dyn) - energy_delta * avg_current
+        return internal_charge * energy_meas_high_threshold_voltage
+
+    def get_internal_energy_lut(self, in_slopes, out_loads, v_eth: float, e_unit: EngineeringUnit):
+        lines = [f'index_1("{",".join([str(slope) for slope in in_slopes])}");']
+        lines.append(f'index_2("{",".join([str(load) for load in out_loads])}");')
+        energy_groups = []
+        for in_slope in in_slopes:
+            energies = [self._calc_internal_energy(str(in_slope), str(out_load), v_eth)/e_unit.magnitude for out_load in out_loads]
+            energy_groups.append(f'"{",".join([str(energy) for energy in energies])}"')
+        lines.append(f'values({",".join(energy_groups)})')
         return lines
 
 class CombinationalHarness (Harness):

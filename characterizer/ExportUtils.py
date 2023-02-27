@@ -131,8 +131,7 @@ def exportHarness(targetLib: LibrarySettings, targetCell: LogicCell):
     outlines = []
     outlines.append(f'  cell ({targetCell.name}) {{\n') ## cell start
     outlines.append(f'    area : {str(targetCell.area)};\n')
-    ##outlines.append("    cell_leakage_power : "+targetCell.leakage_power+";\n")
-    outlines.append(f'    cell_leakage_power : {targetCell.harnesses[0].pleak};\n') ## use leak of 1st harness
+    # TODO: outlines.append(f'    cell_leakage_power : {targetCell.harnesses[0].leakage_power};\n') ## use leak of 1st harness
     outlines.append(f'    pg_pin ({targetLib.vdd.name}) {{\n')
     outlines.append(f'      pg_type : primary_power;\n')
     outlines.append(f'      voltage_name : "{targetLib.vdd.name}";\n')
@@ -162,23 +161,23 @@ def exportHarness(targetLib: LibrarySettings, targetCell: LogicCell):
             ## rise
             ## propagation delay
             outlines.append(f'        {targetCell.harnesses[in_port_index*2].direction_prop} (delay_template) {{\n')
-            for lut_line in targetCell.harnesses[in_port_index*2].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
+            for lut_line in targetCell.harnesses[in_port_index*2].get_propagation_delay_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## transition delay
             outlines.append(f'        {targetCell.harnesses[in_port_index*2].direction_tran} (delay_template) {{\n')
-            for lut_line in targetCell.harnesses[in_port_index*2].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
+            for lut_line in targetCell.harnesses[in_port_index*2].get_propagation_delay_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## fall
             ## propagation delay
             outlines.append(f'        {targetCell.harnesses[in_port_index*2+1].direction_prop} (delay_template) {{\n')
-            for lut_line in targetCell.harnesses[in_port_index*2+1].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
+            for lut_line in targetCell.harnesses[in_port_index*2+1].get_propagation_delay_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## transition delay
             outlines.append(f'        {targetCell.harnesses[in_port_index*2+1].direction_tran} (delay_template) {{\n')
-            for lut_line in targetCell.harnesses[in_port_index*2+1].get_lut_prop(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
+            for lut_line in targetCell.harnesses[in_port_index*2+1].get_transition_delay_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.units.time):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             outlines.append(f'      }}\n') ## timing end 
@@ -189,12 +188,12 @@ def exportHarness(targetLib: LibrarySettings, targetCell: LogicCell):
             outlines.append(f'        related_pin : "{in_port}";\n')
             ## rise(fall)
             outlines.append(f'        {targetCell.harnesses[in_port_index*2].direction_power} (power_template) {{\n')
-            for lut_line in targetCell.harnesses[in_port_index*2].lut_eintl:
+            for lut_line in targetCell.harnesses[in_port_index*2].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## fall(rise)
             outlines.append(f'        {targetCell.harnesses[in_port_index*2+1].direction_power} (power_template) {{\n')
-            for lut_line in targetCell.harnesses[in_port_index*2+1].lut_eintl:
+            for lut_line in targetCell.harnesses[in_port_index*2+1].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             outlines.append(f'      }}\n') ## power end 
@@ -208,7 +207,7 @@ def exportHarness(targetLib: LibrarySettings, targetCell: LogicCell):
         outlines.append(f'      related_power_pin : {targetLib.vdd.name};\n')
         outlines.append(f'      related_ground_pin : {targetLib.vss.name};\n')
         outlines.append(f'      max_transition : {str(targetCell.in_slopes[-1])};\n')
-        outlines.append(f'      capacitance : "{str(targetCell.cins[out_port_index])}";\n')
+        # TODO: outlines.append(f'      capacitance : "{str(targetCell.cins[out_port_index])}";\n')
         outlines.append(f'      input_voltage : default_{targetLib.vdd.name}_{targetLib.vss.name}_input;\n')
         outlines.append(f'    }}\n') ## in pin end
 
@@ -220,7 +219,7 @@ def exportHarness(targetLib: LibrarySettings, targetCell: LogicCell):
 
 
 ## export harness data to .lib
-def exportHarnessFlop(targetLib, targetCell):
+def exportHarnessFlop(targetLib: LibrarySettings, targetCell: SequentialCell):
     harnesses = targetCell.harnesses
     outlines = []
     outlines.append(f'  cell ({targetCell.name}) {{\n') #### cell start
@@ -479,12 +478,12 @@ def exportHarnessFlop(targetLib, targetCell):
             outlines.append(f'        related_pin : "{targetCell.clock}";\n')
             ## rise(fall)
             outlines.append(f'        {harnesses[index1][index2*2].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2].lut_eintl:
+            for lut_line in harnesses[index1][index2*2].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## fall(rise)
             outlines.append(f'        {harnesses[index1][index2*2+1].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2+1].lut_eintl:
+            for lut_line in harnesses[index1][index2*2+1].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             outlines.append(f'      }}\n') ## power end 
@@ -513,12 +512,12 @@ def exportHarnessFlop(targetLib, targetCell):
             outlines.append(f'        related_pin : "{targetCell.reset}";\n')
             ## rise(fall)
             outlines.append(f'        {harnesses[index1][index2*2].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2].lut_eintl:
+            for lut_line in harnesses[index1][index2*2].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## fall(rise)
             outlines.append(f'        {harnesses[index1][index2*2+1].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2+1].lut_eintl:
+            for lut_line in harnesses[index1][index2*2+1].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             outlines.append(f'      }}\n') ## power end 
@@ -547,12 +546,12 @@ def exportHarnessFlop(targetLib, targetCell):
             outlines.append(f'        related_pin : "{targetCell.set}";\n')
             ## rise(fall)
             outlines.append(f'        {harnesses[index1][index2*2].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2].lut_eintl:
+            for lut_line in harnesses[index1][index2*2].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             ## fall(rise)
             outlines.append(f'        {harnesses[index1][index2*2+1].direction_power} (power_template) {{\n')
-            for lut_line in harnesses[index1][index2*2+1].lut_eintl:
+            for lut_line in harnesses[index1][index2*2+1].get_internal_energy_lut(targetCell.in_slopes, targetCell.out_loads, targetLib.energy_meas_high_threshold_voltage(), targetLib.units.energy):
                 outlines.append(f'          {lut_line}\n')
             outlines.append(f'        }}\n') 
             outlines.append(f'      }}\n') ## power end 
