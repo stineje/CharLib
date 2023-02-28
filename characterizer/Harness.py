@@ -186,6 +186,22 @@ class Harness:
     @property
     def direction_power(self) -> str:
         return f'{self.out_direction}_power'
+    
+    def _calc_leakage_power(self, in_slope, out_load, vdd_voltage: float):
+        i_vdd_leak = abs(self.results[in_slope][out_load]['i_vdd_leak'])
+        i_vss_leak = abs(self.results[in_slope][out_load]['i_vss_leak'])
+        avg_current = (i_vdd_leak + i_vss_leak) / 2
+        return avg_current * vdd_voltage
+    
+    def get_leakage_power(self, vdd_voltage, power_unit: EngineeringUnit):
+        leakage_power = 0
+        n = 0
+        for slope in self.results.keys():
+            for load in self.results[slope].keys():
+                leakage_power += self._calc_leakage_power(slope, load, vdd_voltage)
+                n += 1
+        leakage_power = leakage_power / n / power_unit.magnitude
+        return leakage_power
 
     def _get_lut_value_groups_by_key(self, in_slopes, out_loads, unit, key: str):
         value_groups = []

@@ -131,7 +131,7 @@ def exportHarness(targetLib: LibrarySettings, targetCell: LogicCell):
     outlines = []
     outlines.append(f'  cell ({targetCell.name}) {{\n') ## cell start
     outlines.append(f'    area : {str(targetCell.area)};\n')
-    # TODO: outlines.append(f'    cell_leakage_power : {targetCell.harnesses[0].leakage_power};\n') ## use leak of 1st harness
+    outlines.append(f'    cell_leakage_power : {targetCell.harnesses[0].get_leakage_power(targetLib.vdd.voltage, targetLib.units.power)};\n') ## use leak of 1st harness
     outlines.append(f'    pg_pin ({targetLib.vdd.name}) {{\n')
     outlines.append(f'      pg_type : primary_power;\n')
     outlines.append(f'      voltage_name : "{targetLib.vdd.name}";\n')
