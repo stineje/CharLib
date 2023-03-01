@@ -208,18 +208,21 @@ class Harness:
         for in_slope in in_slopes:
             values = [self.results[str(in_slope)][str(out_load)][key]/unit for out_load in out_loads]
             value_groups.append(f'"{", ".join(["{:f}".format(value) for value in values])}"')
-        return f'values({", ".join(value_groups)});'
+        sep = ', \\\n       '
+        return f'values({sep.join(value_groups)});'
 
     def get_propagation_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit) -> list:
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        lines.append(self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'prop_in_out'))
+        values = self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'prop_in_out')
+        [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
     def get_transition_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit):
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        lines.append(self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'trans_out'))
+        values = self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'trans_out')
+        [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
     def _calc_internal_energy(self, in_slope: str, out_load: str, energy_meas_high_threshold_voltage: float):
@@ -245,7 +248,8 @@ class Harness:
         for in_slope in in_slopes:
             energies = [self._calc_internal_energy(str(in_slope), str(out_load), v_eth)/e_unit.magnitude for out_load in out_loads]
             energy_groups.append(f'"{", ".join(["{:f}".format(energy) for energy in energies])}"')
-        lines.append(f'values({", ".join(energy_groups)})')
+        sep = ', \\\n       '
+        [lines.append(value_line) for value_line in f'values({sep.join(energy_groups)})'.split('\n')]
         return lines
 
 class CombinationalHarness (Harness):

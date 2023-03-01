@@ -45,7 +45,7 @@ class EngineeringUnit:
                     self.magnitude = 1e3
                 elif value == 'm':
                     self.magnitude = 1e-3
-                elif value == 'μ':
+                elif value == 'u':
                     self.magnitude = 1e-6
                 elif value == 'n':
                     self.magnitude = 1e-9
@@ -97,7 +97,7 @@ class EngineeringUnit:
         elif self.magnitude == 1e-3:
             mag_repr = 'm'
         elif self.magnitude == 1e-6:
-            mag_repr = 'μ'
+            mag_repr = 'u'
         elif self.magnitude == 1e-9:
             mag_repr = 'n'
         elif self.magnitude == 1e-12:
@@ -215,8 +215,8 @@ class UnitsSettings:
                 self._resistance.symbol = value
                 self._resistance.magnitude = 1
             else:
-                self._resistance.symbol = value[-4:]
-                self._resistance.magnitude = value[:-4]
+                self._resistance.symbol = value[-3:]
+                self._resistance.magnitude = value[:-3]
         else:
             raise ValueError(f'Invalid resistance unit: {value}')
     
