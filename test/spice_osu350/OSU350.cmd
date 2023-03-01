@@ -37,8 +37,6 @@ set_operating_conditions PVT_3P5V_25C
 # initialize workspace
 initialize
 
-get_all
-
 ## add circuit
 add_cell -n INVX1 -l INV -i A -o Y -f Y=!A 
 add_slope {0.015 0.04 0.08 0.2 0.4} 
@@ -47,8 +45,6 @@ add_area 1
 add_netlist test/spice_osu350/INVX1.spi
 add_model test/spice_osu350/model.sp
 add_simulation_timestep auto
-
-get_cell_by_name INVX1
 
 characterize
 export

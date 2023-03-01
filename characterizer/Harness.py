@@ -207,9 +207,9 @@ class Harness:
         value_groups = []
         for in_slope in in_slopes:
             values = [self.results[str(in_slope)][str(out_load)][key]/unit for out_load in out_loads]
-            value_groups.append(f'"{", ".join(["{:f}".format(value) for value in values])}"')
-        sep = ', \\\n       '
-        return f'values({sep.join(value_groups)});'
+            value_groups.append(f'"{", ".join([f"{value:f}" for value in values])}"')
+        sep = ', \\\n  '
+        return f'values( \\\n  {sep.join(value_groups)});'
 
     def get_propagation_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit) -> list:
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
@@ -218,7 +218,7 @@ class Harness:
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def get_transition_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit):
+    def get_transport_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit):
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
         values = self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'trans_out')
@@ -238,8 +238,8 @@ class Harness:
         # Perform the calculation
         energy_delta = e_end - e_start
         avg_current = (i_vdd_leak + i_vss_leak) / 2
-        internal_charge = min(q_vss_dyn, q_vdd_dyn) - energy_delta * avg_current
-        return abs(internal_charge * energy_meas_high_threshold_voltage)
+        internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current
+        return internal_charge * energy_meas_high_threshold_voltage
 
     def get_internal_energy_lut(self, in_slopes, out_loads, v_eth: float, e_unit: EngineeringUnit):
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
@@ -248,8 +248,8 @@ class Harness:
         for in_slope in in_slopes:
             energies = [self._calc_internal_energy(str(in_slope), str(out_load), v_eth)/e_unit.magnitude for out_load in out_loads]
             energy_groups.append(f'"{", ".join(["{:f}".format(energy) for energy in energies])}"')
-        sep = ', \\\n       '
-        [lines.append(value_line) for value_line in f'values({sep.join(energy_groups)})'.split('\n')]
+        sep = ', \\\n  '
+        [lines.append(value_line) for value_line in f'values( \\\n  {sep.join(energy_groups)});'.split('\n')]
         return lines
 
 class CombinationalHarness (Harness):

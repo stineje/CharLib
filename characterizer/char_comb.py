@@ -130,12 +130,24 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
     ##
     ## delay measurement 
     outlines.append("** Delay \n")
+    if target_harness.in_direction == 'rise':
+        prop_start_v = target_lib.logic_low_to_high_threshold_voltage()
+        prop_end_v = target_lib.logic_high_to_low_threshold_voltage()
+    else:
+        prop_start_v = target_lib.logic_high_to_low_threshold_voltage()
+        prop_end_v = target_lib.logic_low_to_high_threshold_voltage()
+    if target_harness.out_direction == 'rise':
+        trans_start_v = target_lib.logic_threshold_low_voltage()
+        trans_end_v = target_lib.logic_threshold_high_voltage()
+    else:
+        trans_start_v = target_lib.logic_threshold_high_voltage()
+        trans_end_v = target_lib.logic_threshold_low_voltage()
     outlines.append("* Prop delay \n")
-    outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(target_lib.logic_low_to_high_threshold_voltage())}' {target_harness.in_direction}=1\n")
-    outlines.append(f"+ targ v(VOUT) val='{str(target_lib.logic_high_to_low_threshold_voltage())}' {target_harness.out_direction}=1\n")
+    outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(prop_start_v)}' {target_harness.in_direction}=1\n")
+    outlines.append(f"+ targ v(VOUT) val='{str(prop_end_v)}' {target_harness.in_direction}=1\n")
     outlines.append("* Trans delay \n")
-    outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(target_lib.logic_threshold_high_voltage())}' {target_harness.out_direction}=1\n")
-    outlines.append(f"+ targ v(VOUT) val='{str(target_lib.logic_threshold_low_voltage())}' {target_harness.out_direction}=1\n")
+    outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(trans_start_v)}' {target_harness.out_direction}=1\n")
+    outlines.append(f"+ targ v(VOUT) val='{str(trans_end_v)}' {target_harness.out_direction}=1\n")
 
     # get ENERGY_START and ENERGY_END for energy calculation in 2nd round 
     if not meas_energy:
@@ -274,7 +286,7 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
         desired_measurements += ['energy_start', 'energy_end']
     with open(spicelis,'r') as f:
         for inline in f:
-            if any([x in inline for x in ['failed', 'Error']]):
+            if any([f in inline for f in ['failed', 'Error']]):
                 pass # TODO: fail with error
             if 'hspice' in str(target_lib.simulator):
                 inline = re.sub('\=',' ',inline)
@@ -282,9 +294,5 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
             if measurement:
                 results[measurement] = float(inline.split()[2])
         f.close()
-
-    # Add in_slope and out_load to results so that we can identify this result later
-    results['in_slope'] = in_slope
-    results['out_load'] = out_load
 
     return results
