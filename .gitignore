@@ -1,7 +1,6 @@
 # Ignored directories
 __pycache__
 spice_*
-test
 work
 
 # Ignored file types

@@ -132,19 +132,19 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
     outlines.append("** Delay \n")
     if target_harness.in_direction == 'rise':
         prop_start_v = target_lib.logic_low_to_high_threshold_voltage()
-        prop_end_v = target_lib.logic_high_to_low_threshold_voltage()
     else:
         prop_start_v = target_lib.logic_high_to_low_threshold_voltage()
-        prop_end_v = target_lib.logic_low_to_high_threshold_voltage()
     if target_harness.out_direction == 'rise':
+        prop_end_v = target_lib.logic_low_to_high_threshold_voltage()
         trans_start_v = target_lib.logic_threshold_low_voltage()
         trans_end_v = target_lib.logic_threshold_high_voltage()
     else:
+        prop_end_v = target_lib.logic_low_to_high_threshold_voltage()
         trans_start_v = target_lib.logic_threshold_high_voltage()
         trans_end_v = target_lib.logic_threshold_low_voltage()
     outlines.append("* Prop delay \n")
     outlines.append(f".measure Tran PROP_IN_OUT trig v(VIN) val='{str(prop_start_v)}' {target_harness.in_direction}=1\n")
-    outlines.append(f"+ targ v(VOUT) val='{str(prop_end_v)}' {target_harness.in_direction}=1\n")
+    outlines.append(f"+ targ v(VOUT) val='{str(prop_end_v)}' {target_harness.out_direction}=1\n")
     outlines.append("* Trans delay \n")
     outlines.append(f".measure Tran TRANS_OUT trig v(VOUT) val='{str(trans_start_v)}' {target_harness.out_direction}=1\n")
     outlines.append(f"+ targ v(VOUT) val='{str(trans_end_v)}' {target_harness.out_direction}=1\n")
@@ -287,7 +287,7 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
     with open(spicelis,'r') as f:
         for inline in f:
             if any([f in inline for f in ['failed', 'Error']]):
-                pass # TODO: fail with error
+                raise NameError(f'An error occurred while running simulation. See {spicelis}.')
             if 'hspice' in str(target_lib.simulator):
                 inline = re.sub('\=',' ',inline)
             measurement = next((m for m in desired_measurements if m in inline), False)
