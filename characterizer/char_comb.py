@@ -207,14 +207,14 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
         # search stable inport
         for stable_port, state in zip(target_harness.stable_in_ports, target_harness.stable_in_port_states):
             if port == stable_port:
-                if state == 1:
+                if state == '1':
                     tmp_line += ' HIGH'
                     is_matched += 1
-                elif state == 0:
+                elif state == '0':
                     tmp_line += ' LOW'
                     is_matched += 1
                 else:
-                    raise ValueError(f'Invalid state for port {port}')
+                    raise ValueError(f'Invalid state for port {port}: {state}')
         # check target outport
         if port == target_harness.target_out_port:
             tmp_line += ' OUT'
@@ -238,7 +238,7 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
                 is_matched += 1
         ## show error if this port has not matched
         if not is_matched:
-            raise ValueError(f"Port {str(port)} not found in netlist")
+            raise ValueError(f"Port {port} not found in netlist")
     tmp_line += f" {circuit_name}\n"
     outlines.append(tmp_line)
     outlines.append(".ends \n")

@@ -26,7 +26,7 @@ set_logic_high_to_low_threshold 0.5
 set_logic_low_to_high_threshold 0.5
 set_work_dir work
 set_run_sim true
-set_mt_sim false
+set_mt_sim true
 set_suppress_message false
 set_suppress_sim_message false
 set_suppress_debug_message true
@@ -38,10 +38,22 @@ set_operating_conditions typical
 initialize
 
 ## add circuit
+add_cell -n AND2X1 -l AND2 -i A B -o Y -f Y=A&B 
+add_slope {0.015 0.04 0.08 0.2 0.4} 
+add_load  {0.06 0.18 0.42 0.6 1.2} 
+add_area 128
+add_netlist spice_temp/AND2X1.sp
+add_model test/spice_osu350/model.sp
+add_simulation_timestep auto
+
+characterize
+export
+
+## add circuit
 add_cell -n INVX1 -l INV -i A -o Y -f Y=!A 
 add_slope {0.015 0.04 0.08 0.2 0.4} 
 add_load  {0.06 0.18 0.42 0.6 1.2} 
-add_area 1
+add_area 64
 add_netlist spice_temp/INVX1.sp
 add_model test/spice_osu350/model.sp
 add_simulation_timestep auto
