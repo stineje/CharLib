@@ -177,16 +177,6 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
         outlines.append(" \n")
         outlines.append("* Gate leak current \n")
         outlines.append(".measure Tran I_IN_LEAK avg i(VIN) from='_tstart*0.1' to='_tstart'  \n")
-    else:
-        print("Error, meas_energy should 0 (disable) or 1 (enable)")
-        exit()
-
-    ## for ngspice batch mode 
-    outlines.append("*comment out .control for ngspice batch mode \n")
-    outlines.append("*.control \n")
-    outlines.append("*run \n")
-    outlines.append("*plot V(VIN) V(VOUT) \n")
-    outlines.append("*.endc \n")
 
     outlines.append("XINV VIN VOUT VHIGH VLOW VDD_DYN VSS_DYN VNW_DYN VPW_DYN DUT \n")
     outlines.append("C0 WOUT VSS_DYN 'cap'\n")

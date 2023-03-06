@@ -5,6 +5,7 @@ SOURCE='https://vlsiarch.ecen.okstate.edu/flows/MOSIS_SCMOS/latest/cadence/lib/a
 TEMP_SP_FILENAME='osu035_stdcells.sp.temp'
 
 mkdir -p $TARGET_DIR
+pushd $TARGET_DIR > /dev/null
 
 # Download source
 curl -s $SOURCE > $TEMP_SP_FILENAME
@@ -19,5 +20,7 @@ do
     decl=$(head -n1 $TEMP_CELL_FILENAME)
     decl_words=($decl)
     cell_name=${decl_words[1]}
-    mv $TEMP_CELL_FILENAME $TARGET_DIR/$cell_name.sp
+    mv $TEMP_CELL_FILENAME $cell_name.sp
 done
+
+popd > /dev/null
