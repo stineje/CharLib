@@ -15,10 +15,13 @@ class Characterizer:
 
     def __str__(self) -> str:
         lines = []
-        lines.append(f'Library settings:')
+        lines.append('Library settings:')
         for line in str(self.settings).split('\n'):
             lines.append(f'    {line}')
-        # TODO: cells
+        lines.append('Cells:')
+        for cell in self.cells:
+            for line in str(cell):
+                lines.append(f'    {line}')
         return '\n'.join(lines)
 
     def target_cell(self) -> LogicCell:

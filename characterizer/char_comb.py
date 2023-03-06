@@ -1,4 +1,4 @@
-import re, subprocess, sys, threading 
+import re, subprocess, threading 
 
 from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicCell import LogicCell
@@ -19,73 +19,49 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
 
         # Run delay characterization
         if target_lib.use_multithreaded:
-            runSpiceCombDelayMultiThread(target_lib, target_cell, harness, spice_filename)
+            # Run multithreaded
+            thread_id = 0
+            threadlist = []
+            for tmp_slope in target_cell.in_slopes:
+                for tmp_load in target_cell.out_loads:
+                    thread = threading.Thread(target=runSimCombinational,
+                            args=([target_lib, target_cell, harness, spice_filename, tmp_slope, tmp_load]),
+                            name="%d" % thread_id)
+                    threadlist.append(thread)
+                    thread_id += 1
+            for thread in threadlist:
+                thread.start()
+            for thread in threadlist:
+                thread.join()
         else:
-            runSpiceCombDelay(target_lib, target_cell, harness, spice_filename)
+            # Run single-threaded
+            for in_slope in target_cell.in_slopes:
+                for out_load in target_cell.out_loads:
+                    runSimCombinational(target_lib, target_cell, harness, spice_filename, in_slope, out_load)
 
         # Save harness to the cell
         target_cell.harnesses.append(harness)
 
-def runSpiceCombDelayMultiThread(target_lib, target_cell, target_harness, spicef):
-    # One trial for each input slope / output load combination
-    thread_id = 0
-    threadlist = []
-    for tmp_slope in target_cell.in_slopes:
-        for tmp_load in target_cell.out_loads:
-            thread = threading.Thread(target=runSpiceCombDelaySingle,
-                    args=([target_lib, target_cell, target_harness, spicef, tmp_slope, tmp_load]),
-                    name="%d" % thread_id)
-            threadlist.append(thread)
-            thread_id += 1
-    for thread in threadlist:
-        thread.start()
-    for thread in threadlist:
-        thread.join()
-
-def runSpiceCombDelaySingle(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spicef, in_slope, out_load):
-    print("start thread :"+str(threading.current_thread().name))
-    spicefo = str(spicef)+"_"+str(out_load)+"_"+str(in_slope)+".sp"
+def runSimCombinational(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spice_filename, in_slope, out_load):
+    spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slope)+".sp"
 
     ## 1st trial, extract energy_start and energy_end
-    trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 0, in_slope, out_load, "none", "none", spicefo)
+    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 0, in_slope, out_load, "none", "none", spice_results_filename)
     energy_start = trial_results['energy_start']
     energy_end = trial_results['energy_end']
     estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
     eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
 
     ## 2nd trial
-    trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 1, in_slope, out_load, estart_line, eend_line, spicefo)
+    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 1, in_slope, out_load, estart_line, eend_line, spice_results_filename)
     trial_results['energy_start'] = energy_start
     trial_results['energy_end'] = energy_end
 
     if not target_harness.results.get(str(in_slope)):
         target_harness.results[str(in_slope)] = {}
     target_harness.results[str(in_slope)][str(out_load)] = trial_results
-    print("end thread :"+str(threading.current_thread().name))
 
-def runSpiceCombDelay(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spicef):
-    # Test each input slope with each output load
-    for tmp_slope in target_cell.in_slopes:
-        for tmp_load in target_cell.out_loads:
-            spicefo = str(spicef)+"_"+str(tmp_load)+"_"+str(tmp_slope)+".sp"
-
-            ## 1st trial, extract energy_start and energy_end
-            trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 0, tmp_slope, tmp_load, "none", "none", spicefo)
-            energy_start = trial_results['energy_start']
-            energy_end = trial_results['energy_end']
-            estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
-            eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
-
-            ## 2nd trial
-            trial_results = genFileLogic_trial1(target_lib, target_cell, target_harness, 1, tmp_slope, tmp_load, estart_line, eend_line, spicefo)
-            trial_results['energy_start'] = energy_start
-            trial_results['energy_end'] = energy_end
-
-            if not target_harness.results.get(str(tmp_slope)):
-                target_harness.results[str(tmp_slope)] = {}
-            target_harness.results[str(tmp_slope)][str(tmp_load)] = trial_results
-
-def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, meas_energy: bool, in_slope, out_load, estart_line, eend_line, spicef: str):
+def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, meas_energy: bool, in_slope, out_load, estart_line, eend_line, output_filename: str):
     outlines = []
     outlines.append("*title: delay meas.\n")
     outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
@@ -110,10 +86,10 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
     outlines.append("VPW_DYN VPW_DYN 0 DC '_vpw' \n")
     outlines.append("* output load calculation\n")
     outlines.append("VOCAP VOUT WOUT DC 0\n")
-    #outlines.append("VDD_LEAK VDD_LEAK 0 DC '_vdd' \n")
-    #outlines.append("VSS_LEAK VSS_LEAK 0 DC '_vss' \n")
-    #outlines.append("VNW_LEAK VNW_LEAK 0 DC '_vnw' \n")
-    #outlines.append("VPW_LEAK VPW_LEAK 0 DC '_vpw' \n")
+    outlines.append("VDD_LEAK VDD_LEAK 0 DC '_vdd' \n")
+    outlines.append("VSS_LEAK VSS_LEAK 0 DC '_vss' \n")
+    outlines.append("VNW_LEAK VNW_LEAK 0 DC '_vnw' \n")
+    outlines.append("VPW_LEAK VPW_LEAK 0 DC '_vpw' \n")
     outlines.append(" \n")
     ## in auto mode, simulation timestep is 1/10 of min. input slew
     ## simulation runs 1000x of input slew time
@@ -238,17 +214,17 @@ def genFileLogic_trial1(target_lib: LibrarySettings, target_cell: LogicCell, tar
     outlines.append(f".param slew ={str(in_slope*in_slope_mag*target_lib.units.time.magnitude)}\n")
     outlines.append(".end \n")
     
-    with open(spicef,'w') as f:
+    with open(output_filename,'w') as f:
         f.writelines(outlines)
         f.close()
 
-    spicelis = spicef + ".lis"
-    spicerun = spicef + ".run"
+    spicelis = output_filename + ".lis"
+    spicerun = output_filename + ".run"
 
     if 'ngspice' in str(target_lib.simulator):
-        cmd = f'{str(target_lib.simulator.resolve())} -b {str(spicef)} 1> {str(spicelis)} 2> /dev/null \n'
+        cmd = f'{str(target_lib.simulator.resolve())} -b {str(output_filename)} 1> {str(spicelis)} 2> /dev/null \n'
     elif 'hspice' in str(target_lib.simulator):
-        cmd = f'{str(target_lib.simulator.resolve())} {str(spicef)} -o {str(spicelis)} 2> /dev/null \n'
+        cmd = f'{str(target_lib.simulator.resolve())} {str(output_filename)} -o {str(spicelis)} 2> /dev/null \n'
 
     with open(spicerun,'w') as f:
         outlines = []

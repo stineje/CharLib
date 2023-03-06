@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse, os
+from pathlib import Path
 
 from characterizer.Characterizer import Characterizer
 from characterizer.ExportUtils import exportFiles, exitFiles
@@ -313,6 +314,8 @@ def execute_command(characterizer: Characterizer, command: str):
     else:
         raise ValueError(f'Invalid command: {command}')
 
+def load_settings(characterizier: Characterizer, settings_json: Path):
+    pass # TODO
 
 if __name__ == '__main__':
     main()

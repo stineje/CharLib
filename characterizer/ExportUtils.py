@@ -172,7 +172,7 @@ def exportCombinationalCell(targetLib: LibrarySettings, targetCell: LogicCell):
             outlines.append(f'      timing () {{\n')
             in_port_index = targetCell.in_ports.index(in_port)
             outlines.append(f'        related_pin : "{in_port}";\n')
-            outlines.append(f'        timing_sense : "{targetCell.harnesses[in_port_index*2].timing_sense}";\n')
+            outlines.append(f'        timing_sense : {targetCell.harnesses[in_port_index*2].timing_sense};\n')
             outlines.append(f'        timing_type : "{targetCell.harnesses[in_port_index*2].timing_type}";\n')
             ## rise
             ## propagation delay
