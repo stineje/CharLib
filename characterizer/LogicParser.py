@@ -15,9 +15,9 @@ def parse(tokens: list) -> dict:
     RULES = lambda S : [
         [Token('('), 'E', Token(')')],
         [Token('~'), 'E'],
-        ['E', Token('&'), 'E'],
-        ['E', Token('^'), 'E'],
-        ['E', Token('|'), 'E'],
+        [S, Token('&'), 'E'],
+        [S, Token('^'), 'E'],
+        [S, Token('|'), 'E'],
         [S]
     ]
     ast = {}
@@ -28,18 +28,22 @@ def parse(tokens: list) -> dict:
         if isinstance(stack_token, Token):
             # Handle terminals
             if stack_token == tokens[position]:
-                print(f'Pop {stack_token}')
                 position += 1
             else:
                 print('Parsing failed!')
         else:
             # Resolve rules
             rule = tokens[position].rule
-            print(f'Rule {rule}')
+            if rule == 5:
+                # Look ahead 1 to see if there is an operator
+                try:
+                    if 1 < tokens[position+1].rule < rule:
+                        rule = tokens[position+1].rule
+                except IndexError:
+                    pass
             stack.extend(reversed(RULES(tokens[position])[rule]))
-        print(f'stack: {stack}')
+        print(f'stack: {[i for i in reversed(stack)]}')
         print(f'input: {tokens[position:]}')
-        input('Press enter to continue...')
 
 def lex(expression: str) -> list:
     """Lexes a simple boolean logic expression into tokens"""
@@ -55,6 +59,8 @@ def lex(expression: str) -> list:
             temp += c
         else:
             raise ValueError(f'Invalid character in boolean expression: {c}')
+    if temp:
+        tokens.append(Token(temp))
     return tokens
 
 class Token:
@@ -91,4 +97,8 @@ class Token:
             self._rule = 5
 
 if __name__ == '__main__':
+    # If run as main, test parser
     print(parse(lex('~(A^B&C)')))
+    print(parse(lex('A^B | potato')))
+    print(parse(lex('~~~~A')))
+    print(parse(lex('~(A&~C) ^ B')))
