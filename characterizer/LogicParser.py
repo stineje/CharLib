@@ -1,4 +1,13 @@
-def parse(tokens: list) -> dict:
+RULES = lambda S : [
+    [Token('('), 'E', Token(')')],
+    [Token('~'), 'E'],
+    [S, Token('&'), 'E'],
+    [S, Token('^'), 'E'],
+    [S, Token('|'), 'E'],
+    [S]
+]
+
+def parse(tokens: list) -> list:
     """Parses simple boolean logic expressions.
     
     EBNF:
@@ -10,18 +19,10 @@ def parse(tokens: list) -> dict:
     E -> S
     S -> [A-Z,a-z,0-9,_]*
 
-    The result is a dictonary which describes the abstract syntax tree.
+    The result is a list containing the RPN syntax tree.
     """
-    RULES = lambda S : [
-        [Token('('), 'E', Token(')')],
-        [Token('~'), 'E'],
-        [S, Token('&'), 'E'],
-        [S, Token('^'), 'E'],
-        [S, Token('|'), 'E'],
-        [S]
-    ]
-    ast = {}
     stack = ['E']
+    derivation = []
     position = 0
     while stack:
         stack_token = stack.pop()
@@ -34,16 +35,18 @@ def parse(tokens: list) -> dict:
         else:
             # Resolve rules
             rule = tokens[position].rule
+            derivation.append(tokens[position].symbol)
             if rule == 5:
                 # Look ahead 1 to see if there is an operator
+                # We don't actually care about order of ops here
                 try:
                     if 1 < tokens[position+1].rule < rule:
                         rule = tokens[position+1].rule
+                        derivation.insert(-1, tokens[position+1].symbol)
                 except IndexError:
                     pass
             stack.extend(reversed(RULES(tokens[position])[rule]))
-        print(f'stack: {[i for i in reversed(stack)]}')
-        print(f'input: {tokens[position:]}')
+    return derivation
 
 def lex(expression: str) -> list:
     """Lexes a simple boolean logic expression into tokens"""
@@ -64,18 +67,18 @@ def lex(expression: str) -> list:
     return tokens
 
 class Token:
-    def __init__(self, name: str) -> None:
-        self.name = name
-        self.rule = name
+    def __init__(self, symbol: str) -> None:
+        self.symbol = symbol if not symbol == '(' else '()'
+        self.rule = symbol
 
     def __str__(self) -> str:
-        return self.name
+        return self.symbol
     
     def __repr__(self) -> str:
-        return f'Token("{self.name}")'
+        return f'Token("{self.symbol}")'
     
     def __eq__(self, other) -> bool:
-        return isinstance(other, self.__class__) and self.name == other.name
+        return isinstance(other, self.__class__) and self.symbol == other.symbol
     
     @property
     def rule(self) -> int:
@@ -95,6 +98,11 @@ class Token:
             self._rule = 4
         else:
             self._rule = 5
+
+class Node:
+    def __init__(self, symbol: str, *parameters) -> None:
+        self.symbol = symbol
+        self.parameters = parameters
 
 if __name__ == '__main__':
     # If run as main, test parser
