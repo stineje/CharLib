@@ -9,13 +9,13 @@ T_OTHER = 6
 
 # Rules
 RULES = lambda S : [
-    [Token('~'), 'E'],              # 0: E -> ~E
-    [Token('('), 'E', Token(')')],  # 1: E -> (E)
-    [S, 'O'],                       # 2: E -> [A-z,0-9,_]*O
-    [Token('&'), 'E'],              # 3: O -> &E
-    [Token('^'), 'E'],              # 4: O -> ^E
-    [Token('|'), 'E'],              # 5: O -> |E
-    [],                             # 6: O -> null
+    [Token('~'), 'E', 'O'],             # 0: E -> ~EO
+    [Token('('), 'E', Token(')'), 'O'], # 1: E -> (E)O
+    [S, 'O'],                           # 2: E -> [A-z,0-9,_]*O
+    [Token('&'), 'E', 'O'],             # 3: O -> &EO
+    [Token('^'), 'E', 'O'],             # 4: O -> ^EO
+    [Token('|'), 'E', 'O'],             # 5: O -> |EO
+    [],                                 # 6: O -> null
 ]
 
 def get_rule(stack_token, input_token) -> int:
@@ -84,24 +84,33 @@ def parse(tokens: list) -> list:
     print(f'rules: {rule_sequence}')
     
     # Now that we know the production rules, produce an AST in RPN format
-    reverse_polish_notation = []
+    reverse_polish_notation = ['O']
     named_tokens = [n for n in tokens if n.type == T_OTHER]
     for rule in rule_sequence:
         if rule == 0:
-            reverse_polish_notation.append('~')
+            reverse_polish_notation.extend(['O', '~'])
         elif rule == 1:
-            reverse_polish_notation.append('()')
+            reverse_polish_notation.extend(['O', '()'])
         elif rule == 2:
             reverse_polish_notation.extend(['O', named_tokens.pop(0).symbol])
         elif rule == 3:
-            reverse_polish_notation.append('&')
-        elif rule == 4:
-            reverse_polish_notation.append('^')
-        elif rule == 5:
-            reverse_polish_notation.append('|')
-        elif rule == 6:
             last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
             reverse_polish_notation.pop(last_O_index)
+            reverse_polish_notation.insert(last_O_index+1, '&')
+        elif rule == 4:
+            last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
+            reverse_polish_notation.pop(last_O_index)
+            reverse_polish_notation.insert(last_O_index+1, '^')
+        elif rule == 5:
+            last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
+            reverse_polish_notation.pop(last_O_index)
+            reverse_polish_notation.insert(last_O_index+1, '|')
+        elif rule == 6:
+            try:
+                last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
+                reverse_polish_notation.pop(last_O_index)
+            except ValueError:
+                pass # We don't add O as aggressively in RPN generation, so it's ok if it isn't present
         print(f'rpn:   {reverse_polish_notation}')
     return reverse_polish_notation
 
@@ -160,15 +169,14 @@ class Token:
 
 if __name__ == '__main__':
     # If run as main, test parser
-    parse_logic('~(A&~C) ^ B')
-    # assert parse_logic('~(A^B&C)') == ['~', '()', '^', 'A', '&', 'B', 'C']
-    # assert parse_logic('_^B | potato') == ['^', '_', '|', 'B', 'potato']
-    # assert parse_logic('~~~~A') == ['~', '~', '~', '~', 'A']
-    # assert parse_logic('~(A&~C) ^ B') == ['^', '~', '()', '&', 'A', '~', 'C', 'B']
-    # assert parse_logic('A&B&C&D&E&F&G&H&I&J&K') == ['&', 'A', '&', 'B', '&', 'C', '&', 'D', '&', 'E', '&', 'F', '&', 'G', '&', 'H', '&', 'I', '&', 'J', 'K']
-    # tokens = lex('~&^|')
-    # assert tokens == [Token('~'), Token('&'), Token('^'), Token('|')]
-    # try:
-    #     parse(tokens) # We expect this to fail
-    # except ValueError:
-    #     pass # Pass if we catch a ValueError
+    assert parse_logic('~(A^B&C)') == ['~', '()', '^', 'A', '&', 'B', 'C']
+    assert parse_logic('(_^B) | potato') == ['|', '()', '^', '_', 'B', 'potato']
+    assert parse_logic('~~~~A') == ['~', '~', '~', '~', 'A']
+    assert parse_logic('~(A&~C) ^ B') == ['^', '~', '()', '&', 'A', '~', 'C', 'B']
+    assert parse_logic('A&B&C&D&E&F&G&H&I&J&K') == ['&', 'A', '&', 'B', '&', 'C', '&', 'D', '&', 'E', '&', 'F', '&', 'G', '&', 'H', '&', 'I', '&', 'J', 'K']
+    tokens = lex('~&^|')
+    assert tokens == [Token('~'), Token('&'), Token('^'), Token('|')]
+    try:
+        parse(tokens) # We expect this to fail
+    except ValueError:
+        pass # Pass if we catch a ValueError
