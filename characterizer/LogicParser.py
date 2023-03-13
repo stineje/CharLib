@@ -51,6 +51,9 @@ def parse_logic(expression: str) -> list:
     
     This parser supports parentheses, NOT (~), AND (&), OR (|), and XOR (^) operations.
     The return value is a list of tokens in reverse polish notation.
+
+    Note that this parser does not currently support operator precedence. If you want
+    operations to happen in a particular order, make sure to use parentheses. 
     """
     return parse(lex(expression))
 
@@ -79,9 +82,6 @@ def parse(tokens: list) -> list:
             except IndexError: # Error due to nonexistent rule
                 raise ValueError(f'Failed to parse logic string "{"".join([str(t) for t in tokens])}". Parsing failed at position {position}')
             rule_sequence.append(rule)
-        print(f'stack: {stack}')
-        print(f'inpup: {tokens[position:]}')
-    print(f'rules: {rule_sequence}')
     
     # Now that we know the production rules, produce an AST in RPN format
     reverse_polish_notation = ['O']
@@ -111,7 +111,6 @@ def parse(tokens: list) -> list:
                 reverse_polish_notation.pop(last_O_index)
             except ValueError:
                 pass # We don't add O as aggressively in RPN generation, so it's ok if it isn't present
-        print(f'rpn:   {reverse_polish_notation}')
     return reverse_polish_notation
 
 def lex(expression: str) -> list:
@@ -170,7 +169,7 @@ class Token:
 if __name__ == '__main__':
     # If run as main, test parser
     assert parse_logic('~(A^B&C)') == ['~', '()', '^', 'A', '&', 'B', 'C']
-    assert parse_logic('(_^B) | potato') == ['|', '()', '^', '_', 'B', 'potato']
+    assert parse_logic('_^B | potato') == ['^', '_', '|', 'B', 'potato']
     assert parse_logic('~~~~A') == ['~', '~', '~', '~', 'A']
     assert parse_logic('~(A&~C) ^ B') == ['^', '~', '()', '&', 'A', '~', 'C', 'B']
     assert parse_logic('A&B&C&D&E&F&G&H&I&J&K') == ['&', 'A', '&', 'B', '&', 'C', '&', 'D', '&', 'E', '&', 'F', '&', 'G', '&', 'H', '&', 'I', '&', 'J', 'K']
@@ -178,5 +177,7 @@ if __name__ == '__main__':
     assert tokens == [Token('~'), Token('&'), Token('^'), Token('|')]
     try:
         parse(tokens) # We expect this to fail
+        raise AssertionError # This line should never be executed
     except ValueError:
         pass # Pass if we catch a ValueError
+    assert parse_logic('b&a&a') == ['&', 'b', '&', 'a', 'a']
