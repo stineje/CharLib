@@ -90,7 +90,7 @@ def parse(tokens: list) -> list:
         if rule == 0:
             reverse_polish_notation.extend(['O', '~'])
         elif rule == 1:
-            reverse_polish_notation.extend(['O', '()'])
+            reverse_polish_notation.append('O')
         elif rule == 2:
             reverse_polish_notation.extend(['O', named_tokens.pop(0).symbol])
         elif rule == 3:
@@ -168,10 +168,10 @@ class Token:
 
 if __name__ == '__main__':
     # If run as main, test parser
-    assert parse_logic('~(A^B&C)') == ['~', '()', '^', 'A', '&', 'B', 'C']
+    assert parse_logic('~(A^B&C)') == ['~', '^', 'A', '&', 'B', 'C']
     assert parse_logic('_^B | potato') == ['^', '_', '|', 'B', 'potato']
     assert parse_logic('~~~~A') == ['~', '~', '~', '~', 'A']
-    assert parse_logic('~(A&~C) ^ B') == ['^', '~', '()', '&', 'A', '~', 'C', 'B']
+    assert parse_logic('~(A&~C) ^ B') == ['^', '~', '&', 'A', '~', 'C', 'B']
     assert parse_logic('A&B&C&D&E&F&G&H&I&J&K') == ['&', 'A', '&', 'B', '&', 'C', '&', 'D', '&', 'E', '&', 'F', '&', 'G', '&', 'H', '&', 'I', '&', 'J', 'K']
     tokens = lex('~&^|')
     assert tokens == [Token('~'), Token('&'), Token('^'), Token('|')]
