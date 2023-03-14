@@ -4,6 +4,7 @@ import numpy as np
 from characterizer.HarnessSettings import HarnessSettings
 
 def runFlop(targetLib, targetCell, expectationList2):
+    # TODO: Deprecate and replace with runSequential
     harnessList = []   # harness for each trial
     harnessList2 = []  # list of harnessList
 

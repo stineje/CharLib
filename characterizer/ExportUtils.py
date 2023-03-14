@@ -165,7 +165,7 @@ def exportCombinationalCell(targetLib: LibrarySettings, targetCell: LogicCell):
         # outlines.append(f'      related_power_pin : "{targetLib.vdd.name}";\n')
         # outlines.append(f'      related_ground_pin : "{targetLib.vss.name}";\n')
         outlines.append(f'      max_capacitance : "{str(targetCell.out_loads[-1])}";\n') ## use max val. of load table
-        outlines.append(f'      function : "{targetCell.functions[out_port_index]})"\n')
+        outlines.append(f'      function : "({targetCell.functions[out_port_index]})"\n')
         outlines.append(f'      output_voltage : default_{targetLib.vdd.name}_{targetLib.vss.name}_output;\n')
         ## timing
         for in_port in targetCell.in_ports:
@@ -720,11 +720,6 @@ def exportVerilog(targetLib, targetCell):
     for target_inport in targetCell.in_ports:
         outlines.append(f'input {target_inport};\n')
 
-    ## branch for sequential cell
-    if targetCell.logic == "DFFARAS":
-        print ("This cell "+targetCell.logic+" is not supported for verilog out\n") # TODO: Error properly
-        exit()
-
     ## branch for combinational cell
     else:
     ## assign statement
@@ -786,15 +781,15 @@ def exportVerilogFlop(targetLib, targetCell):
             line = 'always @('
             resetlines = []
             setlines = []
-            #print(str(targetCell.logic))
             ## clock
-            if 'PC' in targetCell.logic:    ## posedge clock
-                line += "posedge " + targetCell.clock
-            elif 'NC' in targetCell.logic:  ## negedge clock
-                line += "negedge " + targetCell.clock
-            else:
-                print("Error! failed to generate DFF verilog!") # TODO: Error properly
-                exit()
+            # TODO: replace
+            # if 'PC' in targetCell.logic:    ## posedge clock
+            #     line += "posedge " + targetCell.clock
+            # elif 'NC' in targetCell.logic:  ## negedge clock
+            #     line += "negedge " + targetCell.clock
+            # else:
+            #     print("Error! failed to generate DFF verilog!") # TODO: Error properly
+            #     exit()
 
             ## reset (option)
             if targetCell.reset is not None:    ## reset

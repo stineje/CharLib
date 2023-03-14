@@ -1,7 +1,6 @@
 import re
 from pathlib import Path
-from characterizer.LogicParser import parse_logic
-from characterizer.char_comb import runCombinational
+from characterizer.LogicParser import parse_logic, generate_test_vectors
 
 class LogicCell:
     def __init__ (self, name: str, in_ports: list, out_ports: list, function: str, area: float = 0):
@@ -228,11 +227,14 @@ class LogicCell:
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
         test_vectors = []
-        for fn, output in zip(self.functions, self.out_ports):
-            rpn = parse_logic(fn)
-            for target in self.in_ports:
-                pass
-
+        for i in range(len(self.out_ports)):
+            test_cases = generate_test_vectors(self.functions[i], self.in_ports)
+            for [output_state, inputs] in test_cases:
+                test_vector = []
+                test_vector.extend(inputs)
+                [test_vector.append('0') if not k == i else test_vector.append(output_state) for k in range(len(self.out_ports))]
+                test_vectors.append(test_vector)
+        return test_vectors
 
 
     def add_model(self, line="tmp"):

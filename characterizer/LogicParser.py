@@ -9,7 +9,7 @@ T_OTHER = 6
 
 class Token:
     def __init__(self, symbol: str) -> None:
-        self.symbol = symbol # if not symbol == '(' else '()'
+        self.symbol = symbol if not symbol == '!' else '~'
         self.type = symbol
 
     def __str__(self) -> str:
@@ -27,7 +27,7 @@ class Token:
 
     @type.setter
     def type(self, value: str):
-        if value == '~':
+        if value == '~' or value == '!':
             self._type = T_NOT
         elif value == '(':
             self._type = T_GROUP
@@ -143,7 +143,7 @@ def _lex(expression: str) -> list:
     tokens = []
     temp = ''
     for c in ''.join(expression.split()):
-        if c in ['~', '(', ')', '|', '&', '^']:
+        if c in ['~', '!', '(', ')', '|', '&', '^']:
             if temp:
                 tokens.append(Token(temp))
                 temp = ''
@@ -194,10 +194,30 @@ def _resolve_unates(rpn: list):
             unates[k] = unate_r * u
     return rpn, unates
 
-def generate_test_vectors(expression: str) -> list:
+def generate_test_vectors(expression: str, inputs: list) -> list:
     rpn = parse_logic(expression)
     _, unates = _resolve_unates(rpn)
-    print(unates)
+
+    # Make sure we don't have any unexpected ports
+    for k in unates.keys():
+        if k not in inputs:
+            raise ValueError(f'Unexpected port name {k} encountered during test vector generation')
+
+    # Generate test vectors from unates
+    test_vectors = []
+    for target_port in inputs:
+        # Generate two test vectors for each input: one rising, one falling
+        for state in ['01', '10']:
+            input_vector = []
+            for port in inputs:
+                if port is target_port:
+                    input_vector.append(state)
+                    output_state = state if unates[port] > 0 else state[::-1]
+                else:
+                    input_vector.append(str(int(unates[port] > 0)))
+            test_vectors.append([output_state, input_vector])
+    return test_vectors
+
 
 if __name__ == '__main__':
     # If run as main, test parser
@@ -214,4 +234,4 @@ if __name__ == '__main__':
     except ValueError:
         pass # Pass if we catch a ValueError
     assert parse_logic('b&a&a') == ['&', 'b', '&', 'a', 'a']
-    generate_test_vectors('A&B^C|D')
+    print(generate_test_vectors('~A', ['A']))

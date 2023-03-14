@@ -178,7 +178,7 @@ def execute_command(characterizer: Characterizer, command: str):
                 if opt.startswith('n '): # -n option
                     name = opt[2:].strip()
                 elif opt.startswith('l '): # -l option
-                    logic = opt[2:].strip()
+                    pass
                 elif opt.startswith('i '): # -i option
                     in_ports = opt[2:].strip().split()
                 elif opt.startswith('o '): # -o option
@@ -187,7 +187,7 @@ def execute_command(characterizer: Characterizer, command: str):
                     function = opt[2:].strip()
                 else:
                     raise ValueError(f'Unrecognized option: -{opt}')
-            characterizer.add_cell(name, logic, in_ports, out_ports, function) 
+            characterizer.add_cell(name, in_ports, out_ports, function) 
         elif cmd == 'add_flop':
             area = 0
             opts = ' '.join(args).strip().split('-')[1:] # Split on hyphen instead of space
@@ -196,14 +196,13 @@ def execute_command(characterizer: Characterizer, command: str):
                     name = opt[2:].strip()
                     for cell in characterizer.cells: # Search cells in case we added this cell previously using add_cell
                         if cell.name == name:
-                            logic = cell.logic
                             in_ports = cell.in_ports
                             out_ports = cell.out_ports
                             function = cell.function
                             area = cell.area
                             characterizer.cells.remove(cell)
                 elif opt.startswith('l '):
-                    logic = opt[2:].strip()
+                    pass # Ignore logic argument
                 elif opt.startswith('i '):
                     in_ports = opt[2:].strip()
                 elif opt.startswith('o '):
@@ -220,7 +219,7 @@ def execute_command(characterizer: Characterizer, command: str):
                     function = opt[2:].strip()
                 else:
                     raise ValueError(f'Unrecognized option: -{opt}')
-            characterizer.add_flop(name, logic, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, function, area)
+            characterizer.add_flop(name, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, function, area)
         elif cmd == 'add_slope':
             # Expected arg format: {1 2 ... N}
             for arg in args:
