@@ -142,7 +142,6 @@ class Harness:
 
     @property
     def target_inport_val(self) -> str:
-        # TODO: Deprecate
         if self.in_direction == 'rise':
             return '01'
         elif self.in_direction == 'fall':

@@ -1,35 +1,11 @@
 import re
 from pathlib import Path
+from characterizer.LogicParser import parse_logic
+from characterizer.char_comb import runCombinational
 
-RECOGNIZED_LOGIC = [
-    'INV',
-    'BUF',
-    'AND2',  'AND3',  'AND4',
-    'OR2',   'OR3',   'OR4',
-    'NAND2', 'NAND3', 'NAND4',
-    'NOR2',  'NOR3',  'NOR4',
-    'AO21',  'AO22',
-    'OA21',  'OA22',
-    'AOI21', 'AOI22',
-    'OAI21', 'OAI22',
-    'XOR2',
-    'XNOR2',
-    'SEL2',
-    #'HA',
-    #'FA',
-    'DFF_PCPU',
-    'DFF_PCNU',
-    'DFF_NCPU',
-    'DFF_NCNU',
-    'DFF_PCPU_NR',
-    'DFF_PCPU_NRNS',
-]
-# TODO: Automatically assign logic based on functions and number of inputs/outputs
- 
 class LogicCell:
-    def __init__ (self, name: str, logic: str, in_ports: list, out_ports: list, function: str, area: float = 0):
+    def __init__ (self, name: str, in_ports: list, out_ports: list, function: str, area: float = 0):
         self.name = name            # cell name
-        self.logic = logic          # logic implemented by this cell
         self.in_ports = in_ports    # input pin names
         self.out_ports = out_ports  # output pin names
         self.functions = function   # cell function
@@ -57,7 +33,6 @@ class LogicCell:
     def __str__(self) -> str:
         lines = []
         lines.append(f'Cell name:           {self.name}')
-        lines.append(f'Logic:               {self.logic}')
         lines.append(f'Inputs:              {", ".join(self.in_ports)}')
         lines.append(f'Outputs:             {", ".join(self.out_ports)}')
         lines.append(f'Functions:')
@@ -85,7 +60,7 @@ class LogicCell:
         return '\n'.join(lines)
 
     def __repr__(self):
-        return f'LogicCell({self.name},{self.logic},{self.in_ports},{self.out_ports},{self.functions},{self.area})'
+        return f'LogicCell({self.name},{self.in_ports},{self.out_ports},{self.functions},{self.area})'
 
     @property
     def name(self) -> str:
@@ -97,20 +72,6 @@ class LogicCell:
             self._name = str(value)
         else:
             raise ValueError(f'Invalid value for cell name: {value}')
-
-    @property
-    def logic(self) -> str:
-        return self._logic
-    
-    @logic.setter
-    def logic(self, value: str):
-        if value is not None:
-            if value in RECOGNIZED_LOGIC:
-                self._logic = str(value)
-            else:
-                raise ValueError(f'Unrecognized logic: {value}')
-        else:
-            raise ValueError(f'Invalid value for cell logic: {value}')
 
     @property
     def in_ports(self) -> list:
@@ -263,6 +224,16 @@ class LogicCell:
     def set_exported(self):
         self._is_exported = True
 
+    @property
+    def test_vectors(self) -> list:
+        """Generate a list of test vectors from this cell's functions"""
+        test_vectors = []
+        for fn, output in zip(self.functions, self.out_ports):
+            rpn = parse_logic(fn)
+            for target in self.in_ports:
+                pass
+
+
 
     def add_model(self, line="tmp"):
         # TODO: Replace with model property
@@ -331,8 +302,8 @@ class LogicCell:
             #print("stored cins:"+str(tmp_index))
 
 class SequentialCell(LogicCell):
-    def __init__(self, name: str, logic: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
-        super().__init__(name, logic, in_ports, out_ports, function, area)
+    def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
+        super().__init__(name, in_ports, out_ports, function, area)
         self.clock = clock_pin  # clock pin name
         self.set = set_pin      # set pin name
         self.reset = reset_pin  # reset pin name
@@ -366,7 +337,7 @@ class SequentialCell(LogicCell):
             lines.insert(function_line_index, f'Registers:           {", ".join(self.flops)}')
 
     def __repr__(self):
-        return f'SequentialCell({self.name}, {self.logic}, {self.in_ports}, {self.out_ports}, {self.clock}, {self.set}, {self.reset}, {self.flops}, {self.functions}, {self. area})'
+        return f'SequentialCell({self.name},{self.in_ports},{self.out_ports},{self.clock},{self.set},{self.reset},{self.flops},{self.functions},{self. area})'
 
     @property
     def flops(self):

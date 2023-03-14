@@ -7,6 +7,41 @@ T_XOR = 4
 T_OR = 5
 T_OTHER = 6
 
+class Token:
+    def __init__(self, symbol: str) -> None:
+        self.symbol = symbol # if not symbol == '(' else '()'
+        self.type = symbol
+
+    def __str__(self) -> str:
+        return self.symbol
+    
+    def __repr__(self) -> str:
+        return f'Token("{self.symbol}")'
+    
+    def __eq__(self, other) -> bool:
+        return isinstance(other, self.__class__) and self.symbol == other.symbol
+    
+    @property
+    def type(self) -> int:
+        return self._type
+
+    @type.setter
+    def type(self, value: str):
+        if value == '~':
+            self._type = T_NOT
+        elif value == '(':
+            self._type = T_GROUP
+        elif value == ')':
+            self._type = T_GROUP_END
+        elif value == '&':
+            self._type = T_AND
+        elif value == '^':
+            self._type = T_XOR
+        elif value == '|':
+            self._type = T_OR
+        else:
+            self._type = T_OTHER
+
 # Rules
 RULES = lambda S : [
     [Token('~'), 'E', 'O'],             # 0: E -> ~EO
@@ -18,7 +53,8 @@ RULES = lambda S : [
     [],                                 # 6: O -> null
 ]
 
-def get_rule(stack_token, input_token) -> int:
+def _get_rule(stack_token, input_token) -> int:
+    """Look up a rule by the current stack token and input token"""
     # The left column is the current stack token and the top row is the
     # current input token. The cell selected by these two tokens is the
     # rule we will use to resolve the stack token. Empty cells should
@@ -46,18 +82,7 @@ def get_rule(stack_token, input_token) -> int:
             rule = 6
     return rule
 
-def parse_logic(expression: str) -> list:
-    """Parse a logic string and return the result in reverse polish notation.
-    
-    This parser supports parentheses, NOT (~), AND (&), OR (|), and XOR (^) operations.
-    The return value is a list of tokens in reverse polish notation.
-
-    Note that this parser does not currently support operator precedence. If you want
-    operations to happen in a particular order, make sure to use parentheses. 
-    """
-    return parse(lex(expression))
-
-def parse(tokens: list) -> list:
+def _parse(tokens: list) -> list:
     stack = ['O', 'E']
     position = 0
     rule_sequence = []
@@ -76,7 +101,7 @@ def parse(tokens: list) -> list:
                 input_token = tokens[position]
             except IndexError:
                 input_token = Token('') # Empty token of type T_OTHER
-            rule = get_rule(stack_token, input_token)
+            rule = _get_rule(stack_token, input_token)
             try:
                 stack.extend(reversed(RULES(input_token)[rule]))
             except IndexError: # Error due to nonexistent rule
@@ -113,8 +138,8 @@ def parse(tokens: list) -> list:
                 pass # We don't add O as aggressively in RPN generation, so it's ok if it isn't present
     return reverse_polish_notation
 
-def lex(expression: str) -> list:
-    """Lexes a simple boolean logic expression into tokens"""
+def _lex(expression: str) -> list:
+    """Convert a simple boolean logic expression into tokens"""
     tokens = []
     temp = ''
     for c in ''.join(expression.split()):
@@ -131,40 +156,48 @@ def lex(expression: str) -> list:
         tokens.append(Token(temp))
     return tokens
 
-class Token:
-    def __init__(self, symbol: str) -> None:
-        self.symbol = symbol # if not symbol == '(' else '()'
-        self.type = symbol
+def parse_logic(expression: str) -> list:
+    """Parse a logic string and return the result in reverse polish notation.
+    
+    This parser supports parentheses, NOT (~), AND (&), OR (|), and XOR (^) operations.
+    The return value is a list of tokens in reverse polish notation.
 
-    def __str__(self) -> str:
-        return self.symbol
-    
-    def __repr__(self) -> str:
-        return f'Token("{self.symbol}")'
-    
-    def __eq__(self, other) -> bool:
-        return isinstance(other, self.__class__) and self.symbol == other.symbol
-    
-    @property
-    def type(self) -> int:
-        return self._type
+    Note that this parser does not currently support operator precedence. If you want
+    operations to happen in a particular order, make sure to use parentheses. 
+    """
+    return _parse(_lex(expression))
 
-    @type.setter
-    def type(self, value: str):
-        if value == '~':
-            self._type = T_NOT
-        elif value == '(':
-            self._type = T_GROUP
-        elif value == ')':
-            self._type = T_GROUP_END
-        elif value == '&':
-            self._type = T_AND
-        elif value == '^':
-            self._type = T_XOR
-        elif value == '|':
-            self._type = T_OR
-        else:
-            self._type = T_OTHER
+def _resolve_unates(rpn: list):
+    op = rpn.pop(0)
+    if op == '~':
+        unate_l = -1
+        unate_r = None
+    elif op == '&':
+        unate_l = 1
+        unate_r = 1
+    elif op == '|':
+        unate_l = -1
+        unate_r = -1
+    elif op == '^':
+        unate_l = 1
+        unate_r = -1
+    else:
+        return rpn, {op: 1} # Return symbol
+    # Resolve left side
+    rpn, unates = _resolve_unates(rpn)
+    for k,u in unates.items():
+        unates[k] = unate_l * u
+    # Resolve right side
+    if unate_r is not None:
+        rpn, unates_r = _resolve_unates(rpn)
+        for k,u in unates_r.items():
+            unates[k] = unate_r * u
+    return rpn, unates
+
+def generate_test_vectors(expression: str) -> list:
+    rpn = parse_logic(expression)
+    _, unates = _resolve_unates(rpn)
+    print(unates)
 
 if __name__ == '__main__':
     # If run as main, test parser
@@ -173,11 +206,12 @@ if __name__ == '__main__':
     assert parse_logic('~~~~A') == ['~', '~', '~', '~', 'A']
     assert parse_logic('~(A&~C) ^ B') == ['^', '~', '&', 'A', '~', 'C', 'B']
     assert parse_logic('A&B&C&D&E&F&G&H&I&J&K') == ['&', 'A', '&', 'B', '&', 'C', '&', 'D', '&', 'E', '&', 'F', '&', 'G', '&', 'H', '&', 'I', '&', 'J', 'K']
-    tokens = lex('~&^|')
+    tokens = _lex('~&^|')
     assert tokens == [Token('~'), Token('&'), Token('^'), Token('|')]
     try:
-        parse(tokens) # We expect this to fail
+        _parse(tokens) # We expect this to fail
         raise AssertionError # This line should never be executed
     except ValueError:
         pass # Pass if we catch a ValueError
     assert parse_logic('b&a&a') == ['&', 'b', '&', 'a', 'a']
+    generate_test_vectors('A&B^C|D')
