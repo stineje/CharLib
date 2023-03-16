@@ -2,7 +2,7 @@ import os, shutil
 
 from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicCell import LogicCell, SequentialCell
-from characterizer.char_comb import *
+from characterizer.char_comb import runCombinational
 from characterizer.char_seq import *
 
 class Characterizer:

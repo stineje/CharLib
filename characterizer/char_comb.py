@@ -15,7 +15,7 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
         spice_filename += f'_{harness.target_in_port}{harness.target_inport_val}'
         for input, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
             spice_filename += f'_{input}{state}'
-        spice_filename += f'_{harness.target_out_port}{harness.target_outport_val}'
+        spice_filename += f'_{harness.target_out_port}{harness.out_direction}'
 
         # Run delay characterization
         if target_lib.use_multithreaded:

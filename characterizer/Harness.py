@@ -167,14 +167,6 @@ class Harness:
             raise ValueError(f'Invalid value for harness output direction: {value}')
 
     @property
-    def target_outport_val(self) -> str:
-        # TODO: Deprecate
-        if self.out_direction == 'rise':
-            return '01'
-        elif self.out_direction == 'fall':
-            return '10'
-
-    @property
     def direction_prop(self) -> str:
         return f'cell_{self.out_direction}'
 
