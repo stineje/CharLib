@@ -6,8 +6,8 @@ from characterizer.char_comb import runCombinational
 from characterizer.char_seq import *
 
 class Characterizer:
-    """Main object of Charlib. Keeps track of settings, cells, and results."""
-    
+    """Main object of Charlib. Keeps track of settings and cells."""
+
     def __init__(self) -> None:
         self.settings = LibrarySettings()
         self.cells = []
@@ -45,16 +45,21 @@ class Characterizer:
         else:
             print("Save previous working directory and files")
 
-    def characterize(self, cell: LogicCell = None):
-        """Characterize a single cell"""
+    def characterize(self, *cells):
+        """Characterize the passed cells, or all cells if none are passed"""
         os.chdir(self.settings.work_dir)
 
-        if isinstance(cell, SequentialCell):
-            pass # TODO: runSequential(self.settings, cell, cell.test_vectors)
-        elif isinstance(cell, LogicCell):
-            runCombinational(self.settings, cell, cell.test_vectors)
-        else:
-            raise ValueError('Unrecognized cell type')
+        # If no target cells were given, characterize all cells
+        if not cells:
+            cells = self.cells
+
+        for cell in cells:
+            if isinstance(cell, SequentialCell):
+                pass # TODO: runSequential(self.settings, cell, cell.test_vectors)
+            elif isinstance(cell, LogicCell):
+                runCombinational(self.settings, cell, cell.test_vectors)
+            else:
+                raise ValueError(f'Unrecognized cell type: {type(cell)}')
 
     def print_msg(self, message: str):
         if not self.settings.suppress_message:
