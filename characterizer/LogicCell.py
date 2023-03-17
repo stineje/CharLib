@@ -3,11 +3,11 @@ from pathlib import Path
 from characterizer.LogicParser import parse_logic, generate_test_vectors
 
 class LogicCell:
-    def __init__ (self, name: str, in_ports: list, out_ports: list, function: str, area: float = 0):
+    def __init__ (self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
         self.name = name            # cell name
         self.in_ports = in_ports    # input pin names
         self.out_ports = out_ports  # output pin names
-        self.functions = function   # cell function
+        self.functions = functions  # cell functions
 
         # Documentation
         self.area = area        # cell area
@@ -118,8 +118,14 @@ class LogicCell:
             if isinstance(value, list):
                 self._functions = value
             elif isinstance(value, str) and '=' in value:
-                # Should be in the format "Y=stuff"
-                self._functions = value.split('=')[1:] # Discard lefthand side of equation
+                # Should be in the format "Y=expr1 Y=expr2"
+                expressions = []
+                for f in value.split():
+                    if '=' in f:
+                        expressions.extend(f.split('=')[1:]) # Discard LHS of equation
+                    else:
+                        raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{value}"')
+                self._functions = expressions
             else:
                 raise TypeError(f'Invalid type for cell functions: {type(value)}')
         else:

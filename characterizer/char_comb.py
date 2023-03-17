@@ -11,11 +11,13 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
         harness = CombinationalHarness(target_cell, test_vector)
         
         # Generate spice file name
-        spice_filename = f'delay1_{target_cell.name}'
+        spice_filename = f'delay_{target_cell.name}'
         spice_filename += f'_{harness.target_in_port}{harness.target_inport_val}'
         for input, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
             spice_filename += f'_{input}{state}'
-        spice_filename += f'_{harness.target_out_port}{harness.out_direction}'
+        spice_filename += f'_{harness.target_out_port}{"01" if harness.out_direction == "rise" else "10"}'
+        for output, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
+            spice_filename += f'_{output}{state}'
 
         # Run delay characterization
         if target_lib.use_multithreaded:
@@ -43,7 +45,7 @@ def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expect
         target_cell.harnesses.append(harness)
 
 def runSimCombinational(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spice_filename, in_slope, out_load):
-    spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slope)+".sp"
+    spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slope)
 
     ## 1st trial, extract energy_start and energy_end
     trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 0, in_slope, out_load, "none", "none", spice_results_filename)
@@ -62,6 +64,7 @@ def runSimCombinational(target_lib: LibrarySettings, target_cell: LogicCell, tar
     target_harness.results[str(in_slope)][str(out_load)] = trial_results
 
 def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, meas_energy: bool, in_slope, out_load, estart_line, eend_line, output_filename: str):
+    print(f'Running {output_filename}')
     outlines = []
     outlines.append("*title: delay meas.\n")
     outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
@@ -93,8 +96,7 @@ def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, t
     outlines.append(" \n")
     ## in auto mode, simulation timestep is 1/10 of min. input slew
     ## simulation runs 1000x of input slew time
-    outlines.append(f".tran {str(target_cell.sim_timestep)}{str(target_lib.units.time)} '_tsimend'\n")
-    outlines.append(" \n")
+    outlines.append(f".tran {str(target_cell.sim_timestep)}{str(target_lib.units.time)} '_tsimend' \n\n")
 
     if target_harness.in_direction == 'rise':
         outlines.append("VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') \n")
@@ -214,31 +216,26 @@ def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, t
     outlines.append(f".param slew ={str(in_slope*in_slope_mag*target_lib.units.time.magnitude)}\n")
     outlines.append(".end \n")
     
-    with open(output_filename,'w') as f:
+    with open(f'{output_filename}.sp', 'w') as f:
         f.writelines(outlines)
         f.close()
 
-    spicelis = output_filename + ".lis"
-    spicerun = output_filename + ".run"
 
     if 'ngspice' in str(target_lib.simulator):
-        cmd = f'{str(target_lib.simulator.resolve())} -b {str(output_filename)} 1> {str(spicelis)} 2> /dev/null \n'
+        cmd = f'{str(target_lib.simulator.resolve())} -b {output_filename}.sp 1> {output_filename}.lis 2> /dev/null \n'
     elif 'hspice' in str(target_lib.simulator):
-        cmd = f'{str(target_lib.simulator.resolve())} {str(output_filename)} -o {str(spicelis)} 2> /dev/null \n'
+        cmd = f'{str(target_lib.simulator.resolve())} {output_filename}.sp -o {output_filename}.lis 2> /dev/null \n'
 
-    with open(spicerun,'w') as f:
+    with open(f'{output_filename}.run', 'w') as f:
         outlines = []
-        outlines.append(cmd) 
+        outlines.append(cmd)
         f.writelines(outlines)
         f.close()
 
     # run spice simulation
-    cmd = ['sh', spicerun]
+    cmd = ['sh', f'{output_filename}.run']
     if target_lib.run_sim:
-        try:
-            subprocess.run(cmd)
-        except:
-            print ("Failed to launch spice")
+        subprocess.run(cmd)
 
     # read results from lis file
     results = {}
@@ -250,10 +247,10 @@ def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, t
         desired_measurements += ['q_in_dyn', 'q_out_dyn', 'q_vdd_dyn', 'q_vss_dyn', 'i_vdd_leak', 'i_vss_leak', 'i_in_leak']
     else:
         desired_measurements += ['energy_start', 'energy_end']
-    with open(spicelis,'r') as f:
+    with open(f'{output_filename}.lis', 'r') as f:
         for inline in f:
             if any([f in inline for f in ['failed', 'Error']]):
-                raise NameError(f'An error occurred while running simulation. See {spicelis}.')
+                raise NameError(f'An error occurred while running simulation. See {output_filename}.lis')
             if 'hspice' in str(target_lib.simulator):
                 inline = re.sub('\=',' ',inline)
             measurement = next((m for m in desired_measurements if m in inline), False)
