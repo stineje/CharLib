@@ -182,7 +182,7 @@ class Harness:
         input_capacitance = 0
         n = 0
         for slope in self.results.keys():
-            for load in self.results[slope].keys:
+            for load in self.results[slope].keys():
                 q = self.results[slope][load]['q_in_dyn']
                 input_capacitance += q / vdd_voltage
                 n += 1
