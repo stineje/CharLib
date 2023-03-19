@@ -241,9 +241,9 @@ def execute_command(characterizer: Characterizer, command: str):
         elif cmd == 'add_netlist':
             characterizer.target_cell().netlist = args[0]
         elif(command.startswith('add_model')):
-            characterizer.target_cell().add_model(command)
+            characterizer.target_cell().model = args[0]
         elif(command.startswith('add_simulation_timestep')):
-            characterizer.target_cell().add_simulation_timestep(command)
+            characterizer.target_cell().sim_timestep = args[0]
         elif cmd == 'add_clock_slope':
             characterizer.target_cell().clock_slope = args[0]
         elif(command.startswith('add_simulation_setup_auto')):

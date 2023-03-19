@@ -147,10 +147,10 @@ def exportCombinationalCell(targetLib: LibrarySettings, targetCell: LogicCell):
 
     # Input ports
     for in_port in targetCell.in_ports:
-        out_port_index = targetCell.in_ports.index(in_port) 
+        out_port_index = targetCell.in_ports.index(in_port)
         outlines.append(f'    pin ({in_port}){{\n') ## out pin start
         outlines.append(f'      direction : input; \n')
-        # TODO: outlines.append(f'      capacitance : "{str(targetCell.cins[out_port_index])}";\n')
+        outlines.append(f'      capacitance : "{str(targetCell.get_input_capacitance(in_port, targetLib.vdd.voltage, targetLib.units.capacitance))}";\n')
         # outlines.append(f'      related_power_pin : {targetLib.vdd.name};\n')
         # outlines.append(f'      related_ground_pin : {targetLib.vss.name};\n')
         # outlines.append(f'      max_transition : {str(targetCell.in_slopes[-1])};\n')

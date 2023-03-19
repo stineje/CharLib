@@ -177,7 +177,18 @@ class Harness:
     @property
     def direction_power(self) -> str:
         return f'{self.out_direction}_power'
-    
+
+    def get_input_capacitance(self, vdd_voltage, capacitance_unit: EngineeringUnit) -> float:
+        input_capacitance = 0
+        n = 0
+        for slope in self.results.keys():
+            for load in self.results[slope].keys:
+                q = self.results[slope][load]['q_in_dyn']
+                input_capacitance += q / vdd_voltage
+                n += 1
+        input_capacitance = input_capacitance / n / capacitance_unit.magnitude
+        return input_capacitance
+
     def _calc_leakage_power(self, in_slope, out_load, vdd_voltage: float):
         i_vdd_leak = abs(self.results[in_slope][out_load]['i_vdd_leak'])
         i_vss_leak = abs(self.results[in_slope][out_load]['i_vss_leak'])

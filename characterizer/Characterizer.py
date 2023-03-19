@@ -3,7 +3,7 @@ import os, shutil
 from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicCell import LogicCell, SequentialCell
 from characterizer.char_comb import runCombinational
-from characterizer.char_seq import *
+from characterizer.char_seq import runSequential
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""
@@ -55,9 +55,9 @@ class Characterizer:
 
         for cell in cells:
             if isinstance(cell, SequentialCell):
-                pass # TODO: runSequential(self.settings, cell, cell.test_vectors)
+                pass # TODO: runSequential(self.settings, cell)
             elif isinstance(cell, LogicCell):
-                runCombinational(self.settings, cell, cell.test_vectors)
+                runCombinational(self.settings, cell)
             else:
                 raise ValueError(f'Unrecognized cell type: {type(cell)}')
 

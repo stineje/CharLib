@@ -4,9 +4,9 @@ from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicCell import LogicCell
 from characterizer.Harness import CombinationalHarness
 
-def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell, expectation_list):
+def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell):
     """Run delay characterization for an N-input 1-output combinational cell"""
-    for test_vector in expectation_list:
+    for test_vector in target_cell.test_vectors:
         # Generate harness
         harness = CombinationalHarness(target_cell, test_vector)
         
@@ -220,7 +220,6 @@ def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, t
         f.writelines(outlines)
         f.close()
 
-
     if 'ngspice' in str(target_lib.simulator):
         cmd = f'{str(target_lib.simulator.resolve())} -b {output_filename}.sp 1> {output_filename}.lis 2> /dev/null \n'
     elif 'hspice' in str(target_lib.simulator):
@@ -239,10 +238,7 @@ def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, t
 
     # read results from lis file
     results = {}
-    desired_measurements = [
-        'prop_in_out',
-        'trans_out',
-    ]
+    desired_measurements = ['prop_in_out', 'trans_out']
     if meas_energy:
         desired_measurements += ['q_in_dyn', 'q_out_dyn', 'q_vdd_dyn', 'q_vss_dyn', 'i_vdd_leak', 'i_vss_leak', 'i_in_leak']
     else:

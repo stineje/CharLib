@@ -14,12 +14,12 @@ class LogicCell:
 
         # Characterization settings
         self._netlist = None    # cell netlist
-        self.model = None       # cell model definition TODO: convert to property - should probably be a Path
+        self._model = None      # cell model definition TODO: convert to property - should probably be a Path
         self._definition = None # cell definition (from netlist)
         self._instance = None   # TODO: figure out what this represents, and briefly document here
         self._in_slopes = []    # input pin slopes
         self._out_loads = []    # output pin loads
-        self.sim_timestep = 0   # simulation timestep TODO: convert to property
+        self._sim_timestep = 0   # simulation timestep TODO: convert to property
 
         # From characterization results
         self.harnesses = []     # list of lists of harnesses (1 list of harnesses for each out_port tested)
@@ -143,6 +143,26 @@ class LogicCell:
             raise ValueError(f'Invalid value for cell area: {value}')
 
     @property
+    def model(self):
+        return self._model
+    
+    @model.setter
+    def model(self, value):
+        if value is not None:
+            if isinstance(value, Path):
+                if not value.is_file():
+                    raise ValueError(f'Invalid value for model: {value} is not a file')
+                self._model = value
+            elif isinstance(value, str):
+                if not Path(value).is_file():
+                    raise ValueError(f'Invalid value for model: {value} is not a file')
+                self._model = value
+            else:
+                raise TypeError(f'Invalid type for model: {type(value)}')
+        else:
+            raise ValueError(f'Invalid value for model: {value}')
+
+    @property
     def netlist(self) -> str:
         return self._netlist
 
@@ -242,72 +262,33 @@ class LogicCell:
                 test_vectors.append(test_vector)
         return test_vectors
 
+    @property
+    def sim_timestep(self):
+        return self._sim_timestep
 
-    def add_model(self, line="tmp"):
-        # TODO: Replace with model property
-        tmp_array = line.split()
-        self.model = tmp_array[1] 
-
-    def add_simulation_timestep(self, line="tmp"):
-        # TODO: replace with sim_timestep property
-        tmp_array = line.split()
-        ## if auto, amd slope is defined, use 1/10 of min slope
-        if ((tmp_array[1] == 'auto') and (self.in_slopes[0] != None)):
-            self.sim_timestep = float(self.in_slopes[0])/10 
-            print ("auto set simulation timestep")
+    @sim_timestep.setter
+    def sim_timestep(self, value):
+        if value is not None:
+            if value == 'auto' and self.in_slopes:
+                # Use 1/10th of minimum slope
+                self._sim_timestep = min(self.in_slopes)/10.0
+            else:
+                self._sim_timestep = float(value)
         else:
-            self.sim_timestep = float(tmp_array[1])
+            raise ValueError(f'Invalid value for sim_timestep: {value}')
 
-    def set_inport_cap_pleak(self, index, harness):
-        ## average leak power of all harness
-        self.leakage_power += harness.pleak 
+    def get_input_capacitance(self, in_port, vdd_voltage, capacitance_unit):
+        """Average all harnesses that target this input port"""
+        if in_port not in self.in_ports:
+            raise ValueError(f'Unrecognized input port {in_port}')
 
-    ## calculate ave of cin for each inports
-    ## cin is measured two times and stored into 
-    ## neighborhood harness, so cin of (2n)th and 
-    ## (2n+1)th harness are averaged out
-    def set_cin_avg(self, targetLib, port="data"):
-        # TODO: Replace with a method that calculates this instead of storing it
-        tmp_cin = 0
-        tmp_index = 0
-        for targetHarness in self.harnesses[-1]:
-            if((port.lower() == 'clock')or(port.lower() == 'clk')):
-                tmp_cin += float(targetHarness.cclk)
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.cclks.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for clk")
-            elif((port.lower() == 'reset')or(port.lower() == 'rst')):
-                tmp_cin += float(targetHarness.cin) # .cin stores rst cap. 
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.crsts.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for rst")
-            elif(port.lower() == 'set'):
-                tmp_cin += float(targetHarness.cin) # .cin stores set cap.
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.csets.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for set")
-            else:	
-                tmp_cin += float(targetHarness.cin) # else, .cin stores inport cap.
-                ## if this is (2n+1) then store averaged 
-                ## cin into targetCell.cins
-                if((tmp_index % 2) == 1):
-                    self.cins.append(str((tmp_cin / 2)/targetLib.units.capacitance.magnitude))
-                    tmp_cin = 0
-                tmp_index += 1
-                #print("stored cins:"+str(tmp_index)+" for data")
-            #print("stored cins:"+str(tmp_index))
+        input_capacitance = 0
+        n = 0
+        for harness in self.harnesses:
+            if harness.target_in_port == in_port:
+                input_capacitance += harness.get_input_capacitance(vdd_voltage, capacitance_unit)
+                n += 1
+        return input_capacitance / n
 
 class SequentialCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
