@@ -299,8 +299,11 @@ def execute_command(characterizer: Characterizer, command: str):
 
     # export
     elif(command.startswith('export')):
-        exportFiles(characterizer.settings, characterizer.target_cell())
-        characterizer.num_files_generated += 1
+        # If called with no cell names passed, export all cells
+        cells = [cell for cell in characterizer.cells if cell.name in args]
+        for cell in cells if cells else characterizer.cells:
+            exportFiles(characterizer.settings, cell)
+            characterizer.num_files_generated += 1
 
     # exit
     elif cmd == 'quit' or cmd == 'exit':
