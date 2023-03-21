@@ -294,7 +294,7 @@ def execute_command(characterizer: Characterizer, command: str):
     elif cmd == 'create' or cmd == 'initialize':
         characterizer.initialize_work_dir()
     elif(command.startswith('characterize')):
-        characterizer.characterize(characterizer.target_cell())
+        characterizer.characterize(*[cell for cell in characterizer.cells if cell.name in args])
         os.chdir("../")
 
     # export

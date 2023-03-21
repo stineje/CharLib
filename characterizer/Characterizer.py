@@ -49,12 +49,7 @@ class Characterizer:
 
         # If no target cells were given, characterize all cells
         for cell in cells if cells else self.cells:
-            if isinstance(cell, SequentialCell):
-                pass # TODO: cell.characterize(self.settings)
-            elif isinstance(cell, CombinationalCell):
-                cell.characterize(self.settings)
-            else:
-                raise ValueError(f'Unrecognized cell type: {type(cell)}')
+            cell.characterize(self.settings)
 
     def print_msg(self, message: str):
         if not self.settings.suppress_message:

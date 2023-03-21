@@ -273,7 +273,7 @@ class LogicCell:
     def sim_timestep(self, value):
         if value is not None:
             if value == 'auto' and self.in_slews:
-                # Use 1/10th of minimum slope
+                # Use 1/10th of minimum slew rate
                 self._sim_timestep = min(self.in_slews)/10.0
             else:
                 self._sim_timestep = float(value)

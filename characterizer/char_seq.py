@@ -3,9 +3,6 @@ import re, os, subprocess
 import numpy as np
 from characterizer.HarnessSettings import HarnessSettings
 
-def runSequential(target_lib, target_cell):
-    pass
-
 def runFlop(targetLib, targetCell, expectationList2):
     # TODO: Deprecate and replace with runSequential
     harnessList = []   # harness for each trial
