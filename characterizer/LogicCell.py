@@ -1,6 +1,11 @@
-import re
+import re, threading
 from pathlib import Path
-from characterizer.LogicParser import parse_logic, generate_test_vectors
+
+import characterizer.char_comb
+import characterizer.char_seq
+from characterizer.Harness import CombinationalHarness, SequentialHarness
+from characterizer.LibrarySettings import LibrarySettings
+from characterizer.LogicParser import generate_test_vectors
 
 class LogicCell:
     def __init__ (self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
@@ -14,17 +19,15 @@ class LogicCell:
 
         # Characterization settings
         self._netlist = None    # cell netlist
-        self._model = None      # cell model definition TODO: convert to property - should probably be a Path
+        self._model = None      # cell model definition
         self._definition = None # cell definition (from netlist)
-        self._instance = None   # TODO: figure out what this represents, and briefly document here
-        self._in_slopes = []    # input pin slopes
-        self._out_loads = []    # output pin loads
-        self._sim_timestep = 0   # simulation timestep TODO: convert to property
+        self._instance = None   # cell instance name
+        self._in_slews = []     # input pin slew rates for characterization
+        self._out_loads = []    # output pin capacitance loads for characterization
+        self._sim_timestep = 0  # simulation timestep
 
         # From characterization results
-        self.harnesses = []     # list of lists of harnesses (1 list of harnesses for each out_port tested)
-        self.cins = []          # input pin capacitances
-        self.leakage_power = [] # cell leakage power
+        self.harnesses = []     # list of lists of harnesses indexed by in_slews and out_loads
 
         # Behavioral settings
         self._is_exported = False   # whether the cell has been exported
@@ -43,9 +46,9 @@ class LogicCell:
             lines.append(f'Netlist:             {str(self.netlist)}')
             lines.append(f'Definition:          {self.definition.rstrip()}')
             lines.append(f'Instance:            {self.instance}')
-        if self.in_slopes:
+        if self.in_slews:
             lines.append(f'Input pin simulation slopes:')
-            for slope in self.in_slopes:
+            for slope in self.in_slews:
                 lines.append(f'    {str(slope)}')
         if self.out_loads:
             lines.append(f'Output pin simulation loads:')
@@ -223,12 +226,12 @@ class LogicCell:
             raise ValueError(f'Invalid value for instance: {value}')
 
     @property
-    def in_slopes(self) -> list:
-        return self._in_slopes
+    def in_slews(self) -> list:
+        return self._in_slews
 
-    def add_in_slope(self, value: float):
+    def add_in_slew(self, value: float):
         if value is not None:
-            self._in_slopes.append(float(value))
+            self._in_slews.append(float(value))
         else:
             raise ValueError(f'Invalid value for input pin slope: {value}')
 
@@ -269,19 +272,22 @@ class LogicCell:
     @sim_timestep.setter
     def sim_timestep(self, value):
         if value is not None:
-            if value == 'auto' and self.in_slopes:
+            if value == 'auto' and self.in_slews:
                 # Use 1/10th of minimum slope
-                self._sim_timestep = min(self.in_slopes)/10.0
+                self._sim_timestep = min(self.in_slews)/10.0
             else:
                 self._sim_timestep = float(value)
         else:
             raise ValueError(f'Invalid value for sim_timestep: {value}')
 
+class CombinationalCell(LogicCell):
+    def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
+        super().__init__(name, in_ports, out_ports, functions, area)
+
     def get_input_capacitance(self, in_port, vdd_voltage, capacitance_unit):
         """Average all harnesses that target this input port"""
         if in_port not in self.in_ports:
             raise ValueError(f'Unrecognized input port {in_port}')
-
         input_capacitance = 0
         n = 0
         for harness in self.harnesses:
@@ -289,6 +295,46 @@ class LogicCell:
                 input_capacitance += harness.get_input_capacitance(vdd_voltage, capacitance_unit)
                 n += 1
         return input_capacitance / n
+
+    def characterize(self, target_lib: LibrarySettings):
+        """Run delay characterization for an N-input 1-output combinational cell"""
+        for test_vector in self.test_vectors:
+            # Generate harness
+            harness = CombinationalHarness(self, test_vector)
+            
+            # Generate spice file name
+            spice_filename = f'delay_{self.name}'
+            spice_filename += f'_{harness.target_in_port}{harness.target_inport_val}'
+            for input, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
+                spice_filename += f'_{input}{state}'
+            spice_filename += f'_{harness.target_out_port}{"01" if harness.out_direction == "rise" else "10"}'
+            for output, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
+                spice_filename += f'_{output}{state}'
+
+            # Run delay characterization
+            if target_lib.use_multithreaded:
+                # Run multithreaded
+                thread_id = 0
+                threadlist = []
+                for tmp_slope in self.in_slews:
+                    for tmp_load in self.out_loads:
+                        thread = threading.Thread(target=characterizer.char_comb.runSimCombinational,
+                                args=([target_lib, self, harness, spice_filename, tmp_slope, tmp_load]),
+                                name="%d" % thread_id)
+                        threadlist.append(thread)
+                        thread_id += 1
+                for thread in threadlist:
+                    thread.start()
+                for thread in threadlist:
+                    thread.join()
+            else:
+                # Run single-threaded
+                for in_slew in self.in_slews:
+                    for out_load in self.out_loads:
+                        characterizer.char_comb.runSimCombinational(target_lib, self, harness, spice_filename, in_slew, out_load)
+
+            # Save harness to the cell
+            self.harnesses.append(harness)
 
 class SequentialCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
@@ -345,9 +391,9 @@ class SequentialCell(LogicCell):
                 else:
                     raise ValueError('Clock slope must be greater than zero')
             elif value == 'auto':
-                if not self.in_slopes:
-                    raise ValueError('Cannot use auto clock slope unless in_slopes is set first!')
-                self._clock_slope = float(self._in_slopes[0])
+                if not self.in_slews:
+                    raise ValueError('Cannot use auto clock slope unless in_slews is set first!')
+                self._clock_slope = float(self._in_slews[0])
             else:
                 raise TypeError(f'Invalid type for clock slope: {type(value)}')
         else:
@@ -366,10 +412,10 @@ class SequentialCell(LogicCell):
                 else:
                     raise ValueError('Value must be greater than zero')
             elif value == 'auto':
-                if not self.in_slopes:
-                    raise ValueError('Cannot use auto for sim_setup_lowest unless in_slopes is set first!')
+                if not self.in_slews:
+                    raise ValueError('Cannot use auto for sim_setup_lowest unless in_slews is set first!')
                 # Use -10 * max input pin slope
-                self._sim_setup_lowest = float(self._in_slopes[-1]) * -10
+                self._sim_setup_lowest = float(self._in_slews[-1]) * -10
             else:
                 raise TypeError(f'Invalid type for sim_setup_lowest: {type(value)}')
         else:
@@ -379,8 +425,8 @@ class SequentialCell(LogicCell):
     def add_simulation_setup_highest(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 10x of max slope 
-        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
-            self.sim_setup_highest = float(self.in_slopes[-1]) * 10 
+        if ((tmp_array[1] == 'auto') and (self.in_slews[-1] != None)):
+            self.sim_setup_highest = float(self.in_slews[-1]) * 10 
             print ("auto set setup simulation time highest limit")
         else:
             self.sim_setup_highest = float(tmp_array[1])
@@ -388,8 +434,8 @@ class SequentialCell(LogicCell):
     def add_simulation_setup_timestep(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 1/10x min slope
-        if ((tmp_array[1] == 'auto') and (self.in_slopes[0] != None)):
-            self.sim_setup_timestep = float(self.in_slopes[0])/10
+        if ((tmp_array[1] == 'auto') and (self.in_slews[0] != None)):
+            self.sim_setup_timestep = float(self.in_slews[0])/10
             print ("auto set setup simulation timestep")
         else:
             self.sim_setup_timestep = float(tmp_array[1])
@@ -400,10 +446,10 @@ class SequentialCell(LogicCell):
         ## if auto, amd slope is defined, use very small val. 
         #remove# if hold is less than zero, pwl time point does not be incremental
         #remove# and simulation failed
-        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
-            #self.sim_hold_lowest = float(self.in_slopes[-1]) * -5 
-            self.sim_hold_lowest = float(self.in_slopes[-1]) * -10 
-            #self.sim_hold_lowest = float(self.in_slopes[-1]) * 0.001 
+        if ((tmp_array[1] == 'auto') and (self.in_slews[-1] != None)):
+            #self.sim_hold_lowest = float(self.in_slews[-1]) * -5 
+            self.sim_hold_lowest = float(self.in_slews[-1]) * -10 
+            #self.sim_hold_lowest = float(self.in_slews[-1]) * 0.001 
             print ("auto set hold simulation time lowest limit")
         else:
             self.sim_hold_lowest = float(tmp_array[1])
@@ -411,11 +457,11 @@ class SequentialCell(LogicCell):
     ## this defines highest limit of hold edge
     def add_simulation_hold_highest(self, line="tmp"):
         tmp_array = line.split()
-        ## if auto, amd slope is defined, use 5x of max slope 
+        ## if auto, amd slew is defined, use 5x of max slew 
         ## value should be smaller than "tmp_max_val_loop" in holdSearchFlop
-        if ((tmp_array[1] == 'auto') and (self.in_slopes[-1] != None)):
-            #self.sim_hold_highest = float(self.in_slopes[-1]) * 5 
-            self.sim_hold_highest = float(self.in_slopes[-1]) * 10 
+        if ((tmp_array[1] == 'auto') and (self.in_slews[-1] != None)):
+            #self.sim_hold_highest = float(self.in_slews[-1]) * 5 
+            self.sim_hold_highest = float(self.in_slews[-1]) * 10 
             print ("auto set hold simulation time highest limit")
         else:
             self.sim_hold_highest = float(tmp_array[1])
@@ -423,8 +469,8 @@ class SequentialCell(LogicCell):
     def add_simulation_hold_timestep(self, line="tmp"):
         tmp_array = line.split()
         ## if auto, amd slope is defined, use 1/10x min slope
-        if ((tmp_array[1] == 'auto') and (self.in_slopes[0] != None)):
-            self.sim_hold_timestep = float(self.in_slopes[0])/10 
+        if ((tmp_array[1] == 'auto') and (self.in_slews[0] != None)):
+            self.sim_hold_timestep = float(self.in_slews[0])/10 
             print ("auto set hold simulation timestep")
         else:
             self.sim_hold_timestep = float(tmp_array[1])

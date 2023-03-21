@@ -1,9 +1,7 @@
 import os, shutil
 
 from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicCell import LogicCell, SequentialCell
-from characterizer.char_comb import runCombinational
-from characterizer.char_seq import runSequential
+from characterizer.LogicCell import LogicCell, CombinationalCell, SequentialCell
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""
@@ -28,9 +26,9 @@ class Characterizer:
         """Get last cell"""
         return self.cells[-1]
 
-    def add_cell(self, name, in_ports, out_ports, function):
+    def add_cell(self, name, in_ports, out_ports, functions):
         # Create a new logic cell
-        self.cells.append(LogicCell(name, in_ports, out_ports, function))
+        self.cells.append(CombinationalCell(name, in_ports, out_ports, functions))
 
     def add_flop(self, name, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, functions):
         # Create a new sequential cell
@@ -50,14 +48,11 @@ class Characterizer:
         os.chdir(self.settings.work_dir)
 
         # If no target cells were given, characterize all cells
-        if not cells:
-            cells = self.cells
-
-        for cell in cells:
+        for cell in cells if cells else self.cells:
             if isinstance(cell, SequentialCell):
-                pass # TODO: runSequential(self.settings, cell)
-            elif isinstance(cell, LogicCell):
-                runCombinational(self.settings, cell)
+                pass # TODO: cell.characterize(self.settings)
+            elif isinstance(cell, CombinationalCell):
+                cell.characterize(self.settings)
             else:
                 raise ValueError(f'Unrecognized cell type: {type(cell)}')
 

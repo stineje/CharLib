@@ -1,69 +1,25 @@
-import re, subprocess, threading 
+import re, subprocess
 
-from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicCell import LogicCell
-from characterizer.Harness import CombinationalHarness
-
-def runCombinational(target_lib: LibrarySettings, target_cell: LogicCell):
-    """Run delay characterization for an N-input 1-output combinational cell"""
-    for test_vector in target_cell.test_vectors:
-        # Generate harness
-        harness = CombinationalHarness(target_cell, test_vector)
-        
-        # Generate spice file name
-        spice_filename = f'delay_{target_cell.name}'
-        spice_filename += f'_{harness.target_in_port}{harness.target_inport_val}'
-        for input, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
-            spice_filename += f'_{input}{state}'
-        spice_filename += f'_{harness.target_out_port}{"01" if harness.out_direction == "rise" else "10"}'
-        for output, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
-            spice_filename += f'_{output}{state}'
-
-        # Run delay characterization
-        if target_lib.use_multithreaded:
-            # Run multithreaded
-            thread_id = 0
-            threadlist = []
-            for tmp_slope in target_cell.in_slopes:
-                for tmp_load in target_cell.out_loads:
-                    thread = threading.Thread(target=runSimCombinational,
-                            args=([target_lib, target_cell, harness, spice_filename, tmp_slope, tmp_load]),
-                            name="%d" % thread_id)
-                    threadlist.append(thread)
-                    thread_id += 1
-            for thread in threadlist:
-                thread.start()
-            for thread in threadlist:
-                thread.join()
-        else:
-            # Run single-threaded
-            for in_slope in target_cell.in_slopes:
-                for out_load in target_cell.out_loads:
-                    runSimCombinational(target_lib, target_cell, harness, spice_filename, in_slope, out_load)
-
-        # Save harness to the cell
-        target_cell.harnesses.append(harness)
-
-def runSimCombinational(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, spice_filename, in_slope, out_load):
-    spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slope)
+def runSimCombinational(target_lib, target_cell, target_harness, spice_filename, in_slew, out_load):
+    spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slew)
 
     ## 1st trial, extract energy_start and energy_end
-    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 0, in_slope, out_load, "none", "none", spice_results_filename)
+    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 0, in_slew, out_load, "none", "none", spice_results_filename)
     energy_start = trial_results['energy_start']
     energy_end = trial_results['energy_end']
     estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
     eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
 
     ## 2nd trial
-    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 1, in_slope, out_load, estart_line, eend_line, spice_results_filename)
+    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 1, in_slew, out_load, estart_line, eend_line, spice_results_filename)
     trial_results['energy_start'] = energy_start
     trial_results['energy_end'] = energy_end
 
-    if not target_harness.results.get(str(in_slope)):
-        target_harness.results[str(in_slope)] = {}
-    target_harness.results[str(in_slope)][str(out_load)] = trial_results
+    if not target_harness.results.get(str(in_slew)):
+        target_harness.results[str(in_slew)] = {}
+    target_harness.results[str(in_slew)][str(out_load)] = trial_results
 
-def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, target_harness: CombinationalHarness, meas_energy: bool, in_slope, out_load, estart_line, eend_line, output_filename: str):
+def runTrialCombinational(target_lib, target_cell, target_harness, meas_energy: bool, in_slew, out_load, estart_line, eend_line, output_filename: str):
     print(f'Running {output_filename}')
     outlines = []
     outlines.append("*title: delay meas.\n")
@@ -212,8 +168,8 @@ def runTrialCombinational(target_lib: LibrarySettings, target_cell: LogicCell, t
     outlines.append(".ends \n")
     outlines.append(" \n")
     outlines.append(f".param cap ={str(out_load*target_lib.units.capacitance.magnitude)}\n")
-    in_slope_mag = 1 / (target_lib.logic_threshold_high - target_lib.logic_threshold_low)
-    outlines.append(f".param slew ={str(in_slope*in_slope_mag*target_lib.units.time.magnitude)}\n")
+    in_slew_mag = 1 / (target_lib.logic_threshold_high - target_lib.logic_threshold_low)
+    outlines.append(f".param slew ={str(in_slew*in_slew_mag*target_lib.units.time.magnitude)}\n")
     outlines.append(".end \n")
     
     with open(f'{output_filename}.sp', 'w') as f:

@@ -81,7 +81,8 @@ def execute_shell(characterizer: Characterizer):
 
 def execute_command(characterizer: Characterizer, command: str):
     (cmd, *args) = command.split()
-    characterizer.print_debug(f'Executing {command}')
+    if not command[0] == '#':
+        characterizer.print_debug(f'Executing {command}')
     
     # set command
     if cmd.startswith('set_'):
@@ -227,7 +228,7 @@ def execute_command(characterizer: Characterizer, command: str):
                     arg = arg.replace('{', '')
                 if '}' in arg:
                     arg = arg.replace('}', '')
-                characterizer.target_cell().add_in_slope(float(arg))
+                characterizer.target_cell().add_in_slew(float(arg))
         elif cmd == 'add_load':
             # Expected arg format: {1 2 ... N}
             for arg in args:

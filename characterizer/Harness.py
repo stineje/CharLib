@@ -1,5 +1,4 @@
-from characterizer.LogicCell import LogicCell, SequentialCell
-from characterizer.UnitsSettings import UnitsSettings, EngineeringUnit
+from characterizer.UnitsSettings import EngineeringUnit
 
 class Harness:
     """Characterization parameters for one path through a cell
@@ -9,7 +8,7 @@ class Harness:
     port are defined by the value of test_vector passed to the
     constructor."""
 
-    def __init__(self, target_cell: LogicCell, test_vector: list) -> None:
+    def __init__(self, target_cell, test_vector: list) -> None:
         """Create a new Harness.
         
         The key parameter here is test_vector. It describes the expected
@@ -45,7 +44,7 @@ class Harness:
         self._stable_in_port_states = []        # states for stable pins
         self._nontarget_out_ports = []          # output pins that we aren't specifically evaluating
         self._nontarget_out_port_states = []    # states for nontarget outputs
-        self.results =  {}                      # nested dictionary of characterization results grouped by in_slope and out_load
+        self.results =  {}                      # nested dictionary of characterization results grouped by in_slew and out_load
 
         # Parse inputs from test vector
         # Test vector should be formatted like [in1, ..., inN, out1, ..., outM]
@@ -78,10 +77,10 @@ class Harness:
             raise ValueError(f'Unable to parse target output port from test vector {test_vector}')
 
         # Initialize results from target_cell input slopes and loads
-        for in_slope in target_cell.in_slopes:
-            self.results[str(in_slope)] = {}
+        for in_slew in target_cell.in_slews:
+            self.results[str(in_slew)] = {}
             for out_load in target_cell.out_loads:
-                self.results[str(in_slope)][str(out_load)] = {}
+                self.results[str(in_slew)][str(out_load)] = {}
 
     def __str__(self) -> str:
         lines = []
@@ -189,9 +188,9 @@ class Harness:
         input_capacitance = input_capacitance / n / capacitance_unit.magnitude
         return input_capacitance
 
-    def _calc_leakage_power(self, in_slope, out_load, vdd_voltage: float):
-        i_vdd_leak = abs(self.results[in_slope][out_load]['i_vdd_leak'])
-        i_vss_leak = abs(self.results[in_slope][out_load]['i_vss_leak'])
+    def _calc_leakage_power(self, in_slew, out_load, vdd_voltage: float):
+        i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak'])
+        i_vss_leak = abs(self.results[in_slew][out_load]['i_vss_leak'])
         avg_current = (i_vdd_leak + i_vss_leak) / 2
         return avg_current * vdd_voltage
     
@@ -205,57 +204,57 @@ class Harness:
         leakage_power = leakage_power / n / power_unit.magnitude
         return leakage_power
 
-    def _get_lut_value_groups_by_key(self, in_slopes, out_loads, unit, key: str):
+    def _get_lut_value_groups_by_key(self, in_slews, out_loads, unit, key: str):
         value_groups = []
-        for in_slope in in_slopes:
-            values = [self.results[str(in_slope)][str(out_load)][key]/unit for out_load in out_loads]
+        for slew in in_slews:
+            values = [self.results[str(slew)][str(load)][key]/unit for load in out_loads]
             value_groups.append(f'"{", ".join([f"{value:f}" for value in values])}"')
         sep = ', \\\n  '
         return f'values( \\\n  {sep.join(value_groups)});'
 
-    def get_propagation_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit) -> list:
-        lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
+    def get_propagation_delay_lut(self, in_slews, out_loads, time_unit: EngineeringUnit) -> list:
+        lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'prop_in_out')
+        values = self._get_lut_value_groups_by_key(in_slews, out_loads, time_unit.magnitude, 'prop_in_out')
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def get_transport_delay_lut(self, in_slopes, out_loads, time_unit: EngineeringUnit):
-        lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
+    def get_transport_delay_lut(self, in_slews, out_loads, time_unit: EngineeringUnit):
+        lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slopes, out_loads, time_unit.magnitude, 'trans_out')
+        values = self._get_lut_value_groups_by_key(in_slews, out_loads, time_unit.magnitude, 'trans_out')
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def _calc_internal_energy(self, in_slope: str, out_load: str, energy_meas_high_threshold_voltage: float):
+    def _calc_internal_energy(self, in_slew: str, out_load: str, energy_meas_high_threshold_voltage: float):
         """Calculates internal energy for a particular slope/load combination"""
         # Fetch calculation parameters
         # TODO: Check units. Currently we treat results as if they are in base units - unsure whether this is correct
-        e_start = self.results[in_slope][out_load]['energy_start']
-        e_end = self.results[in_slope][out_load]['energy_end']
-        q_vdd_dyn = self.results[in_slope][out_load]['q_vdd_dyn']
-        q_vss_dyn = self.results[in_slope][out_load]['q_vss_dyn']
-        i_vdd_leak = abs(self.results[in_slope][out_load]['i_vdd_leak'])
-        i_vss_leak = abs(self.results[in_slope][out_load]['i_vss_leak'])
+        e_start = self.results[in_slew][out_load]['energy_start']
+        e_end = self.results[in_slew][out_load]['energy_end']
+        q_vdd_dyn = self.results[in_slew][out_load]['q_vdd_dyn']
+        q_vss_dyn = self.results[in_slew][out_load]['q_vss_dyn']
+        i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak'])
+        i_vss_leak = abs(self.results[in_slew][out_load]['i_vss_leak'])
         # Perform the calculation
         energy_delta = e_end - e_start
         avg_current = (i_vdd_leak + i_vss_leak) / 2
         internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current
         return internal_charge * energy_meas_high_threshold_voltage
 
-    def get_internal_energy_lut(self, in_slopes, out_loads, v_eth: float, e_unit: EngineeringUnit):
-        lines = [f'index_1("{", ".join([str(slope) for slope in in_slopes])}");']
+    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, e_unit: EngineeringUnit):
+        lines = [f'index_1("{", ".join([str(slope) for slope in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
         energy_groups = []
-        for in_slope in in_slopes:
-            energies = [self._calc_internal_energy(str(in_slope), str(out_load), v_eth)/e_unit.magnitude for out_load in out_loads]
+        for slew in in_slews:
+            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth)/e_unit.magnitude for out_load in out_loads]
             energy_groups.append(f'"{", ".join(["{:f}".format(energy) for energy in energies])}"')
         sep = ', \\\n  '
         [lines.append(value_line) for value_line in f'values( \\\n  {sep.join(energy_groups)});'.split('\n')]
         return lines
 
 class CombinationalHarness (Harness):
-    def __init__(self, target_cell: LogicCell, test_vector) -> None:
+    def __init__(self, target_cell, test_vector) -> None:
         super().__init__(target_cell, test_vector)
 
     @property
@@ -272,7 +271,7 @@ class CombinationalHarness (Harness):
 
 
 class SequentialHarness (Harness):
-    def __init__(self, target_cell: SequentialCell, test_vector) -> None:
+    def __init__(self, target_cell, test_vector) -> None:
         super().__init__(target_cell, test_vector)
         self.clock = target_cell.clock  # Clock pin
         self.set = target_cell.set      # Set pin (optional)
