@@ -1,4 +1,4 @@
-import re, threading
+import threading
 from pathlib import Path
 
 import characterizer.char_comb
@@ -207,9 +207,9 @@ class LogicCell:
             else:
                 self._definition = value
             # definition is now set - update instance
-            circuit_call = re.sub('\$.*$', '', value).split()[1:]   # Delete .subckt
-            circuit_call.append(circuit_call.pop(0))                # Move circuit name to last element
-            circuit_call.insert(0,'XDUT')                           # Insert instance name
+            circuit_call = value.split()[1:]            # Delete .subckt
+            circuit_call.append(circuit_call.pop(0))    # Move circuit name to last element
+            circuit_call.insert(0, 'XDUT')              # Insert instance name
             self.instance = ' '.join(circuit_call)
         else:
             raise ValueError(f'Invalid value for cell definiton: {value}')
