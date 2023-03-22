@@ -173,7 +173,7 @@ Other **add** commands for sequential cells:
 | Command      | Argument example | Description |
 | ------------ | ---------------- | ----------- |
 | characterize | AND2X1 OR2X1     | Run characterization for the specified cells, or all cells if no arguments are passed. |
-| export       | n/a              | export characterization result into .lib and .v files |
+| export       | AND2X1 OR2X1     | Export characterization results for the specified cells, or all cells if no arguments are passed. |
 
 ### `exit`
 | Command | Argument example | Description |
