@@ -39,19 +39,19 @@ set_operating_conditions typical
 # initialize workspace
 initialize
 
-add_cell -n HAX1 -i A B -o YC YS -f YC=A&B YS=A^B
-add_slope {0.015 0.04 0.08 0.2 0.4} 
-add_load  {0.06 0.18 0.42 0.6 1.2} 
+add_cell -n FAX1 -i A B C -o YC YS -f YC=(A&B)|(C&(A^B)) YS=A^B^C
+add_slope {0.015 0.04 0.08 0.2 0.4}
+add_load  {0.06 0.18 0.42 0.6 1.2}
 add_area 320
-add_netlist spice_temp/HAX1.sp
+add_netlist spice_temp/FAX1.sp
 add_model test/spice_osu350/model.sp
 add_simulation_timestep auto
 
-add_cell -n FAX1 -i A B C -o YC YS -f YC=(A&B)|(C&(A^B)) YS=A^B^C
-add_slope {0.015 0.04 0.08 0.2 0.4} 
-add_load  {0.06 0.18 0.42 0.6 1.2} 
+add_cell -n HAX1 -i A B -o YC YS -f YC=A&B YS=A^B
+add_slope {0.015 0.04 0.08 0.2 0.4}
+add_load  {0.06 0.18 0.42 0.6 1.2}
 add_area 320
-add_netlist spice_temp/FAX1.sp
+add_netlist spice_temp/HAX1.sp
 add_model test/spice_osu350/model.sp
 add_simulation_timestep auto
 

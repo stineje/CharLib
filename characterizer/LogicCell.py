@@ -256,12 +256,18 @@ class LogicCell:
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
         test_vectors = []
+        print(self.in_ports, self.out_ports)
         for i in range(len(self.out_ports)):
             test_cases = generate_test_vectors(self.functions[i], self.in_ports)
             for [output_state, inputs] in test_cases:
                 test_vector = []
                 test_vector.extend(inputs)
-                [test_vector.append('0') if not k == i else test_vector.append(output_state) for k in range(len(self.out_ports))]
+                for k in range(len(self.out_ports)):
+                    if not k == i:
+                        test_vector.append('0')
+                    else:
+                        test_vector.append(output_state)
+                print(test_vector)
                 test_vectors.append(test_vector)
         return test_vectors
 
@@ -297,14 +303,14 @@ class CombinationalCell(LogicCell):
         return input_capacitance / n
 
     def characterize(self, target_lib: LibrarySettings):
-        """Run delay characterization for an N-input 1-output combinational cell"""
+        """Run delay characterization for an N-input M-output combinational cell"""
         for test_vector in self.test_vectors:
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
             
             # Generate spice file name
             spice_filename = f'delay_{self.name}'
-            spice_filename += f'_{harness.target_in_port}{harness.target_inport_val}'
+            spice_filename += f'_{harness.target_in_port}{"01" if harness.in_direction == "rise" else "10"}'
             for input, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
                 spice_filename += f'_{input}{state}'
             spice_filename += f'_{harness.target_out_port}{"01" if harness.out_direction == "rise" else "10"}'
