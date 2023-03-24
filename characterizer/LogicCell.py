@@ -5,7 +5,7 @@ import characterizer.char_comb
 import characterizer.char_seq
 from characterizer.Harness import CombinationalHarness, SequentialHarness
 from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicParser import generate_test_vectors
+from characterizer.LogicParser import parse_logic
 
 class LogicCell:
     def __init__ (self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
@@ -125,7 +125,9 @@ class LogicCell:
                 expressions = []
                 for f in value.split():
                     if '=' in f:
-                        expressions.extend(f.split('=')[1:]) # Discard LHS of equation
+                        expr = f.split('=')[1:] # Discard LHS of equation
+                        if parse_logic(''.join(expr)): # Make sure the expression is verilog
+                            expressions.extend(expr)
                     else:
                         raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{value}"')
                 self._functions = expressions
@@ -253,25 +255,6 @@ class LogicCell:
         self._is_exported = True
 
     @property
-    def test_vectors(self) -> list:
-        """Generate a list of test vectors from this cell's functions"""
-        test_vectors = []
-        print(self.in_ports, self.out_ports)
-        for i in range(len(self.out_ports)):
-            test_cases = generate_test_vectors(self.functions[i], self.in_ports)
-            for [output_state, inputs] in test_cases:
-                test_vector = []
-                test_vector.extend(inputs)
-                for k in range(len(self.out_ports)):
-                    if not k == i:
-                        test_vector.append('0')
-                    else:
-                        test_vector.append(output_state)
-                print(test_vector)
-                test_vectors.append(test_vector)
-        return test_vectors
-
-    @property
     def sim_timestep(self):
         return self._sim_timestep
 
@@ -285,6 +268,37 @@ class LogicCell:
                 self._sim_timestep = float(value)
         else:
             raise ValueError(f'Invalid value for sim_timestep: {value}')
+    
+    def _gen_graycode(self, n: int):
+        """Generate the list of Gray Codes for length n"""
+        if n <= 1:
+            return [[0],[1]]
+        inputs = []
+        for j in self._gen_graycode(n-1):
+            j.insert(0, 0)
+            inputs.append(j)
+        for j in reversed(self._gen_graycode(n-1)):
+            j.insert(0, 1)
+            inputs.append(j)
+        return inputs
+
+    @property
+    def test_vectors(self) -> list:
+        """Generate a list of test vectors from this cell's functions"""
+        test_vectors = []
+        print(self.in_ports, self.out_ports)
+        for i in range(len(self.out_ports)):
+            f = eval(f'lambda {",".join(self.in_ports)} : {self.functions[i]}')
+            values = self._gen_graycode(len(self.in_ports))
+            for j in range(len(values)):
+                # Evaluate f at the last two values and see if the output changes
+                if not f(values(j-1)) == f(values(j)):
+                    print('Output changed')
+                    print(values(j-1))
+                    print(values(j))
+                    # TODO: Figure out which var changed b/t this value and the previous
+                    # We can use these two vectors for testing this input/output pair
+        return test_vectors
 
 class CombinationalCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
