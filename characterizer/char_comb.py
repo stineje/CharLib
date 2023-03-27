@@ -1,17 +1,17 @@
 import re, subprocess
 
-def runSimCombinational(target_lib, target_cell, target_harness, spice_filename, in_slew, out_load):
+def runCombinationalSim(target_lib, target_cell, target_harness, spice_filename, in_slew, out_load):
     spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slew)
 
     ## 1st trial, extract energy_start and energy_end
-    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 0, in_slew, out_load, "none", "none", spice_results_filename)
+    trial_results = runCombinationalDelayTrial(target_lib, target_cell, target_harness, 0, in_slew, out_load, "none", "none", spice_results_filename)
     energy_start = trial_results['energy_start']
     energy_end = trial_results['energy_end']
     estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
     eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
 
     ## 2nd trial
-    trial_results = runTrialCombinational(target_lib, target_cell, target_harness, 1, in_slew, out_load, estart_line, eend_line, spice_results_filename)
+    trial_results = runCombinationalDelayTrial(target_lib, target_cell, target_harness, 1, in_slew, out_load, estart_line, eend_line, spice_results_filename)
     trial_results['energy_start'] = energy_start
     trial_results['energy_end'] = energy_end
 
@@ -19,7 +19,7 @@ def runSimCombinational(target_lib, target_cell, target_harness, spice_filename,
         target_harness.results[str(in_slew)] = {}
     target_harness.results[str(in_slew)][str(out_load)] = trial_results
 
-def runTrialCombinational(target_lib, target_cell, target_harness, meas_energy: bool, in_slew, out_load, estart_line, eend_line, output_filename: str):
+def runCombinationalDelayTrial(target_lib, target_cell, target_harness, meas_energy: bool, in_slew, out_load, estart_line, eend_line, output_filename: str):
     print(f'Running {output_filename}')
     outlines = []
     outlines.append("*title: delay meas.\n")

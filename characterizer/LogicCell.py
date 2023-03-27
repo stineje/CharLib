@@ -356,7 +356,7 @@ class CombinationalCell(LogicCell):
                 threadlist = []
                 for tmp_slope in self.in_slews:
                     for tmp_load in self.out_loads:
-                        thread = threading.Thread(target=characterizer.char_comb.runSimCombinational,
+                        thread = threading.Thread(target=characterizer.char_comb.runCombinationalSim,
                                 args=([target_lib, self, harness, spice_filename, tmp_slope, tmp_load]),
                                 name="%d" % thread_id)
                         threadlist.append(thread)
@@ -369,7 +369,7 @@ class CombinationalCell(LogicCell):
                 # Run single-threaded
                 for in_slew in self.in_slews:
                     for out_load in self.out_loads:
-                        characterizer.char_comb.runSimCombinational(target_lib, self, harness, spice_filename, in_slew, out_load)
+                        characterizer.char_comb.runCombinationalSim(target_lib, self, harness, spice_filename, in_slew, out_load)
 
             # Save harness to the cell
             self.harnesses.append(harness)
