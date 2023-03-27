@@ -285,19 +285,37 @@ class LogicCell:
     @property
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
+        # Note that this uses "brute force" methods to determine test vectors. It also tests far
+        # more vectors than necessary, lengthening simulation times.
+        # A smarter approach would be to parse the function for each output, determine potential
+        # critical paths, and then test only those paths to determine worst-case delays.
         test_vectors = []
-        print(self.in_ports, self.out_ports)
+        values = self._gen_graycode(len(self.in_ports))
         for i in range(len(self.out_ports)):
+            # Assemble a callable function corresponding to this output port's function
             f = eval(f'lambda {",".join(self.in_ports)} : {self.functions[i]}')
-            values = self._gen_graycode(len(self.in_ports))
             for j in range(len(values)):
                 # Evaluate f at the last two values and see if the output changes
-                if not f(values(j-1)) == f(values(j)):
-                    print('Output changed')
-                    print(values(j-1))
-                    print(values(j))
-                    # TODO: Figure out which var changed b/t this value and the previous
-                    # We can use these two vectors for testing this input/output pair
+                x0 = values[j-1]
+                x = values[j]
+                y0 = f(*x0)
+                y = f(*x)
+                if not y == y0:
+                    # If the output differs, we can use these two vectors to test the input at the index where they differ
+                    index = [k for k in range(len(x)) if x0[k] != x[k]][0] # If there is more than 1 element here, we have a problem with our gray coding
+                    # Add two test vectors: one for rising and one for falling
+                    # Generate the first test vector
+                    test_vector = [str(e) for e in x]
+                    test_vector[index] = f'{x0[index]}{x[index]}'
+                    for n in range(len(self.out_ports)):
+                        test_vector.append(f'{y0}{y}' if n == i else '0')
+                    test_vectors.append(test_vector)
+                    # Generate the second test vector
+                    test_vector = [str(e) for e in x0]
+                    test_vector[index] = f'{x[index]}{x0[index]}'
+                    for n in range(len(self.out_ports)):
+                        test_vector.append(f'{y}{y0}' if n == i else '0')
+                    test_vectors.append(test_vector)
         return test_vectors
 
 class CombinationalCell(LogicCell):
