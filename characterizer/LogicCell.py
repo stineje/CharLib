@@ -70,10 +70,13 @@ class LogicCell:
 
     @name.setter
     def name(self, value: str):
-        if value is not None and len(value) > 0:
-            self._name = str(value)
+        if isinstance(value, str):
+            if len(value) > 0:
+                self._name = str(value)
+            else:
+                raise ValueError(f'Empty string not allowed for cell name')
         else:
-            raise ValueError(f'Invalid value for cell name: {value}')
+            raise TypeError(f'Invalid type for cell name: {type(value)}')
 
     @property
     def in_ports(self) -> list:
@@ -81,17 +84,14 @@ class LogicCell:
 
     @in_ports.setter
     def in_ports(self, value):
-        if value is not None:
-            if isinstance(value, str):
-                # Should be in the format "A B C"
-                # TODO: add parsing for comma separated as well
-                self._in_ports = value.split()
-            elif isinstance(value, list):
-                self._in_ports = value
-            else:
-                raise TypeError(f'Invalid type for in_ports: {type(value)}')
+        if isinstance(value, str):
+            # Should be in the format "A B C"
+            # TODO: add parsing for comma separated as well
+            self._in_ports = value.split()
+        elif isinstance(value, list):
+            self._in_ports = value
         else:
-            raise ValueError(f'Invalid value for in_ports: {value}')
+            raise TypeError(f'Invalid type for in_ports: {type(value)}')
 
     @property
     def out_ports(self) -> list:
@@ -99,17 +99,14 @@ class LogicCell:
 
     @out_ports.setter
     def out_ports(self, value):
-        if value is not None:
-            if isinstance(value, str):
-                # Should be in the format "Y Z"
-                # TODO: add parsing for comma separated as well
-                self._out_ports = value.split()
-            elif isinstance(value, list):
-                self._out_ports = value
-            else:
-                raise TypeError(f'Invalid type for out_ports: {type(value)}')
+        if isinstance(value, str):
+            # Should be in the format "Y Z"
+            # TODO: add parsing for comma separated as well
+            self._out_ports = value.split()
+        elif isinstance(value, list):
+            self._out_ports = value
         else:
-            raise ValueError(f'Invalid value for out_ports: {value}')
+            raise TypeError(f'Invalid type for out_ports: {type(value)}')
 
     @property
     def functions(self) -> list:
@@ -117,24 +114,21 @@ class LogicCell:
 
     @functions.setter
     def functions(self, value):
-        if value is not None:
-            if isinstance(value, list):
-                self._functions = value
-            elif isinstance(value, str) and '=' in value:
-                # Should be in the format "Y=expr1 Y=expr2"
-                expressions = []
-                for f in value.split():
-                    if '=' in f:
-                        expr = f.split('=')[1:] # Discard LHS of equation
-                        if parse_logic(''.join(expr)): # Make sure the expression is verilog
-                            expressions.extend(expr)
-                    else:
-                        raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{value}"')
-                self._functions = expressions
-            else:
-                raise TypeError(f'Invalid type for cell functions: {type(value)}')
+        if isinstance(value, list):
+            self._functions = value
+        elif isinstance(value, str) and '=' in value:
+            # Should be in the format "Y=expr1 Y=expr2"
+            expressions = []
+            for f in value.split():
+                if '=' in f:
+                    expr = f.split('=')[1:] # Discard LHS of equation
+                    if parse_logic(''.join(expr)): # Make sure the expression is verilog
+                        expressions.extend(expr)
+                else:
+                    raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{value}"')
+            self._functions = expressions
         else:
-            raise ValueError(f'Invalid value for cell functions: {value}')
+            raise TypeError(f'Invalid type for cell functions: {type(value)}')
 
     @property
     def area(self) -> float:
@@ -145,7 +139,7 @@ class LogicCell:
         if value is not None:
             self._area = float(value)
         else:
-            raise ValueError(f'Invalid value for cell area: {value}')
+            raise TypeError(f'Invalid type for cell area: {type}')
 
     @property
     def model(self):
@@ -153,19 +147,18 @@ class LogicCell:
     
     @model.setter
     def model(self, value):
-        if value is not None:
-            if isinstance(value, Path):
-                if not value.is_file():
-                    raise ValueError(f'Invalid value for model: {value} is not a file')
-                self._model = value
-            elif isinstance(value, str):
-                if not Path(value).is_file():
-                    raise ValueError(f'Invalid value for model: {value} is not a file')
-                self._model = value
+        if isinstance(value, Path):
+            if not value.is_file():
+                raise ValueError(f'Invalid value for model: {value} is not a file')
             else:
-                raise TypeError(f'Invalid type for model: {type(value)}')
+                self._model = value
+        elif isinstance(value, str):
+            if not Path(value).is_file():
+                raise ValueError(f'Invalid value for model: {value} is not a file')
+            else:
+                self._model = value
         else:
-            raise ValueError(f'Invalid value for model: {value}')
+            raise TypeError(f'Invalid type for model: {type(value)}')
 
     @property
     def netlist(self) -> str:
@@ -173,27 +166,24 @@ class LogicCell:
 
     @netlist.setter
     def netlist(self, value):
-        if value is not None:
-            if isinstance(value, Path):
-                if not value.is_file():
-                    raise ValueError(f'Invalid value for netlist: {value} is not a file')
-                self._netlist = value
-            elif isinstance(value, str):
-                if not Path(value).is_file():
-                    raise ValueError(f'Invalid value for netlist: {value} is not a file')
-                self._netlist = Path(value)
-            else:
-                raise TypeError(f'Invalid type for netlist: {type(value)}')
-            # netlist is now set - update definition
-            with open(self.netlist, 'r') as netfile:
-                for line in netfile:
-                    if self.name.lower() in line.lower() and '.subckt' in line.lower():
-                        self.definition = line
-                netfile.close()
-            if self.definition is None:
-                raise ValueError(f'No cell definition found in netlist {value}')
+        if isinstance(value, Path):
+            if not value.is_file():
+                raise ValueError(f'Invalid value for netlist: {value} is not a file')
+            self._netlist = value
+        elif isinstance(value, str):
+            if not Path(value).is_file():
+                raise ValueError(f'Invalid value for netlist: {value} is not a file')
+            self._netlist = Path(value)
         else:
-            raise ValueError(f'Invalid value for netlist: {value}')
+            raise TypeError(f'Invalid type for netlist: {type(value)}')
+        # netlist is now set - update definition
+        with open(self.netlist, 'r') as netfile:
+            for line in netfile:
+                if self.name.lower() in line.lower() and '.subckt' in line.lower():
+                    self.definition = line
+            netfile.close()
+        if self.definition is None:
+            raise ValueError(f'No cell definition found in netlist {value}')
 
     @property
     def definition(self) -> str:
@@ -201,20 +191,20 @@ class LogicCell:
 
     @definition.setter
     def definition(self, value: str):
-        if value is not None:
+        if isinstance(value, str):
             if self.name.lower() not in value.lower():
                 raise ValueError(f'Cell name not found in cell definition: {value}')
             elif '.subckt' not in value.lower():
                 raise ValueError(f'".subckt" not found in cell definition: {value}')
             else:
                 self._definition = value
-            # definition is now set - update instance
-            circuit_call = value.split()[1:]            # Delete .subckt
-            circuit_call.append(circuit_call.pop(0))    # Move circuit name to last element
-            circuit_call.insert(0, 'XDUT')              # Insert instance name
-            self.instance = ' '.join(circuit_call)
+                # definition is now set - update instance
+                circuit_call = value.split()[1:]            # Delete .subckt
+                circuit_call.append(circuit_call.pop(0))    # Move circuit name to last element
+                circuit_call.insert(0, 'XDUT')              # Insert instance name
+                self.instance = ' '.join(circuit_call)
         else:
-            raise ValueError(f'Invalid value for cell definiton: {value}')
+            raise TypeError(f'Invalid type for cell definition: {type(value)}')
 
     @property
     def instance(self) -> str:
@@ -222,30 +212,24 @@ class LogicCell:
 
     @instance.setter
     def instance(self, value: str):
-        if value is not None:
+        if isinstance(value, str):
             self._instance = value
         else:
-            raise ValueError(f'Invalid value for instance: {value}')
+            raise TypeError(f'Invalid type for instance: {type(value)}')
 
     @property
     def in_slews(self) -> list:
         return self._in_slews
 
     def add_in_slew(self, value: float):
-        if value is not None:
-            self._in_slews.append(float(value))
-        else:
-            raise ValueError(f'Invalid value for input pin slope: {value}')
+        self._in_slews.append(float(value))
 
     @property
     def out_loads(self) -> list:
         return self._out_loads
 
     def add_out_load(self, value: float):
-        if value is not None:
-            self._out_loads.append(float(value))
-        else:
-            raise ValueError(f'Invalid value for output pin load: {value}')
+        self._out_loads.append(float(value))
 
     @property
     def is_exported(self) -> bool:
@@ -260,14 +244,16 @@ class LogicCell:
 
     @sim_timestep.setter
     def sim_timestep(self, value):
-        if value is not None:
-            if value == 'auto' and self.in_slews:
+        if value == 'auto':
+            if self.in_slews:
                 # Use 1/10th of minimum slew rate
                 self._sim_timestep = min(self.in_slews)/10.0
             else:
-                self._sim_timestep = float(value)
+                raise ValueError('Cannot use auto for sim_timestep unless in_slews is set first!')
+        elif isinstance(value, (float, int, str)):
+            self._sim_timestep = float(value)
         else:
-            raise ValueError(f'Invalid value for sim_timestep: {value}')
+            raise TypeError(f'Invalid type for sim_timestep: {type(value)}')
     
     def _gen_graycode(self, n: int):
         """Generate the list of Gray Codes for length n"""
@@ -323,7 +309,7 @@ class CombinationalCell(LogicCell):
         super().__init__(name, in_ports, out_ports, functions, area)
 
     def get_input_capacitance(self, in_port, vdd_voltage, capacitance_unit):
-        """Average all harnesses that target this input port"""
+        """Average input capacitance measured by all harnesses that target this input port"""
         if in_port not in self.in_ports:
             raise ValueError(f'Unrecognized input port {in_port}')
         input_capacitance = 0
@@ -334,7 +320,7 @@ class CombinationalCell(LogicCell):
                 n += 1
         return input_capacitance / n
 
-    def characterize(self, target_lib: LibrarySettings):
+    def characterize(self, settings: LibrarySettings):
         """Run delay characterization for an N-input M-output combinational cell"""
         for test_vector in self.test_vectors:
             # Generate harness
@@ -350,14 +336,14 @@ class CombinationalCell(LogicCell):
                 spice_filename += f'_{output}{state}'
 
             # Run delay characterization
-            if target_lib.use_multithreaded:
+            if settings.use_multithreaded:
                 # Run multithreaded
                 thread_id = 0
                 threadlist = []
                 for tmp_slope in self.in_slews:
                     for tmp_load in self.out_loads:
                         thread = threading.Thread(target=characterizer.char_comb.runCombinationalSim,
-                                args=([target_lib, self, harness, spice_filename, tmp_slope, tmp_load]),
+                                args=([settings, self, harness, spice_filename, tmp_slope, tmp_load]),
                                 name="%d" % thread_id)
                         threadlist.append(thread)
                         thread_id += 1
@@ -369,7 +355,7 @@ class CombinationalCell(LogicCell):
                 # Run single-threaded
                 for in_slew in self.in_slews:
                     for out_load in self.out_loads:
-                        characterizer.char_comb.runCombinationalSim(target_lib, self, harness, spice_filename, in_slew, out_load)
+                        characterizer.char_comb.runCombinationalSim(settings, self, harness, spice_filename, in_slew, out_load)
 
             # Save harness to the cell
             self.harnesses.append(harness)
@@ -380,8 +366,8 @@ class SequentialCell(LogicCell):
         self.clock = clock_pin  # clock pin name
         self.set = set_pin      # set pin name
         self.reset = reset_pin  # reset pin name
-        self._flops = flops     # registers
-        self._clock_slope = 0   # input pin clock slope
+        self.flops = flops      # registers
+        self._clock_slew = 0    # input pin clock slope
 
         # Characterization settings
         self._sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
@@ -413,29 +399,70 @@ class SequentialCell(LogicCell):
         return f'SequentialCell({self.name},{self.in_ports},{self.out_ports},{self.clock},{self.set},{self.reset},{self.flops},{self.functions},{self. area})'
 
     @property
-    def flops(self):
-        return self._flops
+    def clock(self) -> str:
+        return self._clock
+    
+    @clock.setter
+    def clock(self, value):
+        if not isinstance(value, str):
+            raise TypeError(f'Invalid type for cell clock pin: {type(value)}')
+        else:
+            self._clock = value
 
     @property
-    def clock_slope(self) -> float:
-        return self._clock_slope
+    def set(self) -> str:
+        return self._set
 
-    @clock_slope.setter
-    def clock_slope(self, value):
-        if value is not None:
-            if isinstance(value, (int, float)):
-                if value > 0:
-                    self._clock_slope = float(value)
-                else:
-                    raise ValueError('Clock slope must be greater than zero')
-            elif value == 'auto':
-                if not self.in_slews:
-                    raise ValueError('Cannot use auto clock slope unless in_slews is set first!')
-                self._clock_slope = float(self._in_slews[0])
-            else:
-                raise TypeError(f'Invalid type for clock slope: {type(value)}')
+    @set.setter
+    def set(self, value):
+        if not isinstance(value, str):
+            raise TypeError(f'Invalid type for cell set pin: {type(value)}')
         else:
-            raise ValueError(f'Invalid value for clock slope: {value}')
+            self._set = value
+
+    @property
+    def reset(self) -> str:
+        return self._reset
+
+    @reset.setter
+    def reset(self, value):
+        if not isinstance(value, str):
+            raise TypeError(f'Invalid type for cell reset pin: {type(value)}')
+        else:
+            self._reset = value
+
+    @property
+    def flops(self) -> list:
+        return self._flops
+
+    @flops.setter
+    def flops(self, value):
+        if isinstance(value, str):
+            self._flops = value.split()
+        elif isinstance(value, list):
+            self._flops = value
+        else:
+            raise TypeError(f'Invalid type for sequential cell flop names: {type(value)}')
+
+    @property
+    def clock_slew(self) -> float:
+        return self._clock_slew
+
+    @clock_slew.setter
+    def clock_slew(self, value):
+        if isinstance(value, (int, float)):
+            if value > 0:
+                self._clock_slew = float(value)
+            else:
+                raise ValueError('Clock slew rate must be greater than zero')
+        elif value == 'auto':
+            if not self.in_slews:
+                raise ValueError('Cannot use auto clock slew rate unless in_slews is set first!')
+            else:
+                # Use minimum slew rate
+                self._clock_slew = min(self._in_slews)
+        else:
+            raise TypeError(f'Invalid type for clock slew rate: {type(value)}')
 
     @property
     def sim_setup_lowest(self) -> float:
@@ -443,72 +470,118 @@ class SequentialCell(LogicCell):
 
     @sim_setup_lowest.setter
     def sim_setup_lowest(self, value):
-        if value is not None:
-            if isinstance(value, (int, float)):
-                if value > 0:
-                    self._sim_setup_lowest = float(value)
-                else:
-                    raise ValueError('Value must be greater than zero')
-            elif value == 'auto':
-                if not self.in_slews:
-                    raise ValueError('Cannot use auto for sim_setup_lowest unless in_slews is set first!')
-                # Use -10 * max input pin slope
-                self._sim_setup_lowest = float(self._in_slews[-1]) * -10
+        if isinstance(value, (int, float)):
+            if value > 0:
+                self._sim_setup_lowest = float(value)
             else:
-                raise TypeError(f'Invalid type for sim_setup_lowest: {type(value)}')
+                raise ValueError('sim_setup_lowest must be greater than zero')
+        elif value == 'auto':
+            if not self.in_slews:
+                raise ValueError('Cannot use auto for sim_setup_lowest unless in_slews is set first!')
+            else:
+                # Use -10 * max input slew rate
+                self._sim_setup_lowest = max(self.in_slews) * -10.0
         else:
-            raise ValueError(f'Invalid value for sim_setup_lowest: {value}')
-            
-    ## this defines highest limit of setup edge
-    def add_simulation_setup_highest(self, line="tmp"):
-        tmp_array = line.split()
-        ## if auto, amd slope is defined, use 10x of max slope 
-        if ((tmp_array[1] == 'auto') and (self.in_slews[-1] != None)):
-            self.sim_setup_highest = float(self.in_slews[-1]) * 10 
-            print ("auto set setup simulation time highest limit")
+            raise TypeError(f'Invalid type for sim_setup_lowest: {type(value)}')
+
+    @property
+    def sim_setup_highest(self) -> float:
+        return self._sim_setup_highest
+
+    @sim_setup_highest.setter
+    def sim_setup_highest(self, value):
+        if isinstance(value, (int, float)):
+            if value > 0:
+                self._sim_setup_highest = float(value)
+            else:
+                raise ValueError('sim_setup_highest must be greater than zero')
+        elif value == 'auto':
+            if not self.in_slews:
+                raise ValueError('Cannot use auto for sim_setup_highest unless in_slews is set first!')
+            else:
+                # Use 10 * max input slew rate
+                self._sim_setup_highest = max(self.in_slews) * 10.0
         else:
-            self.sim_setup_highest = float(tmp_array[1])
-            
-    def add_simulation_setup_timestep(self, line="tmp"):
-        tmp_array = line.split()
-        ## if auto, amd slope is defined, use 1/10x min slope
-        if ((tmp_array[1] == 'auto') and (self.in_slews[0] != None)):
-            self.sim_setup_timestep = float(self.in_slews[0])/10
-            print ("auto set setup simulation timestep")
+            raise TypeError(f'Invalid type for sim_setup_highest: {type(value)}')
+
+    @property
+    def sim_setup_timestep(self) -> float:
+        return self._sim_setup_timestep
+
+    @sim_setup_timestep.setter
+    def sim_setup_timestep(self, value):
+        if isinstance(value, (int, float)):
+            if value > 0:
+                self._sim_setup_timestep = float(value)
+            else:
+                raise ValueError('sim_hold_timestep must be greater than zero')
+        elif value == 'auto':
+            if self.in_slews:
+                # 1st preference: 1/10th of minimum slew rate
+                self._sim_setup_timestep = min(self.in_slews)/10.0
+            else:
+                # Otherwise, use sim timestep
+                self._sim_setup_timestep = self.sim_timestep
         else:
-            self.sim_setup_timestep = float(tmp_array[1])
-            
-    ## this defines lowest limit of hold edge
-    def add_simulation_hold_lowest(self, line="tmp"):
-        tmp_array = line.split()
-        ## if auto, amd slope is defined, use very small val. 
-        #remove# if hold is less than zero, pwl time point does not be incremental
-        #remove# and simulation failed
-        if ((tmp_array[1] == 'auto') and (self.in_slews[-1] != None)):
-            #self.sim_hold_lowest = float(self.in_slews[-1]) * -5 
-            self.sim_hold_lowest = float(self.in_slews[-1]) * -10 
-            #self.sim_hold_lowest = float(self.in_slews[-1]) * 0.001 
-            print ("auto set hold simulation time lowest limit")
+            raise TypeError(f'Invalid type for sim_setup_timestamp: {type(value)}')
+
+    @property
+    def sim_hold_lowest(self) -> float:
+        return self._sim_hold_lowest
+
+    @sim_hold_lowest.setter
+    def sim_hold_lowest(self, value):
+        if isinstance(value, (int, float)):
+            if value > 0:
+                self._sim_hold_lowest = float(value)
+            else:
+                raise ValueError('sim_hold_lowest must be greater than zero')
+        elif value == 'auto':
+            if self.in_slews:
+                # Use -10 * min slew rate
+                self._sim_hold_lowest = min(self.in_slews) * -10.0
+            else:
+                raise ValueError('Cannot use auto for sim_hold_lowest unless in_slews is set first!')
         else:
-            self.sim_hold_lowest = float(tmp_array[1])
-            
-    ## this defines highest limit of hold edge
-    def add_simulation_hold_highest(self, line="tmp"):
-        tmp_array = line.split()
-        ## if auto, amd slew is defined, use 5x of max slew 
-        ## value should be smaller than "tmp_max_val_loop" in holdSearchFlop
-        if ((tmp_array[1] == 'auto') and (self.in_slews[-1] != None)):
-            #self.sim_hold_highest = float(self.in_slews[-1]) * 5 
-            self.sim_hold_highest = float(self.in_slews[-1]) * 10 
-            print ("auto set hold simulation time highest limit")
+            raise TypeError(f'Invalid type for sim_hold_lowest: {type(value)}')
+
+    @property
+    def sim_hold_highest(self) -> float:
+        return self._sim_hold_highest
+
+    @sim_hold_highest.setter
+    def sim_hold_highest(self, value):
+        if isinstance(value, (int, float)):
+            if value > 0:
+                self._sim_hold_highest = float(value)
+            else:
+                raise ValueError('sim_hold_highest must be greater than zero')
+        elif value == 'auto':
+            if self.in_slews:
+                # Use 10 * max slew rate
+                self._sim_hold_lowest = max(self.in_slews) * 10.0
+            else:
+                raise ValueError('Cannot use auto for sim_hold_highest unless in_slews is set first!')
         else:
-            self.sim_hold_highest = float(tmp_array[1])
-            
-    def add_simulation_hold_timestep(self, line="tmp"):
-        tmp_array = line.split()
-        ## if auto, amd slope is defined, use 1/10x min slope
-        if ((tmp_array[1] == 'auto') and (self.in_slews[0] != None)):
-            self.sim_hold_timestep = float(self.in_slews[0])/10 
-            print ("auto set hold simulation timestep")
+            raise TypeError(f'Invalid type for sim_hold_highest: {type(value)}')
+
+    @property
+    def sim_hold_timestep(self) -> float:
+        return self._sim_hold_timestep
+
+    @sim_hold_timestep.setter
+    def sim_hold_timestep(self, value):
+        if isinstance(value, (int, float)):
+            if value > 0:
+                self._sim_hold_timestep = float(value)
+            else:
+                raise ValueError('sim_hold_timestep must be greater than zero')
+        elif value == 'auto':
+            if self.in_slews:
+                # 1st preference: 1/10th of minimum slew rate
+                self._sim_hold_timestep = min(self.in_slews)/10.0
+            else:
+                # Otherwise, use sim timestep
+                self._sim_hold_timestep = self.sim_timestep
         else:
-            self.sim_hold_timestep = float(tmp_array[1])
+            raise TypeError(f'Invalid type for sim_setup_timestamp: {type(value)}')

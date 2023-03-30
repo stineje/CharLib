@@ -248,25 +248,25 @@ def execute_command(characterizer: Characterizer, command: str):
         elif cmd == 'add_clock_slope':
             characterizer.target_cell().clock_slope = args[0]
         elif(command.startswith('add_simulation_setup_auto')):
-            characterizer.target_cell().add_simulation_setup_lowest('add_simulation_setup_lowest auto')
-            characterizer.target_cell().add_simulation_setup_highest('add_simulation_setup_highest auto')
-            characterizer.target_cell().add_simulation_setup_timestep('add_simulation_setup_timestep auto')
+            characterizer.target_cell().sim_setup_lowest = 'auto'
+            characterizer.target_cell().sim_setup_highest = 'auto'
+            characterizer.target_cell().sim_setup_timestep = 'auto'
         elif cmd == 'add_simulation_setup_lowest':
             characterizer.target_cell().sim_setup_lowest = args[0]
         elif(command.startswith('add_simulation_setup_highest')):
-            characterizer.target_cell().add_simulation_setup_highest(command)
+            characterizer.target_cell().simulation_setup = args[0]
         elif(command.startswith('add_simulation_setup_timestep')):
-            characterizer.target_cell().add_simulation_setup_timestep(command)
+            characterizer.target_cell().sim_setup_timestep = args[0]
         elif(command.startswith('add_simulation_hold_auto')):
-            characterizer.target_cell().add_simulation_hold_lowest('add_simulation_hold_lowest auto')
-            characterizer.target_cell().add_simulation_hold_highest('add_simulation_hold_highest auto')
-            characterizer.target_cell().add_simulation_hold_timestep('add_simulation_hold_timestep auto')
+            characterizer.target_cell().sim_hold_lowest = 'auto'
+            characterizer.target_cell().sim_hold_highest = 'auto'
+            characterizer.target_cell().sim_hold_timestep = 'auto'
         elif(command.startswith('add_simulation_hold_lowest')):
-            characterizer.target_cell().add_simulation_hold_lowest(command)
+            characterizer.target_cell().sim_hold_lowest = args[0]
         elif(command.startswith('add_simulation_hold_highest')):
-            characterizer.target_cell().add_simulation_hold_highest(command)
+            characterizer.target_cell().sim_hold_highest = args[0]
         elif(command.startswith('add_simulation_hold_timestep')):
-            characterizer.target_cell().add_simulation_hold_timestep(command)
+            characterizer.target_cell().sim_hold_timestep = args[0]
 
     # get command
     elif cmd.startswith('get_'):
