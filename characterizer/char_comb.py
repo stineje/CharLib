@@ -1,17 +1,17 @@
 import re, subprocess
 
-def runCombinationalSim(target_lib, target_cell, target_harness, spice_filename, in_slew, out_load):
+def runCombinationalDelay(target_lib, target_cell, target_harness, spice_filename, in_slew, out_load):
     spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slew)
 
     ## 1st trial, extract energy_start and energy_end
-    trial_results = runCombinationalDelayTrial(target_lib, target_cell, target_harness, 0, in_slew, out_load, "none", "none", spice_results_filename)
+    trial_results = runCombinationalTrial(target_lib, target_cell, target_harness, 0, in_slew, out_load, "none", "none", spice_results_filename)
     energy_start = trial_results['energy_start']
     energy_end = trial_results['energy_end']
     estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
     eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
 
     ## 2nd trial
-    trial_results = runCombinationalDelayTrial(target_lib, target_cell, target_harness, 1, in_slew, out_load, estart_line, eend_line, spice_results_filename)
+    trial_results = runCombinationalTrial(target_lib, target_cell, target_harness, 1, in_slew, out_load, estart_line, eend_line, spice_results_filename)
     trial_results['energy_start'] = energy_start
     trial_results['energy_end'] = energy_end
 
@@ -19,7 +19,7 @@ def runCombinationalSim(target_lib, target_cell, target_harness, spice_filename,
         target_harness.results[str(in_slew)] = {}
     target_harness.results[str(in_slew)][str(out_load)] = trial_results
 
-def runCombinationalDelayTrial(target_lib, target_cell, target_harness, meas_energy: bool, in_slew, out_load, estart_line, eend_line, output_filename: str):
+def runCombinationalTrial(target_lib, target_cell, target_harness, meas_energy: bool, in_slew, out_load, estart_line, eend_line, output_filename: str):
     print(f'Running {output_filename}')
     outlines = []
     outlines.append("*title: delay meas.\n")
@@ -52,7 +52,7 @@ def runCombinationalDelayTrial(target_lib, target_cell, target_harness, meas_ene
     outlines.append(" \n")
     ## in auto mode, simulation timestep is 1/10 of min. input slew
     ## simulation runs 1000x of input slew time
-    outlines.append(f".tran {str(target_cell.sim_timestep)}{str(target_lib.units.time)} '_tsimend' \n\n")
+    outlines.append(f".tran {target_cell.sim_timestep}{str(target_lib.units.time)} '_tsimend' \n\n")
 
     if target_harness.in_direction == 'rise':
         outlines.append("VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') \n")
@@ -167,9 +167,9 @@ def runCombinationalDelayTrial(target_lib, target_cell, target_harness, meas_ene
     outlines.append(tmp_line)
     outlines.append(".ends \n")
     outlines.append(" \n")
-    outlines.append(f".param cap ={str(out_load*target_lib.units.capacitance.magnitude)}\n")
+    outlines.append(f".param cap ={out_load}{target_lib.units.capacitance.get_metric_prefix()}\n")
     in_slew_mag = 1 / (target_lib.logic_threshold_high - target_lib.logic_threshold_low)
-    outlines.append(f".param slew ={str(in_slew*in_slew_mag*target_lib.units.time.magnitude)}\n")
+    outlines.append(f".param slew ={in_slew*in_slew_mag}{target_lib.units.time.get_metric_prefix()}\n")
     outlines.append(".end \n")
     
     with open(f'{output_filename}.sp', 'w') as f:

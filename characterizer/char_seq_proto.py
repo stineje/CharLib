@@ -1,11 +1,11 @@
 import numpy as np
 from characterizer.Harness import SequentialHarness
 
-def runSequentialDelaySim():
+def runSequentialDelay():
     # TODO
     pass
 
-def runSequentialRecoveryRemovalSim():
+def runSequentialRecoveryRemoval():
     # TODO
     pass
 
@@ -14,5 +14,9 @@ def findSetupTime():
     pass
 
 def findHoldTime():
+    # TODO
+    pass
+
+def runSequentialTrial():
     # TODO
     pass

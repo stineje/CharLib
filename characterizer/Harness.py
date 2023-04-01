@@ -182,10 +182,11 @@ class Harness:
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
+                # TODO: Correct for cases where q is negative
                 q = self.results[slope][load]['q_in_dyn']
                 input_capacitance += q / vdd_voltage
                 n += 1
-        input_capacitance = input_capacitance / n / capacitance_unit.magnitude
+        input_capacitance = input_capacitance / (n * capacitance_unit.magnitude)
         return input_capacitance
 
     def _calc_leakage_power(self, in_slew, out_load, vdd_voltage: float):
@@ -201,7 +202,7 @@ class Harness:
             for load in self.results[slope].keys():
                 leakage_power += self._calc_leakage_power(slope, load, vdd_voltage)
                 n += 1
-        leakage_power = leakage_power / n / power_unit.magnitude
+        leakage_power = leakage_power / (n * power_unit.magnitude)
         return leakage_power
 
     def _get_lut_value_groups_by_key(self, in_slews, out_loads, unit, key: str):
@@ -269,7 +270,6 @@ class CombinationalHarness (Harness):
         else:
             return 'negative_unate'
 
-
 class SequentialHarness (Harness):
     def __init__(self, target_cell, test_vector) -> None:
         super().__init__(target_cell, test_vector)
@@ -278,3 +278,15 @@ class SequentialHarness (Harness):
         self.reset = target_cell.reset  # Reset pin (optional)
 
         # TODO
+
+# Utilities for working with Harnesses
+def get_harnesses_for_ports(harness_list: list, in_port, out_port) -> list:
+    """Finds harnesses in harness_list which target in_port and out_port"""
+    return [harness for harness in harness_list if harness.target_in_port == in_port and harness.target_out_port == out_port]
+
+def check_combinational_timing_sense(harness_list: list):
+    """Checks that all CombinationalHarnesses in harness_list have the same unateness."""
+    for harness in harness_list:
+        if not harness.timing_sense == harness_list[0].timing_sense:
+            return "non_unate"
+    return harness_list[0].timing_sense

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import characterizer.char_comb
 import characterizer.char_seq
-from characterizer.Harness import CombinationalHarness, SequentialHarness
+from characterizer.Harness import CombinationalHarness, SequentialHarness, get_harnesses_for_ports, check_combinational_timing_sense
 from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicParser import parse_logic
 
@@ -342,7 +342,7 @@ class CombinationalCell(LogicCell):
                 threadlist = []
                 for tmp_slope in self.in_slews:
                     for tmp_load in self.out_loads:
-                        thread = threading.Thread(target=characterizer.char_comb.runCombinationalSim,
+                        thread = threading.Thread(target=characterizer.char_comb.runCombinationalDelay,
                                 args=([settings, self, harness, spice_filename, tmp_slope, tmp_load]),
                                 name="%d" % thread_id)
                         threadlist.append(thread)
@@ -355,10 +355,51 @@ class CombinationalCell(LogicCell):
                 # Run single-threaded
                 for in_slew in self.in_slews:
                     for out_load in self.out_loads:
-                        characterizer.char_comb.runCombinationalSim(settings, self, harness, spice_filename, in_slew, out_load)
+                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_filename, in_slew, out_load)
 
             # Save harness to the cell
             self.harnesses.append(harness)
+
+    def export(self, settings: LibrarySettings):
+        cell_lib = [
+            f'cell ({self.name}) {{',
+            f'  area : {self.area};',
+            f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # Check whether we should use the 1st
+        ]
+        # Input ports
+        for in_port in self.in_ports:
+            cell_lib.extend([
+                f'  pin ({in_port}) {{',
+                f'    direction : input;',
+                f'    capacitance : {self.get_input_capacitance(in_port, settings.vdd.voltage, settings.units.capacitance):.7f};',
+                f'    rise_capacitance : 0;', # TODO: calculate this
+                f'    fall_capacitance : 0;', # TODO: calculate this
+                f'  }}', # end pin
+            ])
+        # Output ports and functions
+        for out_port in self.out_ports:
+            cell_lib.extend([
+                f'  pin ({out_port}) {{',
+                f'    direction : input;',
+                f'    capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
+                f'    rise_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
+                f'    fall_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
+                f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Check (or actually calculate this)
+                f'    function : "{self.functions[self.out_ports.index(out_port)]}";'
+            ])
+            # Timing
+            for in_port in self.in_ports:
+                # Fetch harnesses which target this in_port/out_port combination
+                harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
+                i = self.in_ports.index(in_port)
+                cell_lib.extend([
+                    f'    timing() {{',
+                    f'      related_pin : {in_port}',
+                    f'      timing_sense : {check_combinational_timing_sense(harnesses)}',
+                    f'      '
+                ])
+            cell_lib.append(f'  }}') # end pin
+        cell_lib.append(f'}}') # end cell
 
 class SequentialCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
@@ -585,3 +626,6 @@ class SequentialCell(LogicCell):
                 self._sim_hold_timestep = self.sim_timestep
         else:
             raise TypeError(f'Invalid type for sim_setup_timestamp: {type(value)}')
+
+    def characterize(self, settings: LibrarySettings):
+        pass # TODO
