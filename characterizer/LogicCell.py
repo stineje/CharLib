@@ -279,7 +279,7 @@ class LogicCell:
         values = self._gen_graycode(len(self.in_ports))
         for i in range(len(self.out_ports)):
             # Assemble a callable function corresponding to this output port's function
-            f = eval(f'lambda {",".join(self.in_ports)} : {self.functions[i]}')
+            f = eval(f'lambda {",".join(self.in_ports)} : int({self.functions[i].replace("~", "not ")})')
             for j in range(len(values)):
                 # Evaluate f at the last two values and see if the output changes
                 x0 = values[j-1]
@@ -302,6 +302,7 @@ class LogicCell:
                     for n in range(len(self.out_ports)):
                         test_vector.append(f'{y}{y0}' if n == i else '0')
                     test_vectors.append(test_vector)
+        [print(t) for t in test_vectors]
         return test_vectors
 
 class CombinationalCell(LogicCell):
@@ -391,15 +392,26 @@ class CombinationalCell(LogicCell):
             for in_port in self.in_ports:
                 # Fetch harnesses which target this in_port/out_port combination
                 harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
-                i = self.in_ports.index(in_port)
                 cell_lib.extend([
                     f'    timing() {{',
                     f'      related_pin : {in_port}',
                     f'      timing_sense : {check_combinational_timing_sense(harnesses)}',
-                    f'      '
+                    f'      /* TODO: add cell_rise, rise_transition, cell_fall, and fall_transition */', # TODO: since multiple harnesses cover the rise and fall cases, figure out which set of values to use here
+                    f'    }}' # end timing
+                ])
+            # Internal power
+            for in_port in self.in_ports:
+                # Fetch harnesses which target this in_port/out_port combination
+                harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
+                cell_lib.extend([
+                    f'    internal_power() {{',
+                    f'      related_pin : "{in_port}"',
+                    f'      /* TODO: add rise_power and fall_power */', # TODO: Figure out which harness(es) to use here
+                    f'    }}' # end internal_power
                 ])
             cell_lib.append(f'  }}') # end pin
         cell_lib.append(f'}}') # end cell
+        return cell_lib
 
 class SequentialCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
