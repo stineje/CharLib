@@ -641,3 +641,11 @@ class SequentialCell(LogicCell):
 
     def characterize(self, settings: LibrarySettings):
         pass # TODO
+
+    def export(self, settings: LibrarySettings):
+        cell_lib = [
+            f'cell ({self.name}) {{',
+            f'  area : {self.area};',
+            
+        ]
+        cell_lib.append(f'}}') # end cell
