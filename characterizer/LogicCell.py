@@ -411,7 +411,7 @@ class CombinationalCell(LogicCell):
                 ])
             cell_lib.append(f'  }}') # end pin
         cell_lib.append(f'}}') # end cell
-        return cell_lib
+        return '\n'.join(cell_lib)
 
 class SequentialCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):

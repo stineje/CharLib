@@ -133,8 +133,8 @@ def exportLib(target_lib: LibrarySettings, target_cell: LogicCell):
 ## export harness data to .lib
 def exportCombinationalCell(target_lib: LibrarySettings, target_cell: CombinationalCell):
     outlines = []
-    for line in target_cell.export(target_lib):
-        outlines.append(f'  {line}')
+    for line in target_cell.export(target_lib).split('\n'):
+        outlines.append(f'  {line}\n')
 
     with open(target_lib.dotlib_name, 'a') as f:
         f.writelines(outlines)
