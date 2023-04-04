@@ -365,7 +365,7 @@ class CombinationalCell(LogicCell):
         cell_lib = [
             f'cell ({self.name}) {{',
             f'  area : {self.area};',
-            f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # Check whether we should use the 1st
+            f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # TODO: Check whether we should use the 1st
         ]
         # Input ports
         for in_port in self.in_ports:
@@ -646,6 +646,15 @@ class SequentialCell(LogicCell):
         cell_lib = [
             f'cell ({self.name}) {{',
             f'  area : {self.area};',
-            
+            f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # TODO: Check whether we should use the 1st
         ]
+        # Input ports
+        for in_port in self.in_ports:
+            cell_lib.extend([
+                f'  pin({in_port}) {{',
+                f'    direction : input;',
+                f'    capacitance : '
+            ])
+            cell_lib.append(f'  }}') # end pin
+
         cell_lib.append(f'}}') # end cell
