@@ -252,7 +252,7 @@ def exportSequentialCell(targetLib: LibrarySettings, targetCell: SequentialCell)
                     outlines.append(f'          {lut_line}\n')
                 outlines.append(f'        }}\n') 
                 outlines.append(f'      }}\n') 
-    outlines.append(f'    }}\n') ## inport pin end
+                outlines.append(f'    }}\n') ## inport pin end
 
     ##
     ## (3) outport 

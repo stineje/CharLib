@@ -3,7 +3,7 @@ from pathlib import Path
 
 import characterizer.char_comb
 import characterizer.char_seq
-from characterizer.Harness import CombinationalHarness, SequentialHarness, get_harnesses_for_ports, check_combinational_timing_sense
+from characterizer.Harness import CombinationalHarness, SequentialHarness, get_harnesses_for_ports, check_timing_sense
 from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicParser import parse_logic
 
@@ -305,10 +305,6 @@ class LogicCell:
         [print(t) for t in test_vectors]
         return test_vectors
 
-class CombinationalCell(LogicCell):
-    def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
-        super().__init__(name, in_ports, out_ports, functions, area)
-
     def get_input_capacitance(self, in_port, vdd_voltage, capacitance_unit):
         """Average input capacitance measured by all harnesses that target this input port"""
         if in_port not in self.in_ports:
@@ -321,12 +317,15 @@ class CombinationalCell(LogicCell):
                 n += 1
         return input_capacitance / n
 
+class CombinationalCell(LogicCell):
+    def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
+        super().__init__(name, in_ports, out_ports, functions, area)
+
     def characterize(self, settings: LibrarySettings):
         """Run delay characterization for an N-input M-output combinational cell"""
         for test_vector in self.test_vectors:
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
-            
             # Generate spice file name
             spice_filename = f'delay_{self.name}'
             spice_filename += f'_{harness.target_in_port}{"01" if harness.in_direction == "rise" else "10"}'
@@ -335,7 +334,6 @@ class CombinationalCell(LogicCell):
             spice_filename += f'_{harness.target_out_port}{"01" if harness.out_direction == "rise" else "10"}'
             for output, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
                 spice_filename += f'_{output}{state}'
-
             # Run delay characterization
             if settings.use_multithreaded:
                 # Run multithreaded
@@ -357,9 +355,10 @@ class CombinationalCell(LogicCell):
                 for in_slew in self.in_slews:
                     for out_load in self.out_loads:
                         characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_filename, in_slew, out_load)
-
             # Save harness to the cell
             self.harnesses.append(harness)
+        # TODO: pare down and organize the list of harnesses
+
 
     def export(self, settings: LibrarySettings):
         cell_lib = [
@@ -393,10 +392,10 @@ class CombinationalCell(LogicCell):
                 # Fetch harnesses which target this in_port/out_port combination
                 harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
                 cell_lib.extend([
-                    f'    timing() {{',
+                    f'    timing () {{',
                     f'      related_pin : {in_port}',
-                    f'      timing_sense : {check_combinational_timing_sense(harnesses)}',
-                    f'      /* TODO: add cell_rise, rise_transition, cell_fall, and fall_transition */', # TODO: since multiple harnesses cover the rise and fall cases, figure out which set of values to use here
+                    f'      timing_sense : {check_timing_sense(harnesses)}',
+                    f'      /* TODO: add cell_rise, rise_transition, cell_fall, and fall_transition LUTs */', # TODO: since multiple harnesses cover the rise and fall cases, figure out which set of values to use here
                     f'    }}' # end timing
                 ])
             # Internal power
@@ -404,9 +403,9 @@ class CombinationalCell(LogicCell):
                 # Fetch harnesses which target this in_port/out_port combination
                 harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
                 cell_lib.extend([
-                    f'    internal_power() {{',
+                    f'    internal_power () {{',
                     f'      related_pin : "{in_port}"',
-                    f'      /* TODO: add rise_power and fall_power */', # TODO: Figure out which harness(es) to use here
+                    f'      /* TODO: add rise_power and fall_power LUTs */', # TODO: Figure out which harness(es) to use here
                     f'    }}' # end internal_power
                 ])
             cell_lib.append(f'  }}') # end pin
@@ -648,13 +647,63 @@ class SequentialCell(LogicCell):
             f'  area : {self.area};',
             f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # TODO: Check whether we should use the 1st
         ]
-        # Input ports
-        for in_port in self.in_ports:
+        # Flops
+        cell_lib.append(f'  ff ({",".join(self.flops)}) {{')
+        for in_port in self.in_port:
+            cell_lib.append(f'    next_state : "{in_port}";')
+        cell_lib.append(f'    clocked_on : "{self.clock}";')
+        if self.reset:
+            cell_lib.append(f'    clear : "{self.reset}";')
+        if self.set:
+            cell_lib.append(f'    preset : "{self.set}";')
+        if self.reset:
+            cell_lib.append(f'    clear_preset_var1: L;') # Hard-coded value for when set and reset are both active
+        cell_lib.append(f'  }}') # end ff
+        # Clock and Input ports
+        for in_port in [self.clock, *self.in_ports]:
             cell_lib.extend([
-                f'  pin({in_port}) {{',
+                f'  pin ({in_port}) {{',
                 f'    direction : input;',
-                f'    capacitance : '
+                f'    capacitance : {self.get_input_capacitance(in_port, settings.vdd.voltage, settings.units.capacitance):.7f};',
+                f'    rise_capacitance : 0;', # TODO: Calculate this
+                f'    fall_capacitance : 0;', # TODO: Calculate this
             ])
+            # Timing
+            if in_port is self.clock:
+                cell_lib.append(f'    clock : true;')
+            else:
+                for out_port in self.out_ports:
+                    harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
+                    # TODO: Fetch harnesses for setup and hold timing
+                    # TODO: Figure out which harnesses to use here (one for setup, one for hold)
+                    for harness in harnesses:
+                        cell_lib.extend([
+                            f'    timing () {{',
+                            f'      related_pin : "{self.clock}";',
+                            f'      timing_type : "{harness.timing_type}";',
+                            f'      when : "TODO";', # TODO
+                            f'      sdf_cond : "TODO";', # TODO
+                            f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
+                        ])
+                        cell_lib.append(f'    }}') # end timing
+            # Internal power
+            cell_lib.extend([
+                f'    internal_power () {{',
+                f'      /* TODO: add rise_power and fall_power LUTs */', # TODO
+            ])
+            cell_lib.append(f'    }}') # end internal_power
+            # Clock pulse widths
+            if in_port is self.clock:
+                cell_lib.extend([
+                    f'    min_pulse_width_high : 0;', # TODO
+                    f'    min_pulse_width_low : 0;', # TODO
+                ])
             cell_lib.append(f'  }}') # end pin
+
+        # Output ports
+
+        # Set port
+
+        # Reset port
 
         cell_lib.append(f'}}') # end cell

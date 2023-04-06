@@ -140,13 +140,6 @@ class Harness:
             raise ValueError(f'Invalid value for harness input direction: {value}')
 
     @property
-    def target_inport_val(self) -> str:
-        if self.in_direction == 'rise':
-            return '01'
-        elif self.in_direction == 'fall':
-            return '10'
-
-    @property
     def out_direction(self) -> str:
         return self._out_direction
 
@@ -277,14 +270,37 @@ class SequentialHarness (Harness):
         self.set = target_cell.set      # Set pin (optional)
         self.reset = target_cell.reset  # Reset pin (optional)
 
-        # TODO
+    @property
+    def procedure(self) -> str:
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value: str):
+        supported_procedures = ['setup', 'hold', 'recovery', 'removal']
+        if value in supported_procedures:
+            self._procedure = value
+        else:
+            if isinstance(value, str):
+                raise ValueError(f'SequentialHarness procedure must be one of {supported_procedures}, not "{value}"')
+            else:
+                raise TypeError(f'Invalid type for procedure: {type(value)}')
+
+    @property
+    def timing_type(self) -> str:
+        # Can be determined from direction and procedure
+        return f'{self.procedure}_{"rising" if self.out_direction == "rise" else "falling"}'
+
+    @property
+    def timing_sense(self) -> str:
+
+    # TODO
 
 # Utilities for working with Harnesses
 def get_harnesses_for_ports(harness_list: list, in_port, out_port) -> list:
     """Finds harnesses in harness_list which target in_port and out_port"""
     return [harness for harness in harness_list if harness.target_in_port == in_port and harness.target_out_port == out_port]
 
-def check_combinational_timing_sense(harness_list: list):
+def check_timing_sense(harness_list: list):
     """Checks that all CombinationalHarnesses in harness_list have the same unateness."""
     for harness in harness_list:
         if not harness.timing_sense == harness_list[0].timing_sense:
