@@ -4,7 +4,6 @@ from pathlib import Path
 import characterizer.char_comb
 import characterizer.char_seq
 from characterizer.Harness import CombinationalHarness, SequentialHarness, get_harnesses_for_ports, check_timing_sense
-from characterizer.LibrarySettings import LibrarySettings
 from characterizer.LogicParser import parse_logic
 
 class LogicCell:
@@ -321,7 +320,7 @@ class CombinationalCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
         super().__init__(name, in_ports, out_ports, functions, area)
 
-    def characterize(self, settings: LibrarySettings):
+    def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
         for test_vector in self.test_vectors:
             # Generate harness
@@ -360,7 +359,7 @@ class CombinationalCell(LogicCell):
         # TODO: pare down and organize the list of harnesses
 
 
-    def export(self, settings: LibrarySettings):
+    def export(self, settings):
         cell_lib = [
             f'cell ({self.name}) {{',
             f'  area : {self.area};',
@@ -638,18 +637,19 @@ class SequentialCell(LogicCell):
         else:
             raise TypeError(f'Invalid type for sim_setup_timestamp: {type(value)}')
 
-    def characterize(self, settings: LibrarySettings):
+    def characterize(self, settings):
         pass # TODO
 
-    def export(self, settings: LibrarySettings):
+    def export(self, settings):
         cell_lib = [
             f'cell ({self.name}) {{',
             f'  area : {self.area};',
             f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # TODO: Check whether we should use the 1st
         ]
-        # Flops
+        # Flip Flop (single flop supported per cell)
+        # TODO: This is not a very flexible way to store flops, and should be improved in the future
         cell_lib.append(f'  ff ({",".join(self.flops)}) {{')
-        for in_port in self.in_port:
+        for in_port in self.in_ports:
             cell_lib.append(f'    next_state : "{in_port}";')
         cell_lib.append(f'    clocked_on : "{self.clock}";')
         if self.reset:
@@ -671,7 +671,7 @@ class SequentialCell(LogicCell):
             # Timing
             if in_port is self.clock:
                 cell_lib.append(f'    clock : true;')
-            else:
+            elif in_port in self.in_ports:
                 for out_port in self.out_ports:
                     harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
                     # TODO: Fetch harnesses for setup and hold timing
@@ -699,11 +699,45 @@ class SequentialCell(LogicCell):
                     f'    min_pulse_width_low : 0;', # TODO
                 ])
             cell_lib.append(f'  }}') # end pin
-
         # Output ports
-
-        # Set port
-
+        for out_port in self.out_ports:
+            cell_lib.extend([
+                f'  pin ({out_port}) {{',
+                f'    direction : output;',
+                f'    capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
+                f'    rise_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
+                f'    fall_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
+                f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Check (or actually calculate this)
+                f'    function : "{self.functions[self.out_ports.index(out_port)]}";'
+            ])
+            # Timing and internal power
+            related_ports = [self.clock]
+            if self.reset: related_ports.append(self.reset)
+            if self.set: related_ports.append(self.set)
+            for related_port in related_ports:
+                # TODO: Figure out how to properly fetch the right harnesses for this
+                harnesses = get_harnesses_for_ports(self.harnesses, related_port, out_port)
+                # Timing
+                cell_lib.extend([
+                    f'    timing () {{',
+                    f'      related_pin : "{related_port}";',
+                    f'      timing_sense : "{check_timing_sense(harnesses)}";',
+                    f'      timing_type : "{harness[0].timing_type}"'
+                ])
+                # TODO: add cell_rise, rise_transition, cell_fall, and fall_transition (as appropriate)
+                cell_lib.append(f'    }}') # end timing
+                # Internal power
+                cell_lib.extend([
+                    f'    internal_power () {{',
+                    f'      related_pin : "{related_port}";',
+                ])
+                # TODO: Add rise_power/fall_power/power (as appropriate)
+                cell_lib.append(f'    }}')
+            cell_lib.append(f'  }}') # end pin
         # Reset port
-
+        if self.reset:
+            pass
+        # Set port
+        if self.set:
+            pass
         cell_lib.append(f'}}') # end cell

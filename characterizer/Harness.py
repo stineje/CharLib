@@ -276,7 +276,7 @@ class SequentialHarness (Harness):
 
     @procedure.setter
     def procedure(self, value: str):
-        supported_procedures = ['setup', 'hold', 'recovery', 'removal']
+        supported_procedures = ['setup', 'hold', 'recovery', 'removal', 'rising_edge', 'clear', 'preset']
         if value in supported_procedures:
             self._procedure = value
         else:
@@ -287,11 +287,19 @@ class SequentialHarness (Harness):
 
     @property
     def timing_type(self) -> str:
-        # Can be determined from direction and procedure
-        return f'{self.procedure}_{"rising" if self.out_direction == "rise" else "falling"}'
+        # Can be determined from direction and procedure in most cases
+        if self.procedure in ['setup', 'hold', 'recovery', 'removal']:
+            return f'{self.procedure}_{"rising" if self.out_direction == "rise" else "falling"}'
+        else:
+            return self.procedure
 
     @property
     def timing_sense(self) -> str:
+        # Determine timing_sense from target i/o directions
+        if self.in_direction == self.out_direction:
+            return 'positive_unate'
+        else:
+            return 'negative_unate'
 
     # TODO
 
