@@ -736,8 +736,46 @@ class SequentialCell(LogicCell):
             cell_lib.append(f'  }}') # end pin
         # Reset port
         if self.reset:
-            pass
+            cell_lib.extend([
+                f'  pin ({self.reset}) {{',
+                f'    direction : input;',
+                f'    capacitance : 0;', # TODO: Calculate this
+                f'    rise_capacitance : 0;', # TODO: Calculate this
+                f'    fall_capacitance : 0;', # TODO: Calculate this
+                f'    min_pulse_width_low : 0;' # TODO
+            ])
+            # TODO: Filter harnesses to get recovery for CLK and S, and removal for CLK
+            for harness in self.harnesses: # TODO: Change from self.harnesses (as indicated above)
+                cell_lib.extend([
+                    f'    timing () {{',
+                    f'      related_pin : "{harness.target_in_port}";',
+                    f'      timing_type : {harness.timing_type};',
+                    f'      when : "TODO";', # TODO
+                    f'      sdf_cond : "TODO";', # TODO
+                    f'      /* TODO: add rise_constraint LUT */'
+                ])
+                cell_lib.append(f'    }}') # end timing
+            cell_lib.append(f'  }}') # end pin
         # Set port
         if self.set:
-            pass
+            cell_lib.extend([
+                f'  pin ({self.reset}) {{',
+                f'    direction : input;',
+                f'    capacitance : 0;', # TODO: Calculate this
+                f'    rise_capacitance : 0;', # TODO: Calculate this
+                f'    fall_capacitance : 0;', # TODO: Calculate this
+                f'    min_pulse_width_low : 0;' # TODO
+            ])
+            # TODO: Filter harnesses to get recovery for CLK and R, and removal for CLK
+            for harness in self.harnesses: # TODO: Change from self.harnesses (as indicated above)
+                cell_lib.extend([
+                    f'    timing () {{',
+                    f'      related_pin : "{harness.target_in_port}";',
+                    f'      timing_type : {harness.timing_type};',
+                    f'      when : "TODO";', # TODO
+                    f'      sdf_cond : "TODO";', # TODO
+                    f'      /* TODO: add rise_constraint LUT */'
+                ])
+                cell_lib.append(f'    }}') # end timing
+            cell_lib.append(f'  }}') # end pin
         cell_lib.append(f'}}') # end cell
