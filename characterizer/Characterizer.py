@@ -18,7 +18,7 @@ class Characterizer:
             lines.append(f'    {line}')
         lines.append('Cells:')
         for cell in self.cells:
-            for line in str(cell):
+            for line in str(cell).split('\n'):
                 lines.append(f'    {line}')
         return '\n'.join(lines)
 

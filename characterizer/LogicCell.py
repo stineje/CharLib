@@ -322,6 +322,7 @@ class CombinationalCell(LogicCell):
 
     def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
+        # Run simulation for all test vectors
         for test_vector in self.test_vectors:
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
@@ -335,7 +336,7 @@ class CombinationalCell(LogicCell):
                 spice_filename += f'_{output}{state}'
             # Run delay characterization
             if settings.use_multithreaded:
-                # Run multithreaded
+                # Split simulation jobs into threads and run multiple simultaneously
                 thread_id = 0
                 threadlist = []
                 for tmp_slope in self.in_slews:
@@ -345,19 +346,15 @@ class CombinationalCell(LogicCell):
                                 name="%d" % thread_id)
                         threadlist.append(thread)
                         thread_id += 1
-                for thread in threadlist:
-                    thread.start()
-                for thread in threadlist:
-                    thread.join()
+                [thread.start() for thread in threadlist]
+                [thread.join() for thread in threadlist]
             else:
-                # Run single-threaded
+                # Run simulation jobs sequentially
                 for in_slew in self.in_slews:
                     for out_load in self.out_loads:
                         characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_filename, in_slew, out_load)
             # Save harness to the cell
             self.harnesses.append(harness)
-        # TODO: pare down and organize the list of harnesses
-
 
     def export(self, settings):
         cell_lib = [
