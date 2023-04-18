@@ -270,6 +270,7 @@ class LogicCell:
     @property
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
+        # TODO: Determine whether this will actually work for sequential cells, or only logical cells
         # Note that this uses "brute force" methods to determine test vectors. It also tests far
         # more vectors than necessary, lengthening simulation times.
         # A smarter approach would be to parse the function for each output, determine potential
@@ -322,18 +323,12 @@ class CombinationalCell(LogicCell):
 
     def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
-        # Run simulation for all test vectors
+        # Run delay simulation for all test vectors
         for test_vector in self.test_vectors:
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
-            # Generate spice file name
-            spice_filename = f'delay_{self.name}'
-            spice_filename += f'_{harness.target_in_port}{"01" if harness.in_direction == "rise" else "10"}'
-            for input, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
-                spice_filename += f'_{input}{state}'
-            spice_filename += f'_{harness.target_out_port}{"01" if harness.out_direction == "rise" else "10"}'
-            for output, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
-                spice_filename += f'_{output}{state}'
+            # Determine spice filename prefix
+            spice_prefix = f'delay_{self.name}_{harness.spice_midfix()}'
             # Run delay characterization
             if settings.use_multithreaded:
                 # Split simulation jobs into threads and run multiple simultaneously
@@ -342,7 +337,7 @@ class CombinationalCell(LogicCell):
                 for tmp_slope in self.in_slews:
                     for tmp_load in self.out_loads:
                         thread = threading.Thread(target=characterizer.char_comb.runCombinationalDelay,
-                                args=([settings, self, harness, spice_filename, tmp_slope, tmp_load]),
+                                args=([settings, self, harness, spice_prefix, tmp_slope, tmp_load]),
                                 name="%d" % thread_id)
                         threadlist.append(thread)
                         thread_id += 1
@@ -352,7 +347,7 @@ class CombinationalCell(LogicCell):
                 # Run simulation jobs sequentially
                 for in_slew in self.in_slews:
                     for out_load in self.out_loads:
-                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_filename, in_slew, out_load)
+                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix, in_slew, out_load)
             # Save harness to the cell
             self.harnesses.append(harness)
 
@@ -635,7 +630,14 @@ class SequentialCell(LogicCell):
             raise TypeError(f'Invalid type for sim_setup_timestamp: {type(value)}')
 
     def characterize(self, settings):
-        pass # TODO
+        """Run Delay, Recovery & Removal characterization for a sequential cell"""
+        for test_vector in self.test_vectors:
+            # Generate harness
+            harness = SequentialHarness(self, test_vector)
+            # Generate spice filename
+            spice_prefix = f'{harness.procedure}_{self.name}_{harness.spice_midfix()}'
+            # Dispatch to simulation based on MT setting and procedure
+            pass # TODO
 
     def export(self, settings):
         cell_lib = [
