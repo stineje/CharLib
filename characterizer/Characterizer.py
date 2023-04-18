@@ -1,7 +1,7 @@
 import os, shutil
 
-from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicCell import LogicCell, CombinationalCell, SequentialCell
+from liberty.LibrarySettings import LibrarySettings
+from liberty.LogicCell import LogicCell, CombinationalCell, SequentialCell
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""

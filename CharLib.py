@@ -5,7 +5,7 @@ import argparse, os
 from pathlib import Path
 
 from characterizer.Characterizer import Characterizer
-from characterizer.ExportUtils import exportFiles, exitFiles
+from liberty.ExportUtils import exportFiles, exitFiles
 
 
 def main():

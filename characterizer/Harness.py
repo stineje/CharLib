@@ -1,4 +1,4 @@
-from characterizer.UnitsSettings import EngineeringUnit
+from liberty.UnitsSettings import EngineeringUnit
 
 class Harness:
     """Characterization parameters for one path through a cell

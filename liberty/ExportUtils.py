@@ -1,8 +1,8 @@
 
 import re, sys
 
-from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicCell import LogicCell, CombinationalCell, SequentialCell
+from liberty.LibrarySettings import LibrarySettings
+from liberty.LogicCell import LogicCell, CombinationalCell, SequentialCell
 from characterizer.Harness import CombinationalHarness
 
 def exportFiles(targetLib, targetCell):
