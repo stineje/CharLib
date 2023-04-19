@@ -275,32 +275,37 @@ class LogicCell:
         # more vectors than necessary, lengthening simulation times.
         # A smarter approach would be to parse the function for each output, determine potential
         # critical paths, and then test only those paths to determine worst-case delays.
+        # 
+        # Revisiting this: we actually can't know critical path just from the function, as the
+        # given function may not match up with hardware implementation in terms of operation order.
+        # We have to evaluate all potential masking conditions and determine critical paths
+        # afterwards.
         test_vectors = []
         values = self._gen_graycode(len(self.in_ports))
-        for i in range(len(self.out_ports)):
+        for out_index in range(len(self.out_ports)):
             # Assemble a callable function corresponding to this output port's function
-            f = eval(f'lambda {",".join(self.in_ports)} : int({self.functions[i].replace("~", "not ")})')
+            f = eval(f'lambda {",".join(self.in_ports)} : int({self.functions[out_index].replace("~", "not ")})')
             for j in range(len(values)):
                 # Evaluate f at the last two values and see if the output changes
                 x0 = values[j-1]
-                x = values[j]
+                x1 = values[j]
                 y0 = f(*x0)
-                y = f(*x)
-                if not y == y0:
+                y1 = f(*x1)
+                if not y1 == y0:
                     # If the output differs, we can use these two vectors to test the input at the index where they differ
-                    index = [k for k in range(len(x)) if x0[k] != x[k]][0] # If there is more than 1 element here, we have a problem with our gray coding
+                    in_index = [k for k in range(len(x1)) if x0[k] != x1[k]][0] # If there is more than 1 element here, we have a problem with our gray coding
                     # Add two test vectors: one for rising and one for falling
                     # Generate the first test vector
-                    test_vector = [str(e) for e in x]
-                    test_vector[index] = f'{x0[index]}{x[index]}'
+                    test_vector = [str(e) for e in x1]
+                    test_vector[in_index] = f'{x0[in_index]}{x1[in_index]}'
                     for n in range(len(self.out_ports)):
-                        test_vector.append(f'{y0}{y}' if n == i else '0')
+                        test_vector.append(f'{y0}{y1}' if n == out_index else '0')
                     test_vectors.append(test_vector)
                     # Generate the second test vector
                     test_vector = [str(e) for e in x0]
-                    test_vector[index] = f'{x[index]}{x0[index]}'
+                    test_vector[in_index] = f'{x1[in_index]}{x0[in_index]}'
                     for n in range(len(self.out_ports)):
-                        test_vector.append(f'{y}{y0}' if n == i else '0')
+                        test_vector.append(f'{y1}{y0}' if n == out_index else '0')
                     test_vectors.append(test_vector)
         [print(t) for t in test_vectors]
         return test_vectors
@@ -350,6 +355,11 @@ class CombinationalCell(LogicCell):
                         characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix, in_slew, out_load)
             # Save harness to the cell
             self.harnesses.append(harness)
+        # TODO: Filter and sort harnesses
+        # The result should be:
+        # - For each input-output critical path:
+        #   - 1 harness for the rising case
+        #   - 1 harness for the falling case
 
     def export(self, settings):
         cell_lib = [
