@@ -269,6 +269,15 @@ class CombinationalHarness (Harness):
     def __init__(self, target_cell, test_vector) -> None:
         super().__init__(target_cell, test_vector)
 
+    def spice_midfix(self):
+        # Determine the midfix for spice files dealing with this harness
+        prefix = f'{self.target_in_port}{"01" if self.in_direction == "rise" else "10"}'
+        for input, state in zip(self.stable_in_ports, self.stable_in_port_states):
+            prefix += f'_{input}{state}'
+        prefix += f'_{self.target_out_port}{"01" if self.out_direction == "rise" else "10"}'
+        for output, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
+            prefix += f'_{output}{state}'
+
     @property
     def timing_type(self) -> str:
         return "combinational"
@@ -319,7 +328,6 @@ class SequentialHarness (Harness):
         else:
             return 'negative_unate'
 
-    # TODO
 
 # Utilities for working with Harnesses
 def filter_harness_by_ports(harness_list: list, in_port, out_port) -> list:
