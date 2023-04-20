@@ -3,7 +3,7 @@ from pathlib import Path
 
 import characterizer.char_comb
 import characterizer.char_seq
-from characterizer.Harness import CombinationalHarness, SequentialHarness, get_harnesses_for_ports, check_timing_sense
+from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harness_by_ports, check_timing_sense
 from characterizer.LogicParser import parse_logic
 
 class LogicCell:
@@ -317,7 +317,7 @@ class LogicCell:
         n = 0
         for harness in self.harnesses:
             if harness.target_in_port == in_port:
-                input_capacitance += harness.get_input_capacitance(vdd_voltage, capacitance_unit)
+                input_capacitance += harness.average_input_capacitance(vdd_voltage, capacitance_unit)
                 n += 1
         return input_capacitance / n
 
@@ -360,11 +360,21 @@ class CombinationalCell(LogicCell):
                         characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_filename, in_slew, out_load)
             # Save harness to the cell
             self.harnesses.append(harness)
-        # TODO: Filter and sort harnesses
+        # Filter and sort harnesses
         # The result should be:
-        # - For each input-output critical path:
-        #   - 1 harness for the rising case
-        #   - 1 harness for the falling case
+        # - For each input-output path:
+        #   - 1 harness for the critical path rising case
+        #   - 1 harness for the critical path falling case
+        for output in self.out_ports:
+            for input in self.in_ports:
+                for direction in ['rise', 'fall']:
+                    # Iterate over harnesses that match output, input, and direction
+                    harnesses = [harness for harness in filter_harness_by_ports(self.harnesses, input, output) if harness.in_direction == direction]
+                    worst_case_harness = harnesses[0]
+                    for harness in harnesses:
+                        if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
+                            self.harnesses.remove(worst_case_harness) # Remove this harness, since it wasn't the worst case
+                            worst_case_harness = harness # This is the new worst case
 
     def export(self, settings):
         cell_lib = [
@@ -396,7 +406,7 @@ class CombinationalCell(LogicCell):
             # Timing
             for in_port in self.in_ports:
                 # Fetch harnesses which target this in_port/out_port combination
-                harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
+                harnesses = filter_harness_by_ports(self.harnesses, in_port, out_port)
                 cell_lib.extend([
                     f'    timing () {{',
                     f'      related_pin : {in_port}',
@@ -407,7 +417,7 @@ class CombinationalCell(LogicCell):
             # Internal power
             for in_port in self.in_ports:
                 # Fetch harnesses which target this in_port/out_port combination
-                harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
+                harnesses = filter_harness_by_ports(self.harnesses, in_port, out_port)
                 cell_lib.extend([
                     f'    internal_power () {{',
                     f'      related_pin : "{in_port}"',
@@ -680,7 +690,7 @@ class SequentialCell(LogicCell):
                 cell_lib.append(f'    clock : true;')
             elif in_port in self.in_ports:
                 for out_port in self.out_ports:
-                    harnesses = get_harnesses_for_ports(self.harnesses, in_port, out_port)
+                    harnesses = filter_harness_by_ports(self.harnesses, in_port, out_port)
                     # TODO: Fetch harnesses for setup and hold timing
                     # TODO: Figure out which harnesses to use here (one for setup, one for hold)
                     for harness in harnesses:
@@ -723,7 +733,7 @@ class SequentialCell(LogicCell):
             if self.set: related_ports.append(self.set)
             for related_port in related_ports:
                 # TODO: Figure out how to properly fetch the right harnesses for this
-                harnesses = get_harnesses_for_ports(self.harnesses, related_port, out_port)
+                harnesses = filter_harness_by_ports(self.harnesses, related_port, out_port)
                 # Timing
                 cell_lib.extend([
                     f'    timing () {{',

@@ -84,7 +84,7 @@ class Harness:
 
     def __str__(self) -> str:
         lines = []
-        lines.append(f'Route Under Test: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
+        lines.append(f'Arc Under Test: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
         if self.stable_in_ports:
             lines.append(f'Stable Input Ports:')
             for port, state in zip(self.stable_in_ports, self.stable_in_port_states):
@@ -170,7 +170,7 @@ class Harness:
     def direction_power(self) -> str:
         return f'{self.out_direction}_power'
 
-    def get_input_capacitance(self, vdd_voltage, capacitance_unit: EngineeringUnit) -> float:
+    def average_input_capacitance(self, vdd_voltage, capacitance_unit: EngineeringUnit) -> float:
         input_capacitance = 0
         n = 0
         for slope in self.results.keys():
@@ -181,6 +181,24 @@ class Harness:
                 n += 1
         input_capacitance = input_capacitance / (n * capacitance_unit.magnitude)
         return input_capacitance
+
+    def average_transition_delay(self) -> float:
+        total_delay = 0
+        n = 0
+        for slope in self.results.keys():
+            for load in self.results[slope].keys():
+                total_delay += self.results[slope][load]['trans_out']
+                n += 1
+        return total_delay/n
+    
+    def average_propagation_delay(self) -> float:
+        total_delay = 0
+        n = 0
+        for slope in self.results.keys():
+            for load in self.results[slope].keys():
+                total_delay += self.results[slope][load]['prop_in_out']
+                n += 1
+        return total_delay / n
 
     def _calc_leakage_power(self, in_slew, out_load, vdd_voltage: float):
         i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak'])
@@ -304,7 +322,7 @@ class SequentialHarness (Harness):
     # TODO
 
 # Utilities for working with Harnesses
-def get_harnesses_for_ports(harness_list: list, in_port, out_port) -> list:
+def filter_harness_by_ports(harness_list: list, in_port, out_port) -> list:
     """Finds harnesses in harness_list which target in_port and out_port"""
     return [harness for harness in harness_list if harness.target_in_port == in_port and harness.target_out_port == out_port]
 
