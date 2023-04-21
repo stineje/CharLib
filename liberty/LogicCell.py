@@ -3,7 +3,7 @@ from pathlib import Path
 
 import characterizer.char_comb
 import characterizer.char_seq
-from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harness_by_ports, check_timing_sense
+from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc, check_timing_sense
 from characterizer.LogicParser import parse_logic
 
 class LogicCell:
@@ -329,11 +329,12 @@ class CombinationalCell(LogicCell):
     def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
         # Run delay simulation for all test vectors
+        unsorted_harnesses = []
         for test_vector in self.test_vectors:
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
             # Determine spice filename prefix
-            spice_prefix = f'delay_{self.name}_{harness.spice_midfix()}'
+            spice_prefix = f'delay_{self.name}_{harness.spice_infix()}'
             # Run delay characterization
             if settings.use_multithreaded:
                 # Split simulation jobs into threads and run multiple simultaneously
@@ -354,7 +355,7 @@ class CombinationalCell(LogicCell):
                     for out_load in self.out_loads:
                         characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix, in_slew, out_load)
             # Save harness to the cell
-            self.harnesses.append(harness)
+            unsorted_harnesses.append(harness)
         # Filter and sort harnesses
         # The result should be:
         # - For each input-output path:
@@ -364,12 +365,12 @@ class CombinationalCell(LogicCell):
             for input in self.in_ports:
                 for direction in ['rise', 'fall']:
                     # Iterate over harnesses that match output, input, and direction
-                    harnesses = [harness for harness in filter_harness_by_ports(self.harnesses, input, output) if harness.in_direction == direction]
+                    harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, input, output) if harness.out_direction == direction]
                     worst_case_harness = harnesses[0]
                     for harness in harnesses:
                         if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
-                            self.harnesses.remove(worst_case_harness) # Remove this harness, since it wasn't the worst case
-                            worst_case_harness = harness # This is the new worst case
+                            worst_case_harness = harness # This harness is worse
+                    self.harnesses.append(worst_case_harness)
 
     def export(self, settings):
         cell_lib = [
@@ -383,42 +384,58 @@ class CombinationalCell(LogicCell):
                 f'  pin ({in_port}) {{',
                 f'    direction : input;',
                 f'    capacitance : {self.get_input_capacitance(in_port, settings.vdd.voltage, settings.units.capacitance):.7f};',
-                f'    rise_capacitance : 0;', # TODO: calculate this
-                f'    fall_capacitance : 0;', # TODO: calculate this
+                f'    rise_capacitance : 0;', # TODO: calculate this (average over harnesses?)
+                f'    fall_capacitance : 0;', # TODO: calculate this (average over harnesses?)
                 f'  }}', # end pin
             ])
         # Output ports and functions
         for out_port in self.out_ports:
             cell_lib.extend([
                 f'  pin ({out_port}) {{',
-                f'    direction : input;',
+                f'    direction : output;',
                 f'    capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
                 f'    rise_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
                 f'    fall_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
-                f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Check (or actually calculate this)
+                f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Calculate (average?)
                 f'    function : "{self.functions[self.out_ports.index(out_port)]}";'
             ])
             # Timing
             for in_port in self.in_ports:
                 # Fetch harnesses which target this in_port/out_port combination
-                harnesses = filter_harness_by_ports(self.harnesses, in_port, out_port)
+                harnesses = filter_harnesses_by_ports(self.harnesses, in_port, out_port)
                 cell_lib.extend([
                     f'    timing () {{',
                     f'      related_pin : {in_port}',
                     f'      timing_sense : {check_timing_sense(harnesses)}',
-                    f'      /* TODO: add cell_rise, rise_transition, cell_fall, and fall_transition LUTs */', # TODO: since multiple harnesses cover the rise and fall cases, figure out which set of values to use here
-                    f'    }}' # end timing
                 ])
+                for direction in ['rise', 'fall']:
+                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
+                    # Propagation delay
+                    cell_lib.append(f'      {harness.direction_prop} (delay_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
+                    for line in harness.get_propagation_delay_lut(self.in_slews, self.out_loads, settings.units.time):
+                        cell_lib.append(f'        {line}')
+                    cell_lib.append(f'      }}') # end cell_rise/fall LUT
+                    # Transition delay
+                    cell_lib.append(f'      {harness.direction_tran} (delay_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
+                    for line in harness.get_transport_delay_lut(self.in_slews, self.out_loads, settings.units.time):
+                        cell_lib.append(f'        {line}')
+                    cell_lib.append(f'      }}') # end rise/fall_transition LUT
+                cell_lib.append(f'    }}') # end timing
             # Internal power
             for in_port in self.in_ports:
                 # Fetch harnesses which target this in_port/out_port combination
-                harnesses = filter_harness_by_ports(self.harnesses, in_port, out_port)
+                harnesses = filter_harnesses_by_ports(self.harnesses, in_port, out_port)
                 cell_lib.extend([
                     f'    internal_power () {{',
                     f'      related_pin : "{in_port}"',
-                    f'      /* TODO: add rise_power and fall_power LUTs */', # TODO: Figure out which harness(es) to use here
-                    f'    }}' # end internal_power
                 ])
+                for direction in ['rise', 'fall']:
+                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
+                    cell_lib.append(f'      {harness.direction_power} (energy_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
+                    for line in harness.get_internal_energy_lut(self.in_slews, self.out_loads, settings.energy_meas_high_threshold_voltage(), settings.units.energy):
+                        cell_lib.append(f'        {line}')
+                    cell_lib.append(f'      }}') # end rise/fall_power LUT
+                cell_lib.append(f'    }}') # end internal power
             cell_lib.append(f'  }}') # end pin
         cell_lib.append(f'}}') # end cell
         return '\n'.join(cell_lib)
@@ -655,7 +672,7 @@ class SequentialCell(LogicCell):
             # Generate harness
             harness = SequentialHarness(self, test_vector)
             # Generate spice filename
-            spice_prefix = f'{harness.procedure}_{self.name}_{harness.spice_midfix()}'
+            spice_prefix = f'{harness.procedure}_{self.name}_{harness.spice_infix()}'
             # Dispatch to simulation based on MT setting and procedure
             pass # TODO
 
@@ -692,7 +709,7 @@ class SequentialCell(LogicCell):
                 cell_lib.append(f'    clock : true;')
             elif in_port in self.in_ports:
                 for out_port in self.out_ports:
-                    harnesses = filter_harness_by_ports(self.harnesses, in_port, out_port)
+                    harnesses = filter_harnesses_by_ports(self.harnesses, in_port, out_port)
                     # TODO: Fetch harnesses for setup and hold timing
                     # TODO: Figure out which harnesses to use here (one for setup, one for hold)
                     for harness in harnesses:
@@ -735,7 +752,7 @@ class SequentialCell(LogicCell):
             if self.set: related_ports.append(self.set)
             for related_port in related_ports:
                 # TODO: Figure out how to properly fetch the right harnesses for this
-                harnesses = filter_harness_by_ports(self.harnesses, related_port, out_port)
+                harnesses = filter_harnesses_by_ports(self.harnesses, related_port, out_port)
                 # Timing
                 cell_lib.extend([
                     f'    timing () {{',

@@ -269,14 +269,15 @@ class CombinationalHarness (Harness):
     def __init__(self, target_cell, test_vector) -> None:
         super().__init__(target_cell, test_vector)
 
-    def spice_midfix(self):
-        # Determine the midfix for spice files dealing with this harness
-        prefix = f'{self.target_in_port}{"01" if self.in_direction == "rise" else "10"}'
+    def spice_infix(self):
+        # Determine the infix for spice files dealing with this harness
+        infix = f'{self.target_in_port}{"01" if self.in_direction == "rise" else "10"}'
         for input, state in zip(self.stable_in_ports, self.stable_in_port_states):
-            prefix += f'_{input}{state}'
-        prefix += f'_{self.target_out_port}{"01" if self.out_direction == "rise" else "10"}'
+            infix += f'_{input}{state}'
+        infix += f'_{self.target_out_port}{"01" if self.out_direction == "rise" else "10"}'
         for output, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
-            prefix += f'_{output}{state}'
+            infix += f'_{output}{state}'
+        return infix
 
     @property
     def timing_type(self) -> str:
@@ -330,9 +331,17 @@ class SequentialHarness (Harness):
 
 
 # Utilities for working with Harnesses
-def filter_harness_by_ports(harness_list: list, in_port, out_port) -> list:
+def filter_harnesses_by_ports(harness_list: list, in_port, out_port) -> list:
     """Finds harnesses in harness_list which target in_port and out_port"""
     return [harness for harness in harness_list if harness.target_in_port == in_port and harness.target_out_port == out_port]
+
+def find_harness_by_arc(harness_list: list, in_port, out_port, out_direction) -> Harness:
+    harnesses = [harness for harness in filter_harnesses_by_ports(harness_list, in_port, out_port) if harness.out_direction == out_direction]
+    if len(harnesses) > 1:
+        raise LookupError('Multiple harnesses present in harness_list with the specified arc!')
+    elif len(harnesses) < 1:
+        raise LookupError('No harnesses present in harness_list with the specified arc!')
+    return harnesses[0]
 
 def check_timing_sense(harness_list: list):
     """Checks that all CombinationalHarnesses in harness_list have the same unateness."""
