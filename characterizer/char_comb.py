@@ -4,14 +4,12 @@ def runCombinationalDelay(target_lib, target_cell, target_harness, spice_filenam
     spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slew)
 
     ## 1st trial, extract energy_start and energy_end
-    trial_results = runCombinationalTrial(target_lib, target_cell, target_harness, 0, in_slew, out_load, "none", "none", spice_results_filename)
+    trial_results = runCombinationalTrial(target_lib, target_cell, target_harness, in_slew, out_load, spice_results_filename)
     energy_start = trial_results['energy_start']
     energy_end = trial_results['energy_end']
-    estart_line = ".param ENERGY_START = "+str(energy_start)+"\n"
-    eend_line = ".param ENERGY_END = "+str(energy_end)+"\n"
 
     ## 2nd trial
-    trial_results = runCombinationalTrial(target_lib, target_cell, target_harness, 1, in_slew, out_load, estart_line, eend_line, spice_results_filename)
+    trial_results = runCombinationalTrial(target_lib, target_cell, target_harness, in_slew, out_load, spice_results_filename, energy_start, energy_end)
     trial_results['energy_start'] = energy_start
     trial_results['energy_end'] = energy_end
 
@@ -19,37 +17,36 @@ def runCombinationalDelay(target_lib, target_cell, target_harness, spice_filenam
         target_harness.results[str(in_slew)] = {}
     target_harness.results[str(in_slew)][str(out_load)] = trial_results
 
-def runCombinationalTrial(target_lib, target_cell, target_harness, meas_energy: bool, in_slew, out_load, estart_line, eend_line, output_filename: str):
+def runCombinationalTrial(target_lib, target_cell, target_harness, in_slew, out_load, output_filename: str, *energy):
     print(f'Running {output_filename}')
-    outlines = []
-    outlines.append("*title: delay meas.\n")
-    outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
-    outlines.append(f".inc '../{target_cell.model}'\n")
-    outlines.append(f".inc '../{str(target_cell.netlist)}'\n")
-    outlines.append(f".temp {str(target_lib.temperature)}\n")
-    outlines.append(f".param _vdd = {str(target_lib.vdd.voltage)}\n")
-    outlines.append(f".param _vss = {str(target_lib.vss.voltage)}\n")
-    outlines.append(f".param _vnw = {str(target_lib.nwell.voltage)}\n")
-    outlines.append(f".param _vpw = {str(target_lib.pwell.voltage)}\n")
-    outlines.append(".param cap = 10f \n") # TODO: is this correct?
-    outlines.append(".param slew = 100p \n") # TODO: is this correct?
-    outlines.append(".param _tslew = slew\n")
-    outlines.append(".param _tstart = slew\n")
-    outlines.append(".param _tend = '_tstart + _tslew'\n")
-    outlines.append(".param _tsimend = '_tslew * 10000' \n")
-    outlines.append(f".param _Energy_meas_end_extent = {str(target_lib.energy_meas_time_extent)}\n")
-    outlines.append(" \n")
-    outlines.append("VDD_DYN VDD_DYN 0 DC '_vdd' \n")
-    outlines.append("VSS_DYN VSS_DYN 0 DC '_vss' \n")
-    outlines.append("VNW_DYN VNW_DYN 0 DC '_vnw' \n")
-    outlines.append("VPW_DYN VPW_DYN 0 DC '_vpw' \n")
-    outlines.append("* output load calculation\n")
-    outlines.append("VOCAP VOUT WOUT DC 0\n")
-    outlines.append("VDD_LEAK VDD_LEAK 0 DC '_vdd' \n")
-    outlines.append("VSS_LEAK VSS_LEAK 0 DC '_vss' \n")
-    outlines.append("VNW_LEAK VNW_LEAK 0 DC '_vnw' \n")
-    outlines.append("VPW_LEAK VPW_LEAK 0 DC '_vpw' \n")
-    outlines.append(" \n")
+    outlines = [
+        f'*title: delay meas.\n',
+        f'.option brief nopage nomod post=1 ingold=2 autostop\n',
+        f".inc '../{target_cell.model}'\n",
+        f".inc '../{str(target_cell.netlist)}'\n",
+        f'.temp {str(target_lib.temperature)}\n',
+        f'.param _vdd = {str(target_lib.vdd.voltage)}\n',
+        f'.param _vss = {str(target_lib.vss.voltage)}\n',
+        f'.param _vnw = {str(target_lib.nwell.voltage)}\n',
+        f'.param _vpw = {str(target_lib.pwell.voltage)}\n',
+        f'.param cap = 10f\n', # TODO: is this correct?
+        f'.param slew = 100p \n', # TODO: is this correct?
+        f'.param _tslew = slew\n',
+        f'.param _tstart = slew\n',
+        f".param _tend = '_tstart + _tslew'\n",
+        f".param _tsimend = '_tslew * 10000'\n",
+        f'.param _Energy_meas_end_extent = {str(target_lib.energy_meas_time_extent)}\n\n',
+        f"VDD_DYN VDD_DYN 0 DC '_vdd'\n",
+        f"VSS_DYN VSS_DYN 0 DC '_vss'\n",
+        f"VNW_DYN VNW_DYN 0 DC '_vnw'\n",
+        f"VPW_DYN VPW_DYN 0 DC '_vpw'\n",
+        f'* output load calculation\n',
+        f'VOCAP VOUT WOUT DC 0\n',
+        f"VDD_LEAK VDD_LEAK 0 DC '_vdd'\n",
+        f"VSS_LEAK VSS_LEAK 0 DC '_vss'\n",
+        f"VNW_LEAK VNW_LEAK 0 DC '_vnw'\n",
+        f"VPW_LEAK VPW_LEAK 0 DC '_vpw'\n\n",
+    ]
     ## in auto mode, simulation timestep is 1/10 of min. input slew
     ## simulation runs 1000x of input slew time
     outlines.append(f".tran {target_cell.sim_timestep}{str(target_lib.units.time)} '_tsimend' \n\n")
@@ -84,15 +81,15 @@ def runCombinationalTrial(target_lib, target_cell, target_harness, meas_energy: 
     outlines.append(f"+ targ v(VOUT) val='{str(trans_end_v)}' {target_harness.out_direction}=1\n")
 
     # get ENERGY_START and ENERGY_END for energy calculation in 2nd round 
-    if not meas_energy:
+    if not energy:
         outlines.append("* For energy calculation \n")
         outlines.append(f".measure Tran ENERGY_START when v(VIN)='{str(target_lib.energy_meas_low_threshold_voltage())}' {target_harness.in_direction}=1\n")
         outlines.append(f".measure Tran ENERGY_END when v(VOUT)='{str(target_lib.energy_meas_high_threshold_voltage())}' {target_harness.out_direction}=1\n")
 
     ## energy measurement 
-    elif meas_energy:
-        outlines.append(estart_line)
-        outlines.append(eend_line)
+    elif energy:
+        outlines.append(f'.param ENERGY_START = {energy[0]}\n')
+        outlines.append(f'.param ENERGY_END = {energy[1]}\n')
         outlines.append("* \n")
         outlines.append("** In/Out Q, Capacitance \n")
         outlines.append("* \n")
@@ -195,7 +192,7 @@ def runCombinationalTrial(target_lib, target_cell, target_harness, meas_energy: 
     # read results from lis file
     results = {}
     desired_measurements = ['prop_in_out', 'trans_out']
-    if meas_energy:
+    if energy:
         desired_measurements += ['q_in_dyn', 'q_out_dyn', 'q_vdd_dyn', 'q_vss_dyn', 'i_vdd_leak', 'i_vss_leak', 'i_in_leak']
     else:
         desired_measurements += ['energy_start', 'energy_end']
