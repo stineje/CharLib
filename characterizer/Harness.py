@@ -170,6 +170,14 @@ class Harness:
     def direction_power(self) -> str:
         return f'{self.out_direction}_power'
 
+    @property
+    def timing_sense(self) -> str:
+        # Determine timing_sense from target i/o directions
+        if self.in_direction == self.out_direction:
+            return 'positive_unate'
+        else:
+            return 'negative_unate'
+
     def average_input_capacitance(self, vdd_voltage, capacitance_unit: EngineeringUnit) -> float:
         input_capacitance = 0
         n = 0
@@ -238,10 +246,9 @@ class Harness:
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def _calc_internal_energy(self, in_slew: str, out_load: str, energy_meas_high_threshold_voltage: float):
+    def _calc_internal_energy(self, in_slew: str, out_load: str, energy_meas_high_threshold_voltage: float, energy_unit: EngineeringUnit, current_unit: EngineeringUnit):
         """Calculates internal energy for a particular slope/load combination"""
         # Fetch calculation parameters
-        # TODO: Check units. Currently we treat results as if they are in base units - unsure whether this is correct
         e_start = self.results[in_slew][out_load]['energy_start']
         e_end = self.results[in_slew][out_load]['energy_end']
         q_vdd_dyn = self.results[in_slew][out_load]['q_vdd_dyn']
@@ -249,17 +256,19 @@ class Harness:
         i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak'])
         i_vss_leak = abs(self.results[in_slew][out_load]['i_vss_leak'])
         # Perform the calculation
-        energy_delta = e_end - e_start
+        energy_delta = (e_end - e_start)
         avg_current = (i_vdd_leak + i_vss_leak) / 2
         internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current
-        return internal_charge * energy_meas_high_threshold_voltage
+        print(f'charge: {min(abs(q_vss_dyn), abs(q_vdd_dyn))}')
+        print(f'e*i:    {energy_delta * avg_current}')
+        return internal_charge * energy_meas_high_threshold_voltage /energy_unit.magnitude
 
-    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, e_unit: EngineeringUnit):
+    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, e_unit: EngineeringUnit, i_unit: EngineeringUnit):
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
         energy_groups = []
         for slew in in_slews:
-            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth)/e_unit.magnitude for out_load in out_loads]
+            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth, e_unit, i_unit) for out_load in out_loads]
             energy_groups.append(f'"{", ".join(["{:f}".format(energy) for energy in energies])}"')
         sep = ', \\\n  '
         [lines.append(value_line) for value_line in f'values( \\\n  {sep.join(energy_groups)});'.split('\n')]
@@ -283,51 +292,102 @@ class CombinationalHarness (Harness):
     def timing_type(self) -> str:
         return "combinational"
 
-    @property
-    def timing_sense(self) -> str:
-        # Determine timing_sense from target i/o directions
-        if self.in_direction == self.out_direction:
-            return 'positive_unate'
-        else:
-            return 'negative_unate'
 
 class SequentialHarness (Harness):
-    def __init__(self, target_cell, test_vector) -> None:
+    def __init__(self, target_cell, test_vector: list) -> None:
+        # Parse internal storage states, clock, set, and reset out of test vector
+        # For sequential harnesses, test vectors are in the format:
+        # [clk, set, reset, flop1, ..., flopK, in1, ..., inN, out1, ..., outM]
+        # Note that set and reset are optional
+        self.set = None
+        self.reset = None
+        self.flops = []
+        self.flop_states = []
+        self.clock = target_cell.clock
+        self.clock_state = test_vector.pop(0)
+        self._secondary_target_in_port = None
+        # Set up set
+        if target_cell.set:
+            self.set = target_cell.set
+            self.set_state = test_vector.pop(0)
+            if len(self.set_state) > 1:
+                self._target_in_port = self.set
+        # Set up Reset
+        if target_cell.reset:
+            self.reset = target_cell.reset
+            self.reset_state = test_vector.pop(0)
+            if len(self.reset_state) > 1:
+                if not self.target_in_port:
+                    self._target_in_port = self.reset
+                else:
+                    self._secondary_target_in_port = self.reset
+        # Set up flop internal states
+        for flop in target_cell.flops:
+            self.flops.append(flop)
+            self.flop_states.append(test_vector.pop(0))
         super().__init__(target_cell, test_vector)
-        self.clock = target_cell.clock  # Clock pin
-        self.set = target_cell.set      # Set pin (optional)
-        self.reset = target_cell.reset  # Reset pin (optional)
 
     @property
-    def procedure(self) -> str:
-        return self._procedure
+    def secondary_target_in_port(self) -> str:
+        return self._secondary_target_in_port
 
-    @procedure.setter
-    def procedure(self, value: str):
-        supported_procedures = ['setup', 'hold', 'recovery', 'removal', 'rising_edge', 'clear', 'preset']
-        if value in supported_procedures:
-            self._procedure = value
-        else:
-            if isinstance(value, str):
-                raise ValueError(f'SequentialHarness procedure must be one of {supported_procedures}, not "{value}"')
+    @property
+    def timing_sense_constraint(self) -> str:
+        return f'{self.in_direction}_constraint'
+
+    def _timing_type_with_mode(self, mode) -> str:
+        # Determine from target input and direction
+        if self.target_in_port in [self.set, self.reset]:
+            # We're targeting set or reset
+            if mode == 'recovery':
+                if self.in_direction == 'rise':
+                    return f'{mode}_rising'
+                else:
+                    return f'{mode}_falling'
+            elif mode == 'removal':
+                if self.in_direction == 'rise':
+                    return f'{mode}_falling'
+                else:
+                    return f'{mode}_rising'
             else:
-                raise TypeError(f'Invalid type for procedure: {type(value)}')
+                return None
+        elif not self.target_in_port in [*self.flops]:
+            # We're targeting an input port
+            if mode == 'clock':
+                if self.clock_state == '0101':
+                    return 'falling_edge'
+                else:
+                    return 'rising_edge'
+            elif mode in ['hold', 'setup']:
+                if self.in_direction == 'rise':
+                    return f'{mode}_rising'
+                else:
+                    return f'{mode}_falling'
+        # If we get here, most likely the harness isn't configured correctly
+        return None # TODO: consider raising an error instead
 
     @property
-    def timing_type(self) -> str:
-        # Can be determined from direction and procedure in most cases
-        if self.procedure in ['setup', 'hold', 'recovery', 'removal']:
-            return f'{self.procedure}_{"rising" if self.out_direction == "rise" else "falling"}'
-        else:
-            return self.procedure
+    def timing_type_hold(self) -> str:
+        return self._timing_type_with_mode('hold')
 
     @property
-    def timing_sense(self) -> str:
-        # Determine timing_sense from target i/o directions
-        if self.in_direction == self.out_direction:
-            return 'positive_unate'
+    def timing_type_setup(self) -> str:
+        return self._timing_type_with_mode('setup')
+    
+    @property
+    def timing_type_recovery(self) -> str:
+        return self._timing_type_with_mode('recovery')
+    
+    @property
+    def timing_type_removal(self) -> str:
+        return self._timing_type_with_mode('removal')
+    
+    @property
+    def timing_when(self) -> str:
+        if self.in_direction == 'rise':
+            return self.target_in_port
         else:
-            return 'negative_unate'
+            return f'!{self.target_in_port}'
 
 
 # Utilities for working with Harnesses

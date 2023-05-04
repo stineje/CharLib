@@ -280,6 +280,10 @@ class LogicCell:
         # given function may not match up with hardware implementation in terms of operation order.
         # We have to evaluate all potential masking conditions and determine critical paths
         # afterwards.
+        # 
+        # Revisiting this again: While we can't know critical paths from the information given, we
+        # could provide tools to let users tell us which conditions reveal the critical path.
+        # Consider adding an option to let users provide critical path nonmasking conditions.
         test_vectors = []
         values = self._gen_graycode(len(self.in_ports))
         for out_index in range(len(self.out_ports)):
@@ -432,7 +436,7 @@ class CombinationalCell(LogicCell):
                 for direction in ['rise', 'fall']:
                     harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
                     cell_lib.append(f'      {harness.direction_power} (energy_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
-                    for line in harness.get_internal_energy_lut(self.in_slews, self.out_loads, settings.energy_meas_high_threshold_voltage(), settings.units.energy):
+                    for line in harness.get_internal_energy_lut(self.in_slews, self.out_loads, settings.energy_meas_high_threshold_voltage(), settings.units.energy, settings.units.current):
                         cell_lib.append(f'        {line}')
                     cell_lib.append(f'      }}') # end rise/fall_power LUT
                 cell_lib.append(f'    }}') # end internal power
@@ -441,11 +445,15 @@ class CombinationalCell(LogicCell):
         return '\n'.join(cell_lib)
 
 class SequentialCell(LogicCell):
-    def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, set_pin: str, reset_pin: str, flops: str, function: str, area: float = 0):
+    def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, flops: str, function: str, area: float = 0, **kwargs):
         super().__init__(name, in_ports, out_ports, function, area)
+        self._set = None    # Default to not present
+        self._reset = None  # Default to not present
+        if 'set_pin' in kwargs:
+            self.set = kwargs['set_pin']
+        if 'reset_pin' in kwargs:
+            self.reset = kwargs['reset_pin']
         self.clock = clock_pin  # clock pin name
-        self.set = set_pin      # set pin name
-        self.reset = reset_pin  # reset pin name
         self.flops = flops      # registers
         self._clock_slew = 0    # input pin clock slope
 
@@ -456,11 +464,6 @@ class SequentialCell(LogicCell):
         self._sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
         self._sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
         self._sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
-
-        # From characterization results
-        self.cclks = []     # clock pin capacitance
-        self.csets = []     # set pin capacitance
-        self.crsts = []     # reset pin capacitance
 
     def __str__(self) -> str:
         lines = super().__str__().split('\n')
@@ -668,13 +671,38 @@ class SequentialCell(LogicCell):
 
     def characterize(self, settings):
         """Run Delay, Recovery & Removal characterization for a sequential cell"""
+        unsorted_harnesses = []
         for test_vector in self.test_vectors:
             # Generate harness
             harness = SequentialHarness(self, test_vector)
             # Generate spice filename
             spice_prefix = f'{harness.procedure}_{self.name}_{harness.spice_infix()}'
             # Dispatch to simulation based on MT setting and procedure
-            pass # TODO
+            # Procedure is determined from target input port
+            if harness.target_in_port is self.set or harness.target_in_port is self.reset:
+                # Recovery/removal
+                pass # TODO
+            else:
+                # Delay
+                pass # TODO
+            # Add harness to collection after characterization
+            unsorted_harnesses.append(harness)
+        # Filter and sort harnesses
+        # For clock:
+        # - No harnesses TODO: Add clock energy calculations (this will require at least 1 harness)
+        # For each input-output path:
+        # - 1 harness for setup_rising/falling
+        # - 1 harness for hold_rising/falling
+        # For each output port:
+        # - 2 harnesses characterizing path from clock to output: rise and fall
+        # - 1 harness characterizing path from reset to output
+        # - 1 harness characterizing path from set to output
+        # For reset:
+        # - 1 harness for clock to reset recovery_rising/falling
+        # - 1 harness for set to reset recovery_rising/falling
+        # - 1 harness for clock to reset removal_rising/falling
+        # For set:
+
 
     def export(self, settings):
         cell_lib = [
@@ -694,6 +722,7 @@ class SequentialCell(LogicCell):
             cell_lib.append(f'    preset : "{self.set}";')
         if self.reset:
             cell_lib.append(f'    clear_preset_var1: L;') # Hard-coded value for when set and reset are both active
+            cell_lib.append(f'    clear_preset_var2: L;')
         cell_lib.append(f'  }}') # end ff
         # Clock and Input ports
         for in_port in [self.clock, *self.in_ports]:
@@ -733,7 +762,7 @@ class SequentialCell(LogicCell):
                 cell_lib.extend([
                     f'    min_pulse_width_high : 0;', # TODO
                     f'    min_pulse_width_low : 0;', # TODO
-                ])
+            ])
             cell_lib.append(f'  }}') # end pin
         # Output ports
         for out_port in self.out_ports:

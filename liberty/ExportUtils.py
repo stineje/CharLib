@@ -146,33 +146,6 @@ def exportCombinationalCell(target_lib: LibrarySettings, target_cell: Combinatio
 def exportSequentialCell(targetLib: LibrarySettings, targetCell: SequentialCell):
     harnesses = targetCell.harnesses
     outlines = []
-    outlines.append(f'  cell ({targetCell.name}) {{\n') #### cell start
-    outlines.append(f'    area : {str(targetCell.area)};\n')
-    # outlines.append("    cell_leakage_power : "+targetCell.leakage_power+";\n")
-    outlines.append(f'    pg_pin ({targetLib.vdd.name}) {{\n')
-    outlines.append(f'      pg_type : primary_power;\n')
-    outlines.append(f'      voltage_name : "{targetLib.vdd.name}";\n')
-    outlines.append(f'    }}\n')
-    outlines.append(f'    pg_pin ({targetLib.vss.name}) {{\n')
-    outlines.append(f'      pg_type : primary_ground;\n')
-    outlines.append(f'      voltage_name : "{targetLib.vss.name}";\n')
-    outlines.append(f'    }}\n')
-
-    ## define flop
-    outlines.append(f'    ff ({str(targetCell.flops[0])}, {str(targetCell.flops[1])}) {{\n')
-    outlines.append(f'    clocked_on : "{targetCell.clock}";\n') 
-    for target_inport in targetCell.in_ports:
-        outlines.append(f'    next_state : "{target_inport}";\n') 
-    if targetCell.reset is not None:
-        outlines.append(f'    clear : "{targetCell.reset}";\n') 
-    if targetCell.set is not None:
-        outlines.append(f'    preset : "{targetCell.set}";\n') 
-        if targetCell.reset is not None:
-            ## value when set and reset both activate
-            ## tool does not support this simulation, so hard coded to low
-            outlines.append(f'    clear_preset_var1 : L ;\n') 
-            outlines.append(f'    clear_preset_var2 : L ;\n') 
-    outlines.append(f'    }}\n') 
     ##
     ## (1) clock
     ##
@@ -201,8 +174,6 @@ def exportSequentialCell(targetLib: LibrarySettings, targetCell: SequentialCell)
         # min_pulse_width_high : 0.145244;
         # min_pulse_width_low : 0.226781;
         outlines.append(f'    }}\n') ## clock pin end
-
-
 
     ##
     ## (2) prop/tran/setup/hold for input pins

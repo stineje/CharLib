@@ -192,6 +192,8 @@ def execute_command(characterizer: Characterizer, command: str):
         elif cmd == 'add_flop':
             area = 0
             opts = ' '.join(args).strip().split('-')[1:] # Split on hyphen instead of space
+            set_pin = None
+            reset_pin = None
             for opt in opts:
                 if opt.startswith('n '):
                     name = opt[2:].strip()
@@ -220,7 +222,12 @@ def execute_command(characterizer: Characterizer, command: str):
                     function = opt[2:].strip()
                 else:
                     raise ValueError(f'Unrecognized option: -{opt}')
-            characterizer.add_flop(name, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, function, area)
+            kwargs = {}
+            if set_pin:
+                kwargs['set_pin'] = set_pin
+            if reset_pin:
+                kwargs['reset_pin'] = reset_pin
+            characterizer.add_flop(name, in_ports, out_ports, clock_pin, flops, function, area, **kwargs)
         elif cmd == 'add_slope':
             # Expected arg format: {1 2 ... N}
             for arg in args:
