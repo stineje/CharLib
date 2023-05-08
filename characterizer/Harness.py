@@ -52,24 +52,21 @@ class Harness:
         num_outputs = len(target_cell.out_ports)
         input_test_vector = test_vector[0:num_inputs]
         output_test_vector = test_vector[num_inputs:num_inputs+num_outputs]
-        state_to_direction = lambda s: 'rise' if s == '01' else 'fall' if s == '10' else s
 
         # Get inputs from test vector
         for in_port, state in zip(target_cell.in_ports, input_test_vector):
             if len(state) > 1:
                 self._target_in_port = in_port
-                self.in_direction = state_to_direction(state)
+                self.in_direction = self._state_to_direction(state)
             else:
                 self._stable_in_ports.append(in_port)
                 self._stable_in_port_states.append(state)
-        if not self._target_in_port:
-            raise ValueError(f'Unable to parse target input port from test vector {test_vector}')
 
         # Get outputs from test vector
         for out_port, state in zip(target_cell.out_ports, output_test_vector):
             if len(state) > 1:
                 self._target_out_port = out_port
-                self.out_direction = state_to_direction(state)
+                self.out_direction = self._state_to_direction(state)
             else:
                 self._nontarget_out_ports.append(out_port)
                 self._nontarget_out_port_states.append(state)
@@ -95,6 +92,9 @@ class Harness:
                 lines.append(f'    {port}: {state}')
         # TODO: Display results if available
         return '\n'.join(lines)
+
+    def _state_to_direction(self, state) -> str:
+        return 'rise' if state == '01' else 'fall' if state == '10' else None
 
     @property
     def target_in_port(self) -> str:
@@ -277,6 +277,9 @@ class Harness:
 class CombinationalHarness (Harness):
     def __init__(self, target_cell, test_vector) -> None:
         super().__init__(target_cell, test_vector)
+        # Error if we don't have a target input port
+        if not self._target_in_port:
+            raise ValueError(f'Unable to parse target input port from test vector {test_vector}')
 
     def spice_infix(self):
         # Determine the infix for spice files dealing with this harness
@@ -310,17 +313,10 @@ class SequentialHarness (Harness):
         if target_cell.set:
             self.set = target_cell.set
             self.set_state = test_vector.pop(0)
-            if len(self.set_state) > 1:
-                self._target_in_port = self.set
         # Set up Reset
         if target_cell.reset:
             self.reset = target_cell.reset
             self.reset_state = test_vector.pop(0)
-            if len(self.reset_state) > 1:
-                if not self.target_in_port:
-                    self._target_in_port = self.reset
-                else:
-                    self._secondary_target_in_port = self.reset
         # Set up flop internal states
         for flop in target_cell.flops:
             self.flops.append(flop)
@@ -328,16 +324,25 @@ class SequentialHarness (Harness):
         super().__init__(target_cell, test_vector)
 
     @property
-    def secondary_target_in_port(self) -> str:
-        return self._secondary_target_in_port
+    def set_direction(self) -> str:
+        if not self.set:
+            return None
+        return self._state_to_direction(self.set_state)
+
+    @property
+    def reset_direction(self) -> str:
+        if not self.reset:
+            return None
+        return self._state_to_direction(self.reset_state)
 
     @property
     def timing_sense_constraint(self) -> str:
+        # TODO: Check that this is correct
         return f'{self.in_direction}_constraint'
 
     def _timing_type_with_mode(self, mode) -> str:
         # Determine from target input and direction
-        if self.target_in_port in [self.set, self.reset]:
+        if self.set_direction or self.reset_direction:
             # We're targeting set or reset
             if mode == 'recovery':
                 if self.in_direction == 'rise':
@@ -364,7 +369,7 @@ class SequentialHarness (Harness):
                 else:
                     return f'{mode}_falling'
         # If we get here, most likely the harness isn't configured correctly
-        return None # TODO: consider raising an error instead
+        raise ValueError(f'Unable to determine timing type for mode "{mode}"')
 
     @property
     def timing_type_hold(self) -> str:
@@ -381,6 +386,10 @@ class SequentialHarness (Harness):
     @property
     def timing_type_removal(self) -> str:
         return self._timing_type_with_mode('removal')
+    
+    @property
+    def timing_type_clock(self) -> str:
+        return self._timing_type_with_mode('clock')
     
     @property
     def timing_when(self) -> str:
