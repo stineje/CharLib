@@ -57,7 +57,7 @@ class Harness:
         for in_port, state in zip(target_cell.in_ports, input_test_vector):
             if len(state) > 1:
                 self._target_in_port = in_port
-                self.in_direction = self._state_to_direction(state)
+                self._target_in_port_state = state
             else:
                 self._stable_in_ports.append(in_port)
                 self._stable_in_port_states.append(state)
@@ -66,7 +66,7 @@ class Harness:
         for out_port, state in zip(target_cell.out_ports, output_test_vector):
             if len(state) > 1:
                 self._target_out_port = out_port
-                self.out_direction = self._state_to_direction(state)
+                self._target_out_port_state = state
             else:
                 self._nontarget_out_ports.append(out_port)
                 self._nontarget_out_port_states.append(state)
@@ -101,6 +101,10 @@ class Harness:
         return self._target_in_port
 
     @property
+    def target_in_port_state(self) -> str:
+        return self._target_in_port_state
+
+    @property
     def stable_in_ports(self) -> list:
         return self._stable_in_ports
 
@@ -113,6 +117,10 @@ class Harness:
         return self._target_out_port
 
     @property
+    def target_out_port_state(self) -> str:
+        return self._target_out_port_state
+
+    @property
     def nontarget_out_ports(self) -> list:
         return self._nontarget_out_ports
 
@@ -122,41 +130,11 @@ class Harness:
 
     @property
     def in_direction(self) -> str:
-        return self._in_direction
-
-    @in_direction.setter
-    def in_direction(self, value: str):
-        if value is not None:
-            if isinstance(value, str):
-                if value == "rise":
-                    self._in_direction = str(value)
-                elif value == "fall":
-                    self._in_direction = str(value)
-                else:
-                    raise ValueError(f'Harness input direction must be "rise" or "fall", not {value}')
-            else:
-                raise TypeError(f'Invalid type for harness input direction: {type(value)}')
-        else:
-            raise ValueError(f'Invalid value for harness input direction: {value}')
+        return self._state_to_direction(self.target_in_port_state)
 
     @property
     def out_direction(self) -> str:
-        return self._out_direction
-
-    @out_direction.setter
-    def out_direction(self, value: str):
-        if value is not None:
-            if isinstance(value, str):
-                if value == "rise":
-                    self._out_direction = str(value)
-                elif value == "fall":
-                    self._out_direction = str(value)
-                else:
-                    raise ValueError(f'Harness output direction must be "rise" or "fall", not {value}')
-            else:
-                raise TypeError(f'Invalid type for harness output direction: {type(value)}')
-        else:
-            raise ValueError(f'Invalid value for harness output direction: {value}')
+        return self._state_to_direction(self.target_out_port_state)
 
     @property
     def direction_prop(self) -> str:
@@ -301,22 +279,27 @@ class SequentialHarness (Harness):
         # Parse internal storage states, clock, set, and reset out of test vector
         # For sequential harnesses, test vectors are in the format:
         # [clk, set, reset, flop1, ..., flopK, in1, ..., inN, out1, ..., outM]
-        # Note that set and reset are optional
+        # Note that set and reset are optional, but must be provided if present
+        # on the target cell
         self.set = None
         self.reset = None
         self.flops = []
         self.flop_states = []
         self.clock = target_cell.clock
         self.clock_state = test_vector.pop(0)
-        self._secondary_target_in_port = None
-        # Set up set
-        if target_cell.set:
-            self.set = target_cell.set
-            self.set_state = test_vector.pop(0)
         # Set up Reset
         if target_cell.reset:
             self.reset = target_cell.reset
             self.reset_state = test_vector.pop(0)
+            if len(self.reset_state) > 1:
+                self._target_in_port = self.reset
+        # Set up Set
+        if target_cell.set:
+            self.set = target_cell.set
+            self.set_state = test_vector.pop(0)
+            if len(self.set_state) > 1:
+                # Overwrite reset if already assigned
+                self._target_in_port = self.set
         # Set up flop internal states
         for flop in target_cell.flops:
             self.flops.append(flop)

@@ -66,9 +66,10 @@ def runSequentialTrial(settings, cell, harness, load, slew, setup_time, hold_tim
     ]
 
     # Data input: VIN
-    # TODO: Fix this so that we can actually handle multiple data inputs
     if harness.target_in_port in cell.in_ports:
-        # If targeted, vary with timing defined above
+        # If the input port is targeted, vary with timing defined above
+        # TODO: Fix this so that we can actually handle multiple data inputs
+        target_vname = 'VIN'
         if harness.in_direction == 'rise':
             v0, v1 = "'_vss'", "'_vdd'" # Rise from vss to vdd
         else:
@@ -93,6 +94,7 @@ def runSequentialTrial(settings, cell, harness, load, slew, setup_time, hold_tim
     if harness.reset:
         if harness.reset_direction:
             # Reset is rising or falling
+            target_vname = 'VRIN'
             if harness.reset_direction == 'rise':
                 v0, v1 = "'_vdd'", "'_vss'"
             else:
@@ -107,13 +109,111 @@ def runSequentialTrial(settings, cell, harness, load, slew, setup_time, hold_tim
     if harness.set:
         if harness.set_direction:
             # Set is rising or falling
+            target_vname = 'VSIN'
             if harness.set_direction == 'rise':
                 v0, v1 = "'_vdd'", "'_vss'"
             else:
                 v0, v1 = "'_vss'", "'_vdd'"
             outlines.append(f"VSIN VSIN 0 PWL(0 {v0} '_tstart1' {v0} '_tstart2' {v1} '_tend1' {v1} '_tend2' {v0} '_tsimend' {v0})")
         else:
-            # Reset is static
-            outlines.append("VSIN VSIN 0 DC " + ("'_vdd'" if harness.reset_state == '1' else "'_vss'"))
+            # Set is static
+            outlines.append("VSIN VSIN 0 DC " + ("'_vdd'" if harness.set_state == '1' else "'_vss'"))
 
-    # TODO next: Measure d2q
+    # Measure propagation delays
+    outlines.append('** Delay')
+
+    # D to Q propagation delay
+    outlines.append('* Propagation delay (D to Q)')
+    if harness.in_direction == 'rise':
+        v_in_start = settings.logic_threshold_low_voltage()
+        v_in_end = settings.logic_threshold_high_voltage()
+        vt_in = settings.logic_low_to_high_threshold_voltage()
+        vt_in_inv = settings.logic_high_to_low_threshold_voltage()
+    elif harness.in_direction == 'fall':
+        v_in_start = settings.logic_threshold_high_voltage()
+        v_in_end = settings.logic_threshold_low_voltage()
+        vt_in = settings.logic_high_to_low_threshold_voltage()
+        vt_in_inv = settings.logic_low_to_high_threshold_voltage()
+    else:
+        raise ValueError(f'Unable to configure simulation: no target input pin')
+    if harness.out_direction == 'rise':
+        v_out_start = settings.logic_threshold_low_voltage()
+        v_out_end = settings.logic_threshold_high_voltage()
+        vt_out = settings.logic_low_to_high_threshold_voltage()
+    elif harness.out_direction == 'fall':
+        v_out_start = settings.logic_threshold_high_voltage()
+        v_out_end = settings.logic_threshold_low_voltage()
+        vt_out = settings.logic_high_to_low_threshold_voltage()
+    else:
+        raise ValueError(f'Unable to configure simulation: no target output pin')
+    outlines.extend([
+        f'.measure Tran PROP_IN_OUT trig v("{target_vname}") val=\'{vt_in}\' td=\'_tclk5\' {harness.in_direction}=1',
+        f'+ targ v(VOUT) val=\'{vt_out}\' {harness.out_direction}=1',
+        f'.measure TRAN TRANS_OUT trig v(VOUT) val=\'{v_out_start}\' {harness.out_direction}=1',
+        f'+ targ v(VOUT) val=\'{v_out_end}\' {harness.out_direction}=1'
+    ])
+
+    # C to Q propagation delay
+    outlines.append('* Propagation delay (C to Q)')
+    if harness.timing_sense_clock == 'risiing_edge':
+        clk_direction = 'rise'
+        v_clk_start = settings.logic_threshold_low_voltage()
+        v_clk_end = settings.logic_threshold_high_voltage()
+        vt_clk = settings.logic_low_to_high_threshold_voltage()
+    else:
+        clk_direction = 'fall'
+        v_clk_start = settings.logic_threshold_high_voltage()
+        v_clk_end = settings.logic_threshold_low_voltage()
+        vt_clk = settings.logic_high_to_low_threshold_voltage()
+    outlines.extend([
+        f'.measure Tran PROP_CIN_OUT trig v(VCIN) val=\'{vt_clk}\' td=\'_tclk5\' {clk_direction}=1',
+        f'+ targ v(VOUT) val=\'{vt_in}\' {harness.in_direction}=1'
+    ])
+
+    # D to C setup delay
+    outlines.append('* Setup delay (D to C)')
+    outlines.extend([
+        f'.measure Tran PROP_IN_D2C trig v({target_vname}) val=\'{vt_in}\' td=\'_tclk5\' {harness.in_direction}=1',
+        f'+ targ v(VCIN) val=\'{vt_clk}\' {clk_direction}=1'
+    ])
+
+    # C to D hold delay
+    outlines.append('* Hold delay (C to D)')
+    outlines.extend([
+        f'.measure Tran PROP_IN_C2D trig v(VCIN) val=\'{vt_clk}\' td=\'_tclk5\' {clk_direction}=1',
+        f'+ targ v({target_vname}) val=\'{vt_in_inv} {"rise" if harness.in_direction == "fall" else "fall"}=1'
+    ])
+
+    # Measure energy
+    if not energy:
+        # Measure energy results
+        outlines.extend([
+            f'.measure Tran ENERGY_START when v({target_vname})=\'{v_in_start}\' {harness.in_direction}=1',
+            f'.measure Tran ENERGY_END when v(VOUT)=\'{v_out_end}\' {harness.out_direction}=1',
+            f'.measure Tran ENERGY_CLK_START when v(VCIN)=\'{v_clk_start}\' {clk_direction}=1',
+            f'.measure Tran ENERGY_CLK_START when v(VCIN)=\'{v_clk_end}\' {clk_direction}=1'
+        ])
+    else:
+        # Fetch energy results from previous trial
+        outlines.extend([
+            f'.param ENERGY_START = {harness.results[slew][load]["energy_start"]}',
+            f'.param ENERGY_END = {harness.results[slew][load]["energy_end"]}',
+            f'.param ENERGY_CLK_START = {harness.results[slew][load]["energy_clk_start"]}',
+            f'.param ENERGY_CLK_END = {harness.results[slew][load]["energy_clk_end"]}',
+            f'*',
+            f'** In/Out Q, Capacitance',
+            f'*',
+            f'.measure Tran Q_IN_DYN integ i({target_vname}) from=\'ENERGY_START\' to=\'ENERGY_END\'',
+            f'.measure Tran Q_OUT_DYN integ i(VOCAP) from=\'ENERGY_START\' to=\'ENERGY_END*_Energy_meas_end_extent\'',
+            f'.measure Tran Q_CLK_DYN integ i(VCIN) from=\'ENERGY_CLK_START\' to=\'ENERGY_CLK_END\'\n',
+            f'*',
+            f'** Energy',
+            f'*  (Total charge, short-circuit charge)',
+            f'.measure Tran Q_VDD_DYN integ i(VDD_DYN) from=\'ENERGY_START\' to=\'ENERGY_END*_Energy_meas_end_extend\'',
+            f'.measure Tran Q_VSS_DYN integ i(VSS_DYN) from=\'ENERGY_START\' to=\'ENERGY_END*_Energy_meas_end_extent\'\n',
+            f'* Leakage current',
+            f'.measure Tran I_VDD_LEAK avg i(VDD_DYN) from=\'_tstart1*0.1\' to=\'_tstart1\'',
+            f'.measure Tran I_VSS_LEAK avg i(VSS_DYN) from=\'_tstart1*0.1\' to=\'_tstart1\'\n',
+            f'* Gate leak current',
+            f'.measure Tran I_IN_LEAK avg i(VIN) from==\'_tstart1*0.1\' to=\'_tstart1\''
+        ])
