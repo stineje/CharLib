@@ -119,13 +119,12 @@ def runCombinationalTrial(target_lib, target_cell, target_harness, in_slew, out_
     circuit_name = port_list.pop(-1)
     tmp_line = port_list.pop(0)
     for port in port_list:
-        # match tmp_array and harness 
-        # check target inport
+        # Check target inport
         is_matched = 0
         if port == target_harness.target_in_port:
             tmp_line += ' IN'
             is_matched += 1
-        # search stable inport
+        # Check stable inport
         for stable_port, state in zip(target_harness.stable_in_ports, target_harness.stable_in_port_states):
             if port == stable_port:
                 if state == '1':
@@ -136,15 +135,16 @@ def runCombinationalTrial(target_lib, target_cell, target_harness, in_slew, out_
                     is_matched += 1
                 else:
                     raise ValueError(f'Invalid state for port {port}: {state}')
-        # check target outport
+        # Check target outport
         if port == target_harness.target_out_port:
             tmp_line += ' OUT'
             is_matched += 1
-        # search non-target outports
+        # Check non-target outports
         for nontarget_port, state in zip(target_harness.nontarget_out_ports, target_harness.nontarget_out_port_states):
             if port == nontarget_port:
                 tmp_line += f' WFLOAT{str(state)}'
                 is_matched += 1
+        # Check VDD, VSS, VNW, and VPW
         if port.upper() == target_lib.vdd.name.upper():
                 tmp_line += f' {port.upper()}'
                 is_matched += 1
