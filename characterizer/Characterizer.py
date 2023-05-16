@@ -41,7 +41,7 @@ class Characterizer:
                 shutil.rmtree(self.settings.work_dir)
             self.settings.work_dir.mkdir()
         else:
-            print("Save previous working directory and files")
+            print("Reusing previous working directory and files")
 
     def characterize(self, *cells):
         """Characterize the passed cells, or all cells if none are passed"""

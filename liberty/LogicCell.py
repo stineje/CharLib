@@ -271,6 +271,7 @@ class LogicCell:
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
         # TODO: Determine whether this will actually work for sequential cells, or only logical cells
+        # 
         # Note that this uses "brute force" methods to determine test vectors. It also tests far
         # more vectors than necessary, lengthening simulation times.
         # A smarter approach would be to parse the function for each output, determine potential
@@ -677,14 +678,8 @@ class SequentialCell(LogicCell):
             harness = SequentialHarness(self, test_vector)
             # Generate spice filename
             spice_prefix = f'{harness.procedure}_{self.name}_{harness.spice_infix()}'
-            # Dispatch to simulation based on MT setting and procedure
-            # Procedure is determined from target input port
-            if harness.target_in_port is self.set or harness.target_in_port is self.reset:
-                # Recovery/removal
-                pass # TODO
-            else:
-                # Delay
-                pass # TODO
+            # Run simulation
+            characterizer.char_seq.runSequential(settings, self, harness, spice_prefix)
             # Add harness to collection after characterization
             unsorted_harnesses.append(harness)
         # Filter and sort harnesses

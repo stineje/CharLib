@@ -317,6 +317,10 @@ class SequentialHarness (Harness):
         if not self.reset:
             return None
         return self._state_to_direction(self.reset_state)
+    
+    def invert_set_reset(self):
+        self.set_state = self.set_state[::-1] if self.set_state else None
+        self.reset_state = self.reset_state[::-1] if self.reset_state else None
 
     @property
     def timing_sense_constraint(self) -> str:
