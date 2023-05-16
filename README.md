@@ -8,7 +8,7 @@ CharLib is an open cell library characterizer. The current version supports timi
 CharLib uses OSU 0.35um SCMOS library for testing. This will be expanded to SKY130 and GF180 shortly.
 
 ## Preconditions
-Make sure you have `ngspice` installed. If `ngspice` is not in your `PATH`, you may have to specify the absolute path to the binary using the `set_simulator` command. 
+Make sure you have `ngspice` installed. If `ngspice` is not in your `PATH`, you may have to specify the absolute path to the `ngspice` binary using the `set_simulator` command. 
 
 ## How to use
 There is a simple Makefile that can run the characterization for a target library of standard cells. This defaults to OSU350. SKY130 and GF180 targets will be added in the future. 
@@ -66,7 +66,7 @@ These commands define configuration settings for all standard cells in the targe
 | set_dotlib_name        | OSU035.lib       | .lib file name. If unset, uses library name + .lib. |
 | set_verilog_name       | OSU035.v         | .v file name. If unset, uses library name + .v. |
 | set_cell_name_suffix   | OSU035_          | cell name suffix (optional) |
-| set_cell_name_prefix   | \_V1             | cell name prefix (optional) |
+| set_cell_name_prefix   | _V1              | cell name prefix (optional) |
 | set_voltage_unit       | V                | voltage unit. (Default: V) |
 | set_capacitance_unit   | pF               | capacitance unit. (Default: pF) |
 | set_resistance_unit    | Ohm              | resistance unit. (Default: Ω) |
@@ -110,81 +110,49 @@ Once library and simulation configuration is complete, use `initialize` to set u
 ### Cell-specific Configuration Commands
 These commands define settings specific to a single cell. 
 
-Cell-specific commands typically show up in blocks that start with adding cell details and end with exporting characterization results for that cell.
+Cell-specific commands typically show up in blocks that initialize the cell and then add characterization parameters. After cells are added, they can be characterized using the `characterize` command.
 
-Cell command blocks should always start out with the `add_cell` or `add_flop` command. Use `add_cell` for combinational cells and `add_flop` with sequential cells. Unlike most other commands, `add_cell` and `add_flop` have several arguments.
+Cell command blocks should always start out with the `add_cell` or `add_flop` command. Use `add_cell` for combinational cells and `add_flop` with sequential cells. Unlike most other commands, `add_cell` and `add_flop` have several required arguments.
 
-Combinational cells and sequential cells requires different 
-**add command**. 
+#### `add_cell`
+This command should be on one line, e.g. `add_cell -n AND2X1 -i A B -o Y -f Y=A&B`
+| Command         | Argument example | Description |
+| --------------- | ---------------- | ----------- |
+| add_cell        |                  | Add a combinational cell to characterize |
+| -n cell_name    | -n HAX1          | Cell name in netlist |
+| -i inport       | -i A B           | List of input port names |
+| -o outport      | -o YC YS         | List of output port names |
+| -f verilog_func | -f YC=A&B YS=A^B | List of verilog functions describing how each output is determined from the inputs |
 
-(1) **add command** for combinational cells
+> Note: The `-f` argument only accepts verilog functions using &, ^, |, ~, !, and parentheses. Other operators are not currently supported.
 
-**add_cell** for combinational cells
-(**add_cell** command should be one-line)
-| Command | Argument example | Description |
-|:-----------|------------:|:------------|
-| add_cell |  | add cell for characterize | 
-| -n cell_name | -n NAND2X1 | cell name in netlist|
-| -l logic_def. | -l NAND2 | logic of target cell (\*) |
-| -i inport | -i A B | inport list |
-| -o outport | -o YB | outport list |
-| -f verilog_func| YB = !(A\|B) | verilog function | 
-
-Supported logic functions (as of Dec. 2021) are listed as follows:
-| Logic |  Description |
-| ----- | ------------ |
-| INV   | 1-input 1-output inverter | 
-| BUF   | 1-input 1-output inverter | 
-| AND2  | 2-input 1-output AND | 
-| AND3  | 3-input 1-output AND | 
-| AND4  | 4-input 1-output AND | 
-| OR2   | 2-input 1-output OR | 
-| OR3   | 3-input 1-output OR | 
-| OR4   | 4-input 1-output OR | 
-| NAND2 | 2-input 1-output NAND | 
-| NAND3 | 3-input 1-output NAND | 
-| NAND4 | 4-input 1-output NAND | 
-| NOR2  | 2-input 1-output NOR | 
-| NOR3  | 3-input 1-output NOR | 
-| NOR4  | 4-input 1-output NOR | 
-| XOR2  | 2-input 1-output XOR | 
-| XNOR2 | 2-input 1-output XNOR | 
-
-Other **add command**(s) for combinational cells
+Other **add** commands for combinational cells:
 | Command                 | Argument example     | Description |
 | ----------------------- | -------------------- | ----------- |
-| add_slope               | {1 4 16 64}          | slope index (unit in set_time_unit) |
-| add_load                | {1 4 16 64}          | slope index (unit in set_capacitance_unit) |
+| add_slope               | {1 4 16 64}          | input slew rates to test (unit in set_time_unit) |
+| add_load                | {1 4 16 64}          | output capacitive loads to test (unit in set_capacitance_unit) |
 | add_area                | 1                    | area (real val, no unit) |
 | add_netlist             | spice_dir/INVX1.spi  | location of netlist |
 | add_model               | spice_dir/model.sp   | location of model file (include simulation options) |
-| add_simulation_timestep | auto                 | simulation timestep. If **auto** is selected then simulator automatically define timestep from min. slope | 
+| add_simulation_timestep | auto                 | simulation timestep. If set to `auto`, the simulator will use 1/10th of the minimum input slew rate as the timestep. | 
 
-**characterize** and **export** commands
-| Command | Argument example | Description |
-|:-----------|------------:|:------------|
-| characterize | n/a | run characterization |
-| export| n/a | export data into .lib and .v| 
+#### `add_flop`
+Just like `add_cell`, the `add_flop` command should be on one line.
+| Command      | Argument example | Description |
+| ------------ | ---------------- |------------|
+| add_flop     |                  | Add a sequential cell to characterize |
+| -n cell_name | -n DFFSR         | Cell name in netlist|
+| -i inport    | -i DATA          | List of input port names |
+| -c clockport | -c CLK           | Clock port name |
+| -s setport   | -s SET           | Set port name (if present) |
+| -r resetport | -r RST           | Reset port name (if present) |
+| -o outport   | -o Q             | List of output port names |
+| -q storage   | -q IQ IQN        | List of storage element names |
+| -f func      | Q=IQ QN=IQN      | List of functions describing how each output relates to the inputs and storage elements |
 
-(2) **add command** for sequential cells
-**add_flop** for sequential cells
-(**add_flop** command should be one-line)
+Other **add** commands for sequential cells:
 | Command | Argument example | Description |
-|:-----------|------------:|:------------|
-| add_flop |  | add sequential cell for characterize | 
-| -n cell_name | -n DFFSR | cell name in netlist|
-| -l logic_def. | -l DFF_PCPU_NRNS | logic of target cell (\*) |
-| -i inport | -i DATA | inport |
-| -c clock port | -c CLK | clock port |
-| -s set inport | -s SET | set port (optional) |
-| -r reset inport | -r RST | reset port (optional) |
-| -o outport | -o Q | outport |
-| -q storage | -q IQ IQN | storage elements |
-| -f func| Q=IQ QN=IQN | operation function | 
-
-Other **add command**(s) for sequential cells
-| Command | Argument example | Description |
-|:-----------|------------:|:------------|
+|-----------|------------|------------|
 | add_slope | {1 4 16 64} | slope index (unit in set_time_unit) | 
 | add_load  | {1 4 16 64}  | slope index (unit in set_capacitance_unit) | 
 | add_area  | 1  | area (real val, no unit) | 
@@ -201,15 +169,14 @@ Other **add command**(s) for sequential cells
 | add_simulation_hold_highest | 16 | manually set highst time for hold simulation (real val, unit in set_time_unit) |
 | add_simulation_hold_timestep | 5 | manually set timestep for hold simulation (real val, unit in set_time_unit) |
 
-**characterize** and **export** commands
-| Command | Argument example | Description |
-|:-----------|------------:|:------------|
-| characterize | n/a | run characterization |
-| export| n/a | export data into .lib and .v| 
+#### `charaacterize` and `export`
+| Command      | Argument example | Description |
+| ------------ | ---------------- | ----------- |
+| characterize | AND2X1 OR2X1     | Run characterization for the specified cells, or all cells if no arguments are passed. |
+| export       | AND2X1 OR2X1     | Export characterization results for the specified cells, or all cells if no arguments are passed. |
 
-### exit
-use **exit** command to return into shell.
+### `exit`
 | Command | Argument example | Description |
-|:-----------|------------:|:------------|
-| exit | n/a | exit |
+| ------- | ---------------- | ----------- |
+| exit    | n/a              | Exit to the parent shell.|
 

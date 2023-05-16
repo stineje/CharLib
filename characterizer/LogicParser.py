@@ -108,35 +108,32 @@ def _parse(tokens: list) -> list:
                 raise ValueError(f'Failed to parse logic string "{"".join([str(t) for t in tokens])}". Parsing failed at position {position}')
             rule_sequence.append(rule)
     
-    # Now that we know the production rules, produce an AST in RPN format
-    reverse_polish_notation = ['O']
+    # Now that we know the production rules, produce an AST in prefix format
+    syntax_tree = []
     named_tokens = [n for n in tokens if n.type == T_OTHER]
     for rule in rule_sequence:
         if rule == 0:
-            reverse_polish_notation.extend(['O', '~'])
+            syntax_tree.extend(['O', '~'])
         elif rule == 1:
-            reverse_polish_notation.append('O')
+            syntax_tree.append('O')
         elif rule == 2:
-            reverse_polish_notation.extend(['O', named_tokens.pop(0).symbol])
+            syntax_tree.extend(['O', named_tokens.pop(0).symbol])
         elif rule == 3:
-            last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
-            reverse_polish_notation.pop(last_O_index)
-            reverse_polish_notation.insert(last_O_index+1, '&')
+            last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
+            syntax_tree.insert(last_O_index+1, '&')
         elif rule == 4:
-            last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
-            reverse_polish_notation.pop(last_O_index)
-            reverse_polish_notation.insert(last_O_index+1, '^')
+            last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
+            syntax_tree.insert(last_O_index+1, '^')
         elif rule == 5:
-            last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
-            reverse_polish_notation.pop(last_O_index)
-            reverse_polish_notation.insert(last_O_index+1, '|')
+            last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
+            syntax_tree.insert(last_O_index+1, '|')
         elif rule == 6:
             try:
-                last_O_index = -1 - [t for t in reversed(reverse_polish_notation)].index('O')
-                reverse_polish_notation.pop(last_O_index)
+                last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
+                syntax_tree.pop(last_O_index)
             except ValueError:
-                pass # We don't add O as aggressively in RPN generation, so it's ok if it isn't present
-    return reverse_polish_notation
+                pass # We don't add O as aggressively in tree generation, so it's ok if it isn't present
+    return syntax_tree
 
 def _lex(expression: str) -> list:
     """Convert a simple boolean logic expression into tokens"""
@@ -157,59 +154,66 @@ def _lex(expression: str) -> list:
     return tokens
 
 def parse_logic(expression: str) -> list:
-    """Parse a logic string and return the result in reverse polish notation.
+    """Parse a logic string and return the result in Polish prefix notation.
     
     This parser supports parentheses, NOT (~), AND (&), OR (|), and XOR (^) operations.
-    The return value is a list of tokens in reverse polish notation.
+    The return value is a list of tokens in Polish prefix notation.
 
     Note that this parser does not currently support operator precedence. If you want
     operations to happen in a particular order, make sure to use parentheses. 
     """
     return _parse(_lex(expression))
 
-def _resolve_unates(rpn: list):
-    op = rpn.pop(0)
+def _resolve_unates(syntax_tree: list, target: str):
+    op = syntax_tree.pop(0)
     if op == '~':
         unate_l = -1
         unate_r = None
     elif op == '&':
         unate_l = 1
         unate_r = 1
-    elif op == '|':
-        unate_l = -1
-        unate_r = -1
-    elif op == '^':
-        unate_l = 1
-        unate_r = -1
+    elif op == '|' or op == '^':
+        # can't determine these yet - have to check which side contains the target
+        unate_l = 0
+        unate_r = 0
     else:
-        return rpn, {op: 1} # Return symbol
+        return syntax_tree, {op: 1} # Return symbol
     # Resolve left side
-    rpn, unates = _resolve_unates(rpn)
+    syntax_tree, unates = _resolve_unates(syntax_tree, target)
+    # Check for target in left side
+    if unate_l == 0 and target in unates:
+        unate_l = 1
+    else:
+        unate_l = -1
     for k,u in unates.items():
         unates[k] = unate_l * u
     # Resolve right side
     if unate_r is not None:
-        rpn, unates_r = _resolve_unates(rpn)
+        syntax_tree, unates_r = _resolve_unates(syntax_tree, target)
+        # Check for target in right side
+        if unate_r == 0 and target in unates_r:
+            unate_r = 1
+        else:
+            unate_r = -1
         for k,u in unates_r.items():
             unates[k] = unate_r * u
-    return rpn, unates
+    return syntax_tree, unates
 
 def generate_test_vectors(expression: str, inputs: list) -> list:
-    rpn = parse_logic(expression)
-    _, unates = _resolve_unates(rpn)
-
-    # Make sure we don't have any unexpected ports
-    for k in unates.keys():
-        if k not in inputs:
-            raise ValueError(f'Unexpected port name {k} encountered during test vector generation')
-
-    # Generate test vectors from unates
+    # This method doesn't work correctly for some expressions, and will be revisited and fixed later.
     test_vectors = []
     for target_port in inputs:
         # Generate two test vectors for each input: one rising, one falling
         for state in ['01', '10']:
             input_vector = []
             for port in inputs:
+                # Get unates for each variable
+                _, unates = _resolve_unates(parse_logic(expression), target_port)
+                # Make sure we don't have any unexpected ports
+                for k in unates.keys():
+                    if k not in inputs:
+                        raise ValueError(f'Unexpected port name {k} encountered during test vector generation')
+                # Use unates to determine port states
                 if port is target_port:
                     input_vector.append(state)
                     output_state = state if unates[port] > 0 else state[::-1]
@@ -224,7 +228,7 @@ if __name__ == '__main__':
     assert parse_logic('~(A^B&C)') == ['~', '^', 'A', '&', 'B', 'C']
     assert parse_logic('_^B | potato') == ['^', '_', '|', 'B', 'potato']
     assert parse_logic('~~~~A') == ['~', '~', '~', '~', 'A']
-    assert parse_logic('~(A&~C) ^ B') == ['^', '~', '&', 'A', '~', 'C', 'B']
+    assert parse_logic('(~(A&~C)) ^ B') == ['^', '~', '&', 'A', '~', 'C', 'B']
     assert parse_logic('A&B&C&D&E&F&G&H&I&J&K') == ['&', 'A', '&', 'B', '&', 'C', '&', 'D', '&', 'E', '&', 'F', '&', 'G', '&', 'H', '&', 'I', '&', 'J', 'K']
     tokens = _lex('~&^|')
     assert tokens == [Token('~'), Token('&'), Token('^'), Token('|')]
@@ -234,4 +238,5 @@ if __name__ == '__main__':
     except ValueError:
         pass # Pass if we catch a ValueError
     assert parse_logic('b&a&a') == ['&', 'b', '&', 'a', 'a']
+    assert parse_logic('(C&(A^B))|(A&B)') == ['|','&','C','^','A','B','&','A','B']
     print(generate_test_vectors('~A', ['A']))

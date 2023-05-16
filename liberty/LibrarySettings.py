@@ -1,6 +1,6 @@
 from pathlib import Path
 from shutil import which
-from characterizer.UnitsSettings import UnitsSettings
+from liberty.UnitsSettings import UnitsSettings
 
 class NamedNode:
     def __init__(self, name, voltage = 0):

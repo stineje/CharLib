@@ -5,7 +5,7 @@ import argparse, os
 from pathlib import Path
 
 from characterizer.Characterizer import Characterizer
-from characterizer.ExportUtils import exportFiles, exitFiles
+from liberty.ExportUtils import exportFiles, exitFiles
 
 
 def main():
@@ -81,7 +81,8 @@ def execute_shell(characterizer: Characterizer):
 
 def execute_command(characterizer: Characterizer, command: str):
     (cmd, *args) = command.split()
-    characterizer.print_debug(f'Executing {command}')
+    if not command[0] == '#':
+        characterizer.print_debug(f'Executing {command}')
     
     # set command
     if cmd.startswith('set_'):
@@ -191,6 +192,8 @@ def execute_command(characterizer: Characterizer, command: str):
         elif cmd == 'add_flop':
             area = 0
             opts = ' '.join(args).strip().split('-')[1:] # Split on hyphen instead of space
+            set_pin = None
+            reset_pin = None
             for opt in opts:
                 if opt.startswith('n '):
                     name = opt[2:].strip()
@@ -219,7 +222,12 @@ def execute_command(characterizer: Characterizer, command: str):
                     function = opt[2:].strip()
                 else:
                     raise ValueError(f'Unrecognized option: -{opt}')
-            characterizer.add_flop(name, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, function, area)
+            kwargs = {}
+            if set_pin:
+                kwargs['set_pin'] = set_pin
+            if reset_pin:
+                kwargs['reset_pin'] = reset_pin
+            characterizer.add_flop(name, in_ports, out_ports, clock_pin, flops, function, area, **kwargs)
         elif cmd == 'add_slope':
             # Expected arg format: {1 2 ... N}
             for arg in args:
@@ -227,7 +235,7 @@ def execute_command(characterizer: Characterizer, command: str):
                     arg = arg.replace('{', '')
                 if '}' in arg:
                     arg = arg.replace('}', '')
-                characterizer.target_cell().add_in_slope(float(arg))
+                characterizer.target_cell().add_in_slew(float(arg))
         elif cmd == 'add_load':
             # Expected arg format: {1 2 ... N}
             for arg in args:
@@ -241,31 +249,31 @@ def execute_command(characterizer: Characterizer, command: str):
         elif cmd == 'add_netlist':
             characterizer.target_cell().netlist = args[0]
         elif(command.startswith('add_model')):
-            characterizer.target_cell().add_model(command)
+            characterizer.target_cell().model = args[0]
         elif(command.startswith('add_simulation_timestep')):
-            characterizer.target_cell().add_simulation_timestep(command)
+            characterizer.target_cell().sim_timestep = args[0]
         elif cmd == 'add_clock_slope':
             characterizer.target_cell().clock_slope = args[0]
         elif(command.startswith('add_simulation_setup_auto')):
-            characterizer.target_cell().add_simulation_setup_lowest('add_simulation_setup_lowest auto')
-            characterizer.target_cell().add_simulation_setup_highest('add_simulation_setup_highest auto')
-            characterizer.target_cell().add_simulation_setup_timestep('add_simulation_setup_timestep auto')
+            characterizer.target_cell().sim_setup_lowest = 'auto'
+            characterizer.target_cell().sim_setup_highest = 'auto'
+            characterizer.target_cell().sim_setup_timestep = 'auto'
         elif cmd == 'add_simulation_setup_lowest':
             characterizer.target_cell().sim_setup_lowest = args[0]
         elif(command.startswith('add_simulation_setup_highest')):
-            characterizer.target_cell().add_simulation_setup_highest(command)
+            characterizer.target_cell().simulation_setup = args[0]
         elif(command.startswith('add_simulation_setup_timestep')):
-            characterizer.target_cell().add_simulation_setup_timestep(command)
+            characterizer.target_cell().sim_setup_timestep = args[0]
         elif(command.startswith('add_simulation_hold_auto')):
-            characterizer.target_cell().add_simulation_hold_lowest('add_simulation_hold_lowest auto')
-            characterizer.target_cell().add_simulation_hold_highest('add_simulation_hold_highest auto')
-            characterizer.target_cell().add_simulation_hold_timestep('add_simulation_hold_timestep auto')
+            characterizer.target_cell().sim_hold_lowest = 'auto'
+            characterizer.target_cell().sim_hold_highest = 'auto'
+            characterizer.target_cell().sim_hold_timestep = 'auto'
         elif(command.startswith('add_simulation_hold_lowest')):
-            characterizer.target_cell().add_simulation_hold_lowest(command)
+            characterizer.target_cell().sim_hold_lowest = args[0]
         elif(command.startswith('add_simulation_hold_highest')):
-            characterizer.target_cell().add_simulation_hold_highest(command)
+            characterizer.target_cell().sim_hold_highest = args[0]
         elif(command.startswith('add_simulation_hold_timestep')):
-            characterizer.target_cell().add_simulation_hold_timestep(command)
+            characterizer.target_cell().sim_hold_timestep = args[0]
 
     # get command
     elif cmd.startswith('get_'):
@@ -293,13 +301,16 @@ def execute_command(characterizer: Characterizer, command: str):
     elif cmd == 'create' or cmd == 'initialize':
         characterizer.initialize_work_dir()
     elif(command.startswith('characterize')):
-        characterizer.characterize(characterizer.target_cell())
+        characterizer.characterize(*[cell for cell in characterizer.cells if cell.name in args])
         os.chdir("../")
 
     # export
     elif(command.startswith('export')):
-        exportFiles(characterizer.settings, characterizer.target_cell())
-        characterizer.num_files_generated += 1
+        # If called with no cell names passed, export all cells
+        cells = [cell for cell in characterizer.cells if cell.name in args]
+        for cell in cells if cells else characterizer.cells:
+            exportFiles(characterizer.settings, cell)
+            characterizer.num_files_generated += 1
 
     # exit
     elif cmd == 'quit' or cmd == 'exit':

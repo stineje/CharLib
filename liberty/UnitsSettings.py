@@ -12,6 +12,51 @@ class EngineeringUnit:
         if value is not None and len(value) > 0:
             self._symbol = value
 
+    def get_metric_prefix(self) -> str:
+        """Converts magnitude into a metric prefix"""
+        if self.magnitude == 1e30:
+            return 'Q'
+        elif self.magnitude == 1e27:
+            return 'R'
+        elif self.magnitude == 1e24:
+            return 'Y'
+        elif self.magnitude == 1e21:
+            return 'Z'
+        elif self.magnitude == 1e18:
+            return 'E'
+        elif self.magnitude == 1e15:
+            return 'P'
+        elif self.magnitude == 1e12:
+            return 'T'
+        elif self.magnitude == 1e9:
+            return 'G'
+        elif self.magnitude == 1e6:
+            return 'M'
+        elif self.magnitude == 1e3:
+            return 'k'
+        elif self.magnitude == 1e-3:
+            return 'm'
+        elif self.magnitude == 1e-6:
+            return 'u'
+        elif self.magnitude == 1e-9:
+            return 'n'
+        elif self.magnitude == 1e-12:
+            return 'p'
+        elif self.magnitude == 1e-15:
+            return 'f'
+        elif self.magnitude == 1e-18:
+            return 'a'
+        elif self.magnitude == 1e-21:
+            return 'z'
+        elif self.magnitude == 1e-24:
+            return 'y'
+        elif self.magnitude == 1e-27:
+            return 'r'
+        elif self.magnitude == 1e-30:
+            return 'q'
+        else:
+            return None
+
     @property
     def magnitude(self):
         return self._magnitude
@@ -73,48 +118,7 @@ class EngineeringUnit:
 
     def __str__(self) -> str:
         # Turn magnitude into a metric prefix
-        mag_repr = None
-        if self.magnitude == 1e30:
-            mag_repr = 'Q'
-        elif self.magnitude == 1e27:
-            mag_repr = 'R'
-        elif self.magnitude == 1e24:
-            mag_repr = 'Y'
-        elif self.magnitude == 1e21:
-            mag_repr = 'Z'
-        elif self.magnitude == 1e18:
-            mag_repr = 'E'
-        elif self.magnitude == 1e15:
-            mag_repr = 'P'
-        elif self.magnitude == 1e12:
-            mag_repr = 'T'
-        elif self.magnitude == 1e9:
-            mag_repr = 'G'
-        elif self.magnitude == 1e6:
-            mag_repr = 'M'
-        elif self.magnitude == 1e3:
-            mag_repr = 'k'
-        elif self.magnitude == 1e-3:
-            mag_repr = 'm'
-        elif self.magnitude == 1e-6:
-            mag_repr = 'u'
-        elif self.magnitude == 1e-9:
-            mag_repr = 'n'
-        elif self.magnitude == 1e-12:
-            mag_repr = 'p'
-        elif self.magnitude == 1e-15:
-            mag_repr = 'f'
-        elif self.magnitude == 1e-18:
-            mag_repr = 'a'
-        elif self.magnitude == 1e-21:
-            mag_repr = 'z'
-        elif self.magnitude == 1e-24:
-            mag_repr = 'y'
-        elif self.magnitude == 1e-27:
-            mag_repr = 'r'
-        elif self.magnitude == 1e-30:
-            mag_repr = 'q'
-
+        mag_repr = self.get_metric_prefix()
         if mag_repr is not None:
             return f'{mag_repr}{self.symbol}'
         elif self.magnitude == 1:

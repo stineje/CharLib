@@ -1,9 +1,7 @@
 import os, shutil
 
-from characterizer.LibrarySettings import LibrarySettings
-from characterizer.LogicCell import LogicCell, SequentialCell
-from characterizer.char_comb import runCombinational
-from characterizer.char_seq import *
+from liberty.LibrarySettings import LibrarySettings
+from liberty.LogicCell import LogicCell, CombinationalCell, SequentialCell
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""
@@ -20,7 +18,7 @@ class Characterizer:
             lines.append(f'    {line}')
         lines.append('Cells:')
         for cell in self.cells:
-            for line in str(cell):
+            for line in str(cell).split('\n'):
                 lines.append(f'    {line}')
         return '\n'.join(lines)
 
@@ -28,9 +26,9 @@ class Characterizer:
         """Get last cell"""
         return self.cells[-1]
 
-    def add_cell(self, name, in_ports, out_ports, function):
+    def add_cell(self, name, in_ports, out_ports, functions):
         # Create a new logic cell
-        self.cells.append(LogicCell(name, in_ports, out_ports, function))
+        self.cells.append(CombinationalCell(name, in_ports, out_ports, functions))
 
     def add_flop(self, name, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, functions):
         # Create a new sequential cell
@@ -43,23 +41,15 @@ class Characterizer:
                 shutil.rmtree(self.settings.work_dir)
             self.settings.work_dir.mkdir()
         else:
-            print("Save previous working directory and files")
+            print("Reusing previous working directory and files")
 
     def characterize(self, *cells):
         """Characterize the passed cells, or all cells if none are passed"""
         os.chdir(self.settings.work_dir)
 
         # If no target cells were given, characterize all cells
-        if not cells:
-            cells = self.cells
-
-        for cell in cells:
-            if isinstance(cell, SequentialCell):
-                pass # TODO: runSequential(self.settings, cell, cell.test_vectors)
-            elif isinstance(cell, LogicCell):
-                runCombinational(self.settings, cell, cell.test_vectors)
-            else:
-                raise ValueError(f'Unrecognized cell type: {type(cell)}')
+        for cell in cells if cells else self.cells:
+            cell.characterize(self.settings)
 
     def print_msg(self, message: str):
         if not self.settings.suppress_message:
