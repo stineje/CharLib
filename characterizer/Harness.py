@@ -83,13 +83,13 @@ class Harness:
         lines = []
         lines.append(f'Arc Under Test: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
         if self.stable_in_ports:
-            lines.append(f'Stable Input Ports:')
+            lines.append(f'    Stable Input Ports:')
             for port, state in zip(self.stable_in_ports, self.stable_in_port_states):
-                lines.append(f'    {port}: {state}')
+                lines.append(f'        {port}: {state}')
         if self.nontarget_out_ports:
-            lines.append(f'Nontarget Output Ports:')
+            lines.append(f'    Nontarget Output Ports:')
             for port, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
-                lines.append(f'    {port}: {state}')
+                lines.append(f'        {port}: {state}')
         # TODO: Display results if available
         return '\n'.join(lines)
 
@@ -237,8 +237,6 @@ class Harness:
         energy_delta = (e_end - e_start)
         avg_current = (i_vdd_leak + i_vss_leak) / 2
         internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current
-        print(f'charge: {min(abs(q_vss_dyn), abs(q_vdd_dyn))}')
-        print(f'e*i:    {energy_delta * avg_current}')
         return internal_charge * energy_meas_high_threshold_voltage /energy_unit.magnitude
 
     def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, e_unit: EngineeringUnit, i_unit: EngineeringUnit):

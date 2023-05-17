@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import argparse, os
+import argparse, os, yaml
 from pathlib import Path
 
 from characterizer.Characterizer import Characterizer
@@ -53,13 +53,24 @@ def execute_batch(characterizer: Characterizer, batchfile):
             execute_command(characterizer, line)
 
 def execute_lib(characterizer: Characterizer, library_dir):
-    """Parse a library of standard files, generate a cmd file, and characterize"""
+    """Parse a library of standard cells and characterize"""
 
-    # TODO: Find sc library
-    print("Searching for standard cells in " + str(library_dir))
+    print("Searching for YAML files in " + str(library_dir))
+    # Search for a YAML file with the required config information
+    config = None
+    for file in Path(library_dir).rglob('*.yml'):
+        try:
+            config = yaml.safe_load(open(file, 'r'))
+        except yaml.YAMLError:
+            print(f'The file "{str(file)}" contained invalid YAML')
+            continue
+        if config.keys() >= {'settings', 'cells'}:
+            break # We have found a YAML file with config information
+    if not config:
+        raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
 
-    # TODO: Read in settings.json (or whatever we decide to call it)
-    # and apply settings to characterizer
+    # TODO: Read in settings from a YAML file and apply settings to characterizer
+    print("Library parsing not yet implemented. Have a nice day!")
 
 def execute_shell(characterizer: Characterizer):
     """Enter CharLib shell"""

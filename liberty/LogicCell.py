@@ -57,7 +57,7 @@ class LogicCell:
         if self.harnesses:
             lines.append(f'Harnesses:')
             for harness in self.harnesses:
-                lines.append(f'    {str(harness)}')
+                [lines.append(f'    {h}') for h in str(harness).split('\n')]
         return '\n'.join(lines)
 
     def __repr__(self):

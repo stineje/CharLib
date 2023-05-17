@@ -55,7 +55,11 @@ add_netlist spice_temp/HAX1.sp
 add_model test/spice_osu350/model.sp
 add_simulation_timestep auto
 
+get_all
+
 characterize
 export
+
+get_all
 
 exit
