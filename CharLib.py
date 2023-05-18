@@ -5,6 +5,7 @@ import argparse, os, yaml
 from pathlib import Path
 
 from characterizer.Characterizer import Characterizer
+from liberty.LibrarySettings import LibrarySettings
 from liberty.ExportUtils import exportFiles, exitFiles
 
 
@@ -60,17 +61,58 @@ def execute_lib(characterizer: Characterizer, library_dir):
     config = None
     for file in Path(library_dir).rglob('*.yml'):
         try:
-            config = yaml.safe_load(open(file, 'r'))
+            with open(file, 'r') as f:
+                config = yaml.safe_load(f)
+                f.close()
         except yaml.YAMLError:
-            print(f'The file "{str(file)}" contained invalid YAML')
+            print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
         if config.keys() >= {'settings', 'cells'}:
             break # We have found a YAML file with config information
     if not config:
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
 
-    # TODO: Read in settings from a YAML file and apply settings to characterizer
-    print("Library parsing not yet implemented. Have a nice day!")
+    # Read in settings from a YAML file and apply settings to characterizer
+    characterizer.settings = LibrarySettings(**config['settings'])
+
+    # Read cells
+    for name, properties in config['cells'].items():
+        # If properties is a (name, filepath) pair, fetch cell config from YAML at filepath
+        if isinstance(properties, str):
+            # Search within library_dir for the specified file
+            for file in Path(library_dir).rglob(properties):
+                with open(file, 'r') as f:
+                    properties = yaml.safe_load(f)
+                    f.close()
+                    break # Quit searching after successfully reading a match
+
+        # Merge settings.cell_defaults into properties, keeping entries from properties
+        for key, value in characterizer.settings.cell_defaults.items():
+            if not key in properties.keys():
+                properties[key] = value
+
+        # Read config data for this cell
+        inputs = properties.pop('inputs')
+        outputs = properties.pop('outputs')
+        functions = properties.pop('functions')
+        clock = properties.pop('clock', None)
+        flops = properties.pop('flops', [])
+
+        # Add cells
+        if clock:
+            characterizer.add_flop(name, inputs, outputs, clock, flops, functions, **properties)
+        else:
+            characterizer.add_cell(name, inputs, outputs, functions, **properties)
+
+    print(str(characterizer))
+
+    # Initialize workspace & characterize
+    characterizer.initialize_work_dir()
+    characterizer.characterize()
+    for cell in characterizer.cells:
+        exportFiles(characterizer.settings, cell)
+        characterizer.num_files_generated += 1
+    exitFiles(characterizer.settings, characterizer.num_files_generated)
 
 def execute_shell(characterizer: Characterizer):
     """Enter CharLib shell"""
@@ -313,7 +355,6 @@ def execute_command(characterizer: Characterizer, command: str):
         characterizer.initialize_work_dir()
     elif(command.startswith('characterize')):
         characterizer.characterize(*[cell for cell in characterizer.cells if cell.name in args])
-        os.chdir("../")
 
     # export
     elif(command.startswith('export')):

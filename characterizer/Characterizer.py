@@ -26,13 +26,13 @@ class Characterizer:
         """Get last cell"""
         return self.cells[-1]
 
-    def add_cell(self, name, in_ports, out_ports, functions):
+    def add_cell(self, name, in_ports, out_ports, functions, **kwargs):
         # Create a new logic cell
-        self.cells.append(CombinationalCell(name, in_ports, out_ports, functions))
+        self.cells.append(CombinationalCell(name, in_ports, out_ports, functions, **kwargs))
 
-    def add_flop(self, name, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, functions):
+    def add_flop(self, name, in_ports, out_ports, clock_pin, flops, functions, **kwargs):
         # Create a new sequential cell
-        self.cells.append(SequentialCell(name, in_ports, out_ports, clock_pin, set_pin, reset_pin, flops, functions))
+        self.cells.append(SequentialCell(name, in_ports, out_ports, clock_pin, flops, functions, **kwargs))
 
     def initialize_work_dir(self):
         if self.settings.run_sim:
@@ -45,7 +45,6 @@ class Characterizer:
 
     def characterize(self, *cells):
         """Characterize the passed cells, or all cells if none are passed"""
-        os.chdir(self.settings.work_dir)
 
         # If no target cells were given, characterize all cells
         for cell in cells if cells else self.cells:

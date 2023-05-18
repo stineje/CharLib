@@ -5,27 +5,29 @@ settings:
     work_dir:           work
     export_lib:         yes
     export_cmd:         no
+    run_simulation:     yes
     multithreaded:      yes
     units:
         voltage:        V
         capacitance:    pF
-        resistance:     Ohm
-        current:        mA
-        leakage_power:  pW
+        resistance:     kOhm
+        current:        uA
+        leakage_power:  nW
         energy:         fJ
         time:           ns
-    vdd:
-        name:           VDD
-        voltage:        3.3
-    vss:
-        name:           VSS
-        voltage:        0
-    pwell:
-        name:           VPW
-        voltage:        0
-    nwell:
-        name:           VNW
-        voltage:        3.3
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       GND
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
     logic_thresholds:
         low:            0.2 # 20% of VDD
         high:           0.8 # 80% of VDD
@@ -35,13 +37,22 @@ settings:
         low_threshold:  0.01
         high_threshold: 0.99
         time_extent:    10
+    operating_conditions:   typical
+    temperature:            25.0
     cell_defaults:
-        model:                  test/spice_osu350/model.sp
-        slopes:                 [0.015, 0.04, 0.08, 0.2, 0.4]
-        loads:                  [0.06, 0.18, 0.42, 0.6, 1.2]
-        simulation_timestep:    auto
+        model: test/spice_osu350/model.sp
+        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        simulation_timestep: auto
 cells:
-    - FAX1:
+    INVX1:
+        netlist:    spice_temp/INVX1.sp
+        area:       128
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:
+            - Y=~A
+    FAX1:
         netlist:    spice_temp/FAX1.sp
         area:       480
         inputs:     [A, B, C]
@@ -49,7 +60,7 @@ cells:
         functions:
             - YC=(A&B)|(C&(A^B))
             - YS=A^B^C
-    - HAX1:
+    HAX1:
         netlist:    spice_temp/HAX1.sp
         area:       320
         inputs:     [A, B]
