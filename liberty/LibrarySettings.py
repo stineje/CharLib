@@ -1,26 +1,17 @@
 from pathlib import Path
-from characterizer.UnitsSettings import UnitsSettings
+from shutil import which
+from liberty.UnitsSettings import UnitsSettings
 
 class NamedNode:
-    def __init__(self, name = None, voltage = None):
-        self._name = name
-        self._voltage = voltage
+    def __init__(self, name, voltage = 0):
+        self.name = name
+        self.voltage = voltage
 
-    @property
-    def name(self) -> str:
-        return self._name
-    
-    @name.setter
-    def name(self, name: str):
-        self._name = name
+    def __str__(self) -> str:
+        return f'Name: {self.name}\nVoltage: {self.voltage}'
 
-    @property
-    def voltage(self) -> float:
-        return self._voltage
-    
-    @voltage.setter
-    def voltage(self, voltage: float):
-        self._voltage = voltage
+    def __repr__(self) -> str:
+        return f'NamedNode({self.name}, {self.voltage})'
 
     def normalized_voltage(self, units_settings: UnitsSettings) -> float:
         """Returns the voltage after converting from global units to V"""
@@ -28,50 +19,98 @@ class NamedNode:
 
 
 def str_to_bool(value: str) -> bool:
-    if value.lower() in ['true', 't', '1']:
+    if value.lower() in ['true', 't', '1', 'yes']:
         return True
-    elif value.lower() in ['false', 'f', '0']:
+    elif value.lower() in ['false', 'f', '0', 'no']:
         return False
     else:
         raise ValueError(f'Unable to convert "{value}" to bool.')
 
 
 class LibrarySettings:
-    def __init__(self):
-        # Simulator Configuration
-        self._work_dir = Path('work')
-        self._simulator = Path('/usr/bin/ngspice')
-
+    def __init__(self, **kwargs):
         # Key Library settings
-        self._lib_name = None
-        self._dotlib_name = None
-        self._verilog_name = None
-        self._process = None
-        self._temperature = None
-        self._cell_name_suffix = None
-        self._cell_name_prefix = None
-        self.units = UnitsSettings()
-        self.vdd = NamedNode('VDD')
-        self.vss = NamedNode('VSS')
-        self.pwell = NamedNode('VPW')
-        self.nwell = NamedNode('VNW')
-        self._logic_threshold_low = 0.2
-        self._logic_threshold_high = 0.8
-        self._logic_high_to_low_threshold = 0.5
-        self._logic_low_to_high_threshold = 0.5
-        self._energy_meas_low_threshold = 0.01
-        self._energy_meas_high_threshold = 0.99
-        self._energy_meas_time_extent = 10
-        self._operating_conditions = None
-        self._delay_model = "table_lookup"
-        self._run_sim = True
-        self._mt_sim = True
+        self._lib_name = kwargs.get('lib_name', 'unnamed_lib')
+        self._dotlib_name = kwargs.get('dotlib_name')
+        self._verilog_name = kwargs.get('verilog_name')
+        self._cell_name_suffix = kwargs.get('cell_name_suffix', '')
+        self._cell_name_prefix = kwargs.get('cell_name_prefix', '')
+        self.units = UnitsSettings(**kwargs.get('units', {}))
 
-        # Behavioral settings
-        self._is_exported = False # whether the library settings have been exported
+        # Simulator Settings
+        self._simulator = Path(kwargs.get('simulator', which('ngspice')))
+        self._work_dir = Path(kwargs.get('work_dir', 'work'))
+        self._results_dir = Path(kwargs.get('results_dir', 'results'))
+        self._run_sim = kwargs.get('run_simulation', True)
+        self._use_multithreaded = kwargs.get('multithreaded', True)
+        self._is_exported = False
+
+        named_nodes = kwargs.get('named_nodes', {})
+        self.vdd = NamedNode(**named_nodes.get('vdd', {'name':'VDD'}))
+        self.vss = NamedNode(**named_nodes.get('vss', {'name':'VSS'}))
+        self.pwell = NamedNode(**named_nodes.get('pwell', {'name':'VPW'}))
+        self.nwell = NamedNode(**named_nodes.get('nwell', {'name':'VNW'}))
+
+        logic_thresholds = kwargs.get('logic_thresholds', {})
+        self._logic_threshold_low = logic_thresholds.get('low', 0.2)
+        self._logic_threshold_high = logic_thresholds.get('high', 0.8)
+        self._logic_high_to_low_threshold = logic_thresholds.get('high_to_low', 0.5)
+        self._logic_low_to_high_threshold = logic_thresholds.get('low_to_high', 0.5)
+
+        energy_measurement = kwargs.get('energy_measurement', {})
+        self._energy_meas_low_threshold = energy_measurement.get('low_threshold', 0.01)
+        self._energy_meas_high_threshold = energy_measurement.get('high_threshold', 0.99)
+        self._energy_meas_time_extent = energy_measurement.get('time_extent', 10)
+
+        self._process = kwargs.get('process')
+        self._temperature = kwargs.get('temperature', 25)
+        self._operating_conditions = kwargs.get('operating_conditions')
+        self._delay_model = kwargs.get('delay_model', 'table_lookup')
+        self.cell_defaults = kwargs.get('cell_defaults', {})
+
+        # TODO: Deprecate these settings
         self._suppress_msg = False
         self._suppress_sim_msg = False
         self._suppress_debug_msg = False
+
+    def __str__(self) -> str:
+        lines = []
+        lines.append(f'Library name:         {self.lib_name}')
+        lines.append(f'.lib name:            {self.dotlib_name}')
+        lines.append(f'.v name:              {self.verilog_name}')
+        lines.append(f'Cell suffix:          {self.cell_name_suffix}')
+        lines.append(f'Cell prefix:          {self.cell_name_prefix}')
+        lines.append(f'Units: ')
+        for line in str(self.units).split('\n'):
+            lines.append(f'    {line}')
+        lines.append(f'Simulator:            {str(self.simulator)}')
+        lines.append(f'Work directory:       {str(self.work_dir)}')
+        lines.append(f'Process:              {self.process}')
+        lines.append(f'Temperature:          {str(self.temperature)}')
+        lines.append(f'vdd:')
+        for line in str(self.vdd).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        for line in str(self.vss).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        for line in str(self.pwell).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        for line in str(self.nwell).split('\n'):
+            line = line if not 'Voltage: ' in line else f'{line} {str(self.units.voltage)}'
+            lines.append(line)
+        lines.append(f'Logic thresholds:')
+        lines.append(f'    Low:              {str(self.logic_threshold_low_voltage())} {str(self.units.voltage)}')
+        lines.append(f'    High:             {str(self.logic_threshold_high_voltage())} {str(self.units.voltage)}')
+        lines.append(f'    High to low:      {str(self.logic_high_to_low_threshold_voltage())} {str(self.units.voltage)}')
+        lines.append(f'    Low to high:      {str(self.logic_low_to_high_threshold_voltage())} {str(self.units.voltage)}')
+        lines.append(f'Energy measurement thresholds:')
+        lines.append(f'    Low:              {str(self.energy_meas_low_threshold_voltage())} {str(self.units.voltage)}')
+        lines.append(f'    High:             {str(self.energy_meas_high_threshold_voltage())} {str(self.units.voltage)}')
+        lines.append(f'Operating conditions: {self.operating_conditions}')
+        lines.append(f'Delay model:          {self.delay_model}')
+        return '\n'.join(lines)
 
     @property
     def work_dir(self) -> Path:
@@ -130,7 +169,9 @@ class LibrarySettings:
     @dotlib_name.setter
     def dotlib_name(self, value: str):
         if value is not None and len(value) > 0:
-            self._dotlib_name = value
+            if not str(value).endswith('.lib'):
+                raise ValueError(f'Dotlib name must end in .lib!')
+            self._dotlib_name = str(value)
         else:
             raise ValueError(f'Invalid value for dotlib_name: {value}')
 
@@ -144,7 +185,9 @@ class LibrarySettings:
     @verilog_name.setter
     def verilog_name(self, value: str):
         if value is not None and len(value) > 0:
-            self._verilog_name = value
+            if not str(value).endswith('.v'):
+                raise ValueError(f'Verilog name must end in .v!')
+            self._verilog_name = str(value)
         else:
             raise ValueError(f'Invalid value for verilog_name: {value}')
 
@@ -326,20 +369,20 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for run_sim: {value}')
 
     @property
-    def mt_sim(self) -> bool:
-        return self._mt_sim
+    def use_multithreaded(self) -> bool:
+        return self._use_multithreaded
 
-    @mt_sim.setter
-    def mt_sim(self, value):
+    @use_multithreaded.setter
+    def use_multithreaded(self, value):
         if value is not None:
             if isinstance(value, str):
-                self._mt_sim = str_to_bool(value)
+                self._use_multithreaded = str_to_bool(value)
             elif isinstance(value, bool):
-                self._mt_sim = value
+                self._use_multithreaded = value
             else:
-                raise TypeError(f'Invalid type for mt_sim: {type(value)}')
+                raise TypeError(f'Invalid type for use_multithreaded: {type(value)}')
         else:
-            raise ValueError(f'Invalid value for mt_sim: {value}')
+            raise ValueError(f'Invalid value for use_multithreaded: {value}')
     
     @property
     def is_exported(self) -> bool:
@@ -371,15 +414,3 @@ class LibrarySettings:
     @suppress_debug_message.setter
     def suppress_debug_message(self, value: str):
         self._suppress_debug_msg = str_to_bool(value)
-
-    def print_msg(self, message=""):
-        if not self.suppress_message:
-            print(message)
-    
-    def print_msg_sim(self, message=""):
-        if not self.suppress_sim_message:
-            print(message)
-    
-    def print_msg_dbg(self,  message=""):
-        if not self.suppress_debug_message:
-            print(message)
