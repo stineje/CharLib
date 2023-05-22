@@ -40,20 +40,20 @@ settings:
     operating_conditions:   typical
     temperature:            25.0
     cell_defaults:
-        model: test/spice_osu350/model.sp
+        model: test/osu350/model.sp
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         simulation_timestep: auto
 cells:
     INVX1:
-        netlist:    spice_temp/INVX1.sp
+        netlist:    osu350_spice_temp/INVX1.sp
         area:       128
         inputs:     [A]
         outputs:    ['Y']
         functions:
             - Y=~A
     FAX1:
-        netlist:    spice_temp/FAX1.sp
+        netlist:    osu350_spice_temp/FAX1.sp
         area:       480
         inputs:     [A, B, C]
         outputs:    [YC, YS]
@@ -61,7 +61,7 @@ cells:
             - YC=(A&B)|(C&(A^B))
             - YS=A^B^C
     HAX1:
-        netlist:    spice_temp/HAX1.sp
+        netlist:    osu350_spice_temp/HAX1.sp
         area:       320
         inputs:     [A, B]
         outputs:    [YC, YS]

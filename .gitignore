@@ -1,6 +1,6 @@
 # Ignored directories
 __pycache__
-spice_*
+*_temp
 work
 
 # Ignored files

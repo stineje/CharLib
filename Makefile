@@ -8,16 +8,16 @@ setup:
 gencmd: setup
 	python3 gen_cmd.py
 
-osu350:	CharLib.py test/spice_osu350/OSU350.cmd
-	$(shell test/spice_osu350/fetch_spice.sh)
-	python3 CharLib.py -b test/spice_osu350/OSU350.cmd
+osu350:	CharLib.py test/osu350/OSU350.cmd
+	$(shell test/osu350/fetch_spice.sh)
+	python3 CharLib.py -b test/osu350/OSU350.cmd
 
-osu350_lib: CharLib.py test/spice_osu350/osu350.yml
-	$(shell test/spice_osu350/fetch_spice.sh)
-	python3 CharLib.py -l test/spice_osu350
+osu350_lib: CharLib.py test/osu350/osu350.yml
+	$(shell test/osu350/fetch_spice.sh)
+	python3 CharLib.py -l test/osu350
 
-gf180mcu: setup CharLib.py test/spice_gf180mcu/gf180mcu.cmd
-	python3 CharLib.py -b test/spice_gf180mcu/gf180mcu.cmd
+gf180: CharLib.py
+	$(shell test/gf180/fetch_spice.sh)
 
 clean:
 	rm -rf __pycache__

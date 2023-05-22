@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TARGET_DIR='spice_temp'
+TARGET_DIR='osu350_spice_temp'
 SOURCE='https://vlsiarch.ecen.okstate.edu/flows/MOSIS_SCMOS/latest/cadence/lib/ami035/signalstorm/osu035_stdcells.sp'
 TEMP_SP_FILENAME='osu035_stdcells.sp.temp'
 
