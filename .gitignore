@@ -3,7 +3,8 @@ __pycache__
 spice_*
 work
 
-# Ignored file types
+# Ignored files
+b3v3_1check.log
 *.cmd
 *.lib
 *.txt
