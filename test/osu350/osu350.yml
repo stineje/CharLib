@@ -1,0 +1,70 @@
+settings:
+    lib_name:           OSU350
+    cell_name_prefix:   _V1
+    cell_name_suffix:   OSU350_
+    work_dir:           work
+    export_lib:         yes
+    export_cmd:         no
+    run_simulation:     yes
+    multithreaded:      yes
+    units:
+        voltage:        V
+        capacitance:    pF
+        resistance:     kOhm
+        current:        uA
+        leakage_power:  nW
+        energy:         fJ
+        time:           ns
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       GND
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
+    logic_thresholds:
+        low:            0.2 # 20% of VDD
+        high:           0.8 # 80% of VDD
+        high_to_low:    0.5
+        low_to_high:    0.5
+    energy_measurement:
+        low_threshold:  0.01
+        high_threshold: 0.99
+        time_extent:    10
+    operating_conditions:   typical
+    temperature:            25.0
+    cell_defaults:
+        model: test/osu350/model.sp
+        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        simulation_timestep: auto
+cells:
+    INVX1:
+        netlist:    osu350_spice_temp/INVX1.sp
+        area:       128
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:
+            - Y=~A
+    FAX1:
+        netlist:    osu350_spice_temp/FAX1.sp
+        area:       480
+        inputs:     [A, B, C]
+        outputs:    [YC, YS]
+        functions:
+            - YC=(A&B)|(C&(A^B))
+            - YS=A^B^C
+    HAX1:
+        netlist:    osu350_spice_temp/HAX1.sp
+        area:       320
+        inputs:     [A, B]
+        outputs:    [YC, YS]
+        functions:
+            - YC=A&B
+            - YS=A^B

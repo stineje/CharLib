@@ -7,57 +7,56 @@ from characterizer.Harness import CombinationalHarness, SequentialHarness, filte
 from characterizer.LogicParser import parse_logic
 
 class LogicCell:
-    def __init__ (self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
+    def __init__ (self, name: str, in_ports: list, out_ports: list, functions: str, **kwargs):
         self.name = name            # cell name
         self.in_ports = in_ports    # input pin names
         self.out_ports = out_ports  # output pin names
         self.functions = functions  # cell functions
 
         # Documentation
-        self.area = area        # cell area
+        self.area = kwargs.get('area', 0) # cell area
 
         # Characterization settings
-        self._netlist = None    # cell netlist
-        self._model = None      # cell model definition
-        self._definition = None # cell definition (from netlist)
-        self._instance = None   # cell instance name
-        self._in_slews = []     # input pin slew rates for characterization
-        self._out_loads = []    # output pin capacitance loads for characterization
-        self._sim_timestep = 0  # simulation timestep
-
-        # From characterization results
-        self.harnesses = []     # list of lists of harnesses indexed by in_slews and out_loads
+        self.harnesses = [] # list of lists of harnesses indexed by in_slews and out_loads
+        self._netlist = kwargs.get('netlist')               # Cell spice netlist
+        self._model = kwargs.get('model')                   # cell transistor models
+        self._in_slews = kwargs.get('slews', [])            # input pin slew rates
+        self._out_loads = kwargs.get('loads', [])           # output pin capacitive loads
+        self._sim_timestep = 0
+        if 'simulation_timestep' in kwargs.keys():
+            self.sim_timestep = kwargs['simulation_timestep']
+        self.stored_test_vectors = kwargs.get('test_vectors')
 
         # Behavioral settings
         self._is_exported = False   # whether the cell has been exported
 
     def __str__(self) -> str:
         lines = []
-        lines.append(f'Cell name:           {self.name}')
-        lines.append(f'Inputs:              {", ".join(self.in_ports)}')
-        lines.append(f'Outputs:             {", ".join(self.out_ports)}')
-        lines.append(f'Functions:')
+        lines.append(self.name)
+        lines.append(f'    Inputs:              {", ".join(self.in_ports)}')
+        lines.append(f'    Outputs:             {", ".join(self.out_ports)}')
+        lines.append(f'    Functions:')
         for p,f in zip(self.out_ports,self.functions):
             lines.append(f'    {p}={f}')
         if self.area:
-            lines.append(f'Area:                {str(self.area)}')
+            lines.append(f'    Area:                {str(self.area)}')
         if self.netlist:
-            lines.append(f'Netlist:             {str(self.netlist)}')
-            lines.append(f'Definition:          {self.definition.rstrip()}')
-            lines.append(f'Instance:            {self.instance}')
+            lines.append(f'    Netlist:             {str(self.netlist)}')
+            lines.append(f'    Definition:          {self.definition.rstrip()}')
+            lines.append(f'    Instance:            {self.instance}')
         if self.in_slews:
-            lines.append(f'Input pin simulation slopes:')
+            lines.append(f'    Input pin simulation slopes:')
             for slope in self.in_slews:
-                lines.append(f'    {str(slope)}')
+                lines.append(f'        {str(slope)}')
         if self.out_loads:
-            lines.append(f'Output pin simulation loads:')
+            lines.append(f'    Output pin simulation loads:')
             for load in self.out_loads:
-                lines.append(f'    {str(load)}')
-        lines.append(f'Simulation timestep: {str(self.sim_timestep)}')
+                lines.append(f'        {str(load)}')
+        lines.append(f'    Simulation timestep: {str(self.sim_timestep)}')
         if self.harnesses:
-            lines.append(f'Harnesses:')
+            lines.append(f'    Harnesses:')
             for harness in self.harnesses:
-                lines.append(f'    {str(harness)}')
+                [lines.append(f'        {h}') for h in str(harness).split('\n')]
         return '\n'.join(lines)
 
     def __repr__(self):
@@ -114,11 +113,9 @@ class LogicCell:
     @functions.setter
     def functions(self, value):
         if isinstance(value, list):
-            self._functions = value
-        elif isinstance(value, str) and '=' in value:
-            # Should be in the format "Y=expr1 Y=expr2"
+            # Should be in the format ['Y=expr1', 'Z=expr2']
             expressions = []
-            for f in value.split():
+            for f in value:
                 if '=' in f:
                     expr = f.split('=')[1:] # Discard LHS of equation
                     if parse_logic(''.join(expr)): # Make sure the expression is verilog
@@ -126,6 +123,8 @@ class LogicCell:
                 else:
                     raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{value}"')
             self._functions = expressions
+        elif isinstance(value, str) and '=' in value:
+            self.functions = value.split() # Split on space and recurse to use the list setter
         else:
             raise TypeError(f'Invalid type for cell functions: {type(value)}')
 
@@ -175,46 +174,24 @@ class LogicCell:
             self._netlist = Path(value)
         else:
             raise TypeError(f'Invalid type for netlist: {type(value)}')
-        # netlist is now set - update definition
-        with open(self.netlist, 'r') as netfile:
-            for line in netfile:
-                if self.name.lower() in line.lower() and '.subckt' in line.lower():
-                    self.definition = line
-            netfile.close()
-        if self.definition is None:
-            raise ValueError(f'No cell definition found in netlist {value}')
 
     @property
     def definition(self) -> str:
-        return self._definition
-
-    @definition.setter
-    def definition(self, value: str):
-        if isinstance(value, str):
-            if self.name.lower() not in value.lower():
-                raise ValueError(f'Cell name not found in cell definition: {value}')
-            elif '.subckt' not in value.lower():
-                raise ValueError(f'".subckt" not found in cell definition: {value}')
-            else:
-                self._definition = value
-                # definition is now set - update instance
-                circuit_call = value.split()[1:]            # Delete .subckt
-                circuit_call.append(circuit_call.pop(0))    # Move circuit name to last element
-                circuit_call.insert(0, 'XDUT')              # Insert instance name
-                self.instance = ' '.join(circuit_call)
-        else:
-            raise TypeError(f'Invalid type for cell definition: {type(value)}')
+        with open(self.netlist, 'r') as f:
+            for line in f:
+                if self.name.lower() in line.lower() and 'subckt' in line.lower():
+                    f.close()
+                    return line
+            # If we reach this line before returning, the netlist file doesn't contain a circuit definition
+            f.close()
+            raise ValueError(f'No cell definition found in netlist {self.netlist}')
 
     @property
     def instance(self) -> str:
-        return self._instance
-
-    @instance.setter
-    def instance(self, value: str):
-        if isinstance(value, str):
-            self._instance = value
-        else:
-            raise TypeError(f'Invalid type for instance: {type(value)}')
+        instance = self.definition.split()[1:]  # Delete .subckt
+        instance.append(instance.pop(0))    # Move circuit name to last element
+        instance.insert(0, 'XDUT')              # Insert instance name
+        return ' '.join(instance)
 
     @property
     def in_slews(self) -> list:
@@ -270,7 +247,7 @@ class LogicCell:
     @property
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
-        # TODO: Determine whether this will actually work for sequential cells, or only logical cells
+        # TODO: Determine whether this will actually work for sequential cells, or only combinational cells
         # 
         # Note that this uses "brute force" methods to determine test vectors. It also tests far
         # more vectors than necessary, lengthening simulation times.
@@ -285,35 +262,38 @@ class LogicCell:
         # Revisiting this again: While we can't know critical paths from the information given, we
         # could provide tools to let users tell us which conditions reveal the critical path.
         # Consider adding an option to let users provide critical path nonmasking conditions.
-        test_vectors = []
-        values = self._gen_graycode(len(self.in_ports))
-        for out_index in range(len(self.out_ports)):
-            # Assemble a callable function corresponding to this output port's function
-            f = eval(f'lambda {",".join(self.in_ports)} : int({self.functions[out_index].replace("~", "not ")})')
-            for j in range(len(values)):
-                # Evaluate f at the last two values and see if the output changes
-                x0 = values[j-1]
-                x1 = values[j]
-                y0 = f(*x0)
-                y1 = f(*x1)
-                if not y1 == y0:
-                    # If the output differs, we can use these two vectors to test the input at the index where they differ
-                    in_index = [k for k in range(len(x1)) if x0[k] != x1[k]][0] # If there is more than 1 element here, we have a problem with our gray coding
-                    # Add two test vectors: one for rising and one for falling
-                    # Generate the first test vector
-                    test_vector = [str(e) for e in x1]
-                    test_vector[in_index] = f'{x0[in_index]}{x1[in_index]}'
-                    for n in range(len(self.out_ports)):
-                        test_vector.append(f'{y0}{y1}' if n == out_index else '0')
-                    test_vectors.append(test_vector)
-                    # Generate the second test vector
-                    test_vector = [str(e) for e in x0]
-                    test_vector[in_index] = f'{x1[in_index]}{x0[in_index]}'
-                    for n in range(len(self.out_ports)):
-                        test_vector.append(f'{y1}{y0}' if n == out_index else '0')
-                    test_vectors.append(test_vector)
-        [print(t) for t in test_vectors]
-        return test_vectors
+        if self.stored_test_vectors:
+            return self.stored_test_vectors
+        else:
+            test_vectors = []
+            values = self._gen_graycode(len(self.in_ports))
+            for out_index in range(len(self.out_ports)):
+                # Assemble a callable function corresponding to this output port's function
+                f = eval(f'lambda {",".join(self.in_ports)} : int({self.functions[out_index].replace("~", "not ")})')
+                for j in range(len(values)):
+                    # Evaluate f at the last two values and see if the output changes
+                    x0 = values[j-1]
+                    x1 = values[j]
+                    y0 = f(*x0)
+                    y1 = f(*x1)
+                    if not y1 == y0:
+                        # If the output differs, we can use these two vectors to test the input at the index where they differ
+                        in_index = [k for k in range(len(x1)) if x0[k] != x1[k]][0] # If there is more than 1 element here, we have a problem with our gray coding
+                        # Add two test vectors: one for rising and one for falling
+                        # Generate the first test vector
+                        test_vector = [str(e) for e in x1]
+                        test_vector[in_index] = f'{x0[in_index]}{x1[in_index]}'
+                        for n in range(len(self.out_ports)):
+                            test_vector.append(f'{y0}{y1}' if n == out_index else '0')
+                        test_vectors.append(test_vector)
+                        # Generate the second test vector
+                        test_vector = [str(e) for e in x0]
+                        test_vector[in_index] = f'{x1[in_index]}{x0[in_index]}'
+                        for n in range(len(self.out_ports)):
+                            test_vector.append(f'{y1}{y0}' if n == out_index else '0')
+                        test_vectors.append(test_vector)
+            [print(t) for t in test_vectors]
+            return test_vectors
 
     def get_input_capacitance(self, in_port, vdd_voltage, capacitance_unit):
         """Average input capacitance measured by all harnesses that target this input port"""
@@ -328,8 +308,8 @@ class LogicCell:
         return input_capacitance / n
 
 class CombinationalCell(LogicCell):
-    def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, area: float = 0):
-        super().__init__(name, in_ports, out_ports, functions, area)
+    def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, **kwargs):
+        super().__init__(name, in_ports, out_ports, functions, **kwargs)
 
     def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
@@ -339,7 +319,7 @@ class CombinationalCell(LogicCell):
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
             # Determine spice filename prefix
-            spice_prefix = f'delay_{self.name}_{harness.spice_infix()}'
+            spice_prefix = f'{settings.work_dir}/delay_{self.name}_{harness.spice_infix()}'
             # Run delay characterization
             if settings.use_multithreaded:
                 # Split simulation jobs into threads and run multiple simultaneously
@@ -446,25 +426,35 @@ class CombinationalCell(LogicCell):
         return '\n'.join(cell_lib)
 
 class SequentialCell(LogicCell):
-    def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, flops: str, function: str, area: float = 0, **kwargs):
-        super().__init__(name, in_ports, out_ports, function, area)
-        self._set = None    # Default to not present
-        self._reset = None  # Default to not present
-        if 'set_pin' in kwargs:
-            self.set = kwargs['set_pin']
-        if 'reset_pin' in kwargs:
-            self.reset = kwargs['reset_pin']
-        self.clock = clock_pin  # clock pin name
-        self.flops = flops      # registers
-        self._clock_slew = 0    # input pin clock slope
+    def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, flops: str, function: str, **kwargs):
+        super().__init__(name, in_ports, out_ports, function, **kwargs)
+        self.set = kwargs.get('set_pin')        # set pin name
+        self.reset = kwargs.get('reset_pin')    # reset pin name
+        self.clock = clock_pin                  # clock pin name
+        self.flops = flops                      # registers
+        
+        self._clock_slew = 0
+        if 'clock_slew' in kwargs.keys():
+            self.clock_slew = kwargs['clock_slew']
 
-        # Characterization settings
-        self._sim_setup_lowest = 0   ## fastest simulation edge (pos. val.) 
-        self._sim_setup_highest = 0  ## lowest simulation edge (pos. val.) 
-        self._sim_setup_timestep = 0 ## timestep for setup search (pos. val.) 
-        self._sim_hold_lowest = 0    ## fastest simulation edge (pos. val.) 
-        self._sim_hold_highest = 0   ## lowest simulation edge (pos. val.) 
-        self._sim_hold_timestep = 0  ## timestep for hold search (pos. val.) 
+        self._sim_setup_highest = 0
+        self._sim_setup_lowest = 0
+        self._sim_setup_timestep = 0
+        self._sim_hold_highest = 0
+        self._sim_hold_lowest = 0
+        self._sim_hold_timestep = 0
+        if 'simulation' in kwargs.keys():
+            sim = kwargs['simulation']
+            if 'setup' in sim.keys():
+                setup = sim['setup']
+                self.sim_setup_highest = setup.get('highest')
+                self.sim_setup_lowest = setup.get('lowest')
+                self.sim_setup_timestep = setup.get('timestep')
+            if 'hold' in sim.keys():
+                hold = sim['hold']
+                self.sim_hold_highest = hold.get('highest')
+                self.sim_hold_lowest = hold.get('lowest')
+                self.sim_hold_timestep = hold.get('timestep')
 
     def __str__(self) -> str:
         lines = super().__str__().split('\n')
@@ -499,10 +489,7 @@ class SequentialCell(LogicCell):
 
     @set.setter
     def set(self, value):
-        if not isinstance(value, str):
-            raise TypeError(f'Invalid type for cell set pin: {type(value)}')
-        else:
-            self._set = value
+        self._set = str(value) if value else None
 
     @property
     def reset(self) -> str:
@@ -510,10 +497,7 @@ class SequentialCell(LogicCell):
 
     @reset.setter
     def reset(self, value):
-        if not isinstance(value, str):
-            raise TypeError(f'Invalid type for cell reset pin: {type(value)}')
-        else:
-            self._reset = value
+        self._reset = str(value) if value else None
 
     @property
     def flops(self) -> list:
@@ -677,7 +661,7 @@ class SequentialCell(LogicCell):
             # Generate harness
             harness = SequentialHarness(self, test_vector)
             # Generate spice filename
-            spice_prefix = f'{harness.procedure}_{self.name}_{harness.spice_infix()}'
+            spice_prefix = f'{settings.work_dir}/_{self.name}_{harness.spice_infix()}'
             # Run simulation
             characterizer.char_seq.runSequential(settings, self, harness, spice_prefix)
             # Add harness to collection after characterization

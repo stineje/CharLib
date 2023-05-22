@@ -4,8 +4,8 @@ from liberty.UnitsSettings import UnitsSettings
 
 class NamedNode:
     def __init__(self, name, voltage = 0):
-        self._name = name
-        self._voltage = voltage
+        self.name = name
+        self.voltage = voltage
 
     def __str__(self) -> str:
         return f'Name: {self.name}\nVoltage: {self.voltage}'
@@ -13,70 +13,62 @@ class NamedNode:
     def __repr__(self) -> str:
         return f'NamedNode({self.name}, {self.voltage})'
 
-    @property
-    def name(self) -> str:
-        return self._name
-    
-    @name.setter
-    def name(self, name: str):
-        self._name = name
-
-    @property
-    def voltage(self) -> float:
-        return self._voltage
-    
-    @voltage.setter
-    def voltage(self, voltage: float):
-        self._voltage = voltage
-
     def normalized_voltage(self, units_settings: UnitsSettings) -> float:
         """Returns the voltage after converting from global units to V"""
         return self.voltage * units_settings.voltage.magnitude
 
 
 def str_to_bool(value: str) -> bool:
-    if value.lower() in ['true', 't', '1']:
+    if value.lower() in ['true', 't', '1', 'yes']:
         return True
-    elif value.lower() in ['false', 'f', '0']:
+    elif value.lower() in ['false', 'f', '0', 'no']:
         return False
     else:
         raise ValueError(f'Unable to convert "{value}" to bool.')
 
 
 class LibrarySettings:
-    def __init__(self):
+    def __init__(self, **kwargs):
         # Key Library settings
-        self._lib_name = "unnamed_lib"
-        self._dotlib_name = None
-        self._verilog_name = None
-        self._cell_name_suffix = ""
-        self._cell_name_prefix = ""
-        self.units = UnitsSettings()
+        self._lib_name = kwargs.get('lib_name', 'unnamed_lib')
+        self._dotlib_name = kwargs.get('dotlib_name')
+        self._verilog_name = kwargs.get('verilog_name')
+        self._cell_name_suffix = kwargs.get('cell_name_suffix', '')
+        self._cell_name_prefix = kwargs.get('cell_name_prefix', '')
+        self.units = UnitsSettings(**kwargs.get('units', {}))
 
         # Simulator Settings
-        self._simulator = Path(which('ngspice'))
-        self._work_dir = Path('work')
-        self._results_dir = Path('results')
-        self.vdd = NamedNode('VDD')
-        self.vss = NamedNode('VSS')
-        self.pwell = NamedNode('VPW')
-        self.nwell = NamedNode('VNW')
-        self._process = None
-        self._temperature = 25
-        self._logic_threshold_low = 0.2
-        self._logic_threshold_high = 0.8
-        self._logic_high_to_low_threshold = 0.5
-        self._logic_low_to_high_threshold = 0.5
-        self._energy_meas_low_threshold = 0.01
-        self._energy_meas_high_threshold = 0.99
-        self._energy_meas_time_extent = 10
-        self._operating_conditions = None
-        self._delay_model = "table_lookup"
+        self._simulator = Path(kwargs.get('simulator', which('ngspice')))
+        self._work_dir = Path(kwargs.get('work_dir', 'work'))
+        self._results_dir = Path(kwargs.get('results_dir', 'results'))
+        self._run_sim = kwargs.get('run_simulation', True)
+        self._use_multithreaded = kwargs.get('multithreaded', True)
+        self._is_exported = False
 
-        # Behavioral settings
-        self._run_sim = True
-        self._use_multithreaded = True
-        self._is_exported = False # whether the library settings have been exported
+        named_nodes = kwargs.get('named_nodes', {})
+        self.vdd = NamedNode(**named_nodes.get('vdd', {'name':'VDD'}))
+        self.vss = NamedNode(**named_nodes.get('vss', {'name':'VSS'}))
+        self.pwell = NamedNode(**named_nodes.get('pwell', {'name':'VPW'}))
+        self.nwell = NamedNode(**named_nodes.get('nwell', {'name':'VNW'}))
+
+        logic_thresholds = kwargs.get('logic_thresholds', {})
+        self._logic_threshold_low = logic_thresholds.get('low', 0.2)
+        self._logic_threshold_high = logic_thresholds.get('high', 0.8)
+        self._logic_high_to_low_threshold = logic_thresholds.get('high_to_low', 0.5)
+        self._logic_low_to_high_threshold = logic_thresholds.get('low_to_high', 0.5)
+
+        energy_measurement = kwargs.get('energy_measurement', {})
+        self._energy_meas_low_threshold = energy_measurement.get('low_threshold', 0.01)
+        self._energy_meas_high_threshold = energy_measurement.get('high_threshold', 0.99)
+        self._energy_meas_time_extent = energy_measurement.get('time_extent', 10)
+
+        self._process = kwargs.get('process')
+        self._temperature = kwargs.get('temperature', 25)
+        self._operating_conditions = kwargs.get('operating_conditions')
+        self._delay_model = kwargs.get('delay_model', 'table_lookup')
+        self.cell_defaults = kwargs.get('cell_defaults', {})
+
+        # TODO: Deprecate these settings
         self._suppress_msg = False
         self._suppress_sim_msg = False
         self._suppress_debug_msg = False

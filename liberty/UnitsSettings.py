@@ -3,6 +3,8 @@ class EngineeringUnit:
         self.symbol = symbol
         self.magnitude = magnitude
 
+    # TODO: Use a dict or similar structure to map prefixes to magnitudes instead of these awful if/else blocks
+
     @property
     def symbol(self):
         return self._symbol
@@ -131,14 +133,15 @@ class EngineeringUnit:
 
 
 class UnitsSettings:
-    def __init__(self) -> None:
-        self._voltage = EngineeringUnit('V')
-        self._capacitance = EngineeringUnit('F', 1e-12)
-        self._resistance = EngineeringUnit('Ω')
-        self._current = EngineeringUnit('A', 1e-6)
-        self._time = EngineeringUnit('s', 1e-9)
-        self._power = EngineeringUnit('W', 1e-9)
-        self._energy = EngineeringUnit('J', 1e-12)
+    def __init__(self, **kwargs) -> None:
+        # Initialize using setters
+        self.voltage = kwargs.get('voltage', 'V')
+        self.capacitance = kwargs.get('capacitance', 'pF')
+        self.resistance = kwargs.get('resistance', 'Ω')
+        self.current = kwargs.get('current', 'uA')
+        self.time = kwargs.get('time', 'ns')
+        self.power = kwargs.get('power', 'nW')
+        self.energy = kwargs.get('energy', 'fJ')
         # TODO: Add temperature
 
     def __str__(self) -> str:
@@ -157,165 +160,165 @@ class UnitsSettings:
         return self._voltage
 
     @voltage.setter
-    def voltage(self, value: str):
+    def voltage(self, value):
         # Valid symbols are "V" or "Volts"
-        if value.lower().endswith('v'):
-            if value.lower() == 'v': # Case A: no SI prefix
-                self._voltage.symbol = 'V'
-                self._voltage.magnitude = 1
-            else: # Case B: SI prefix present
-                self._voltage.symbol = value[-1]
-                self._voltage.magnitude = value[:-1]
-        elif value.lower().endswith('volts'):
-            if value.lower() == 'volts': # Case A: no SI prefix
-                self._voltage.symbol = value
-                self._voltage.magnitude = 1
-            else: # Case B: SI prefix present
-                self._voltage.symbol = value[-5:]
-                self._voltage.magnitude = value[:-5]
-        else:
-            raise ValueError(f'Invalid voltage unit: {value}')
+        if isinstance(value, str):
+            if value.lower().endswith('v'):
+                if value.lower() == 'v': # Case A: no SI prefix
+                    self._voltage = EngineeringUnit('V')
+                else: # Case B: SI prefix present
+                    self._voltage = EngineeringUnit(value[-1], value[:-1])
+            elif value.lower().endswith('volts'):
+                if value.lower() == 'volts': # Case A: no SI prefix
+                    self._voltage = EngineeringUnit(value)
+                else: # Case B: SI prefix present
+                    self._voltage = EngineeringUnit(value[-5:], value[:-5])
+            else:
+                raise ValueError(f'Invalid voltage unit: {value}')
+        elif isinstance(value, EngineeringUnit):
+            if value.symbol.lower() in ['v', 'volts']:
+                self._voltage = value
 
     @property
     def capacitance(self):
         return self._capacitance
 
     @capacitance.setter
-    def capacitance(self, value: str):
+    def capacitance(self, value):
         # Valid symbols are "F" or "Farads"
-        if value.lower().endswith('f'):
-            if value.lower() == 'f':
-                self._capacitance.symbol = 'F'
-                self._capacitance.magnitude = 1
+        if isinstance(value, str):
+            if value.lower().endswith('f'):
+                if value.lower() == 'f':
+                    self._capacitance = EngineeringUnit('F')
+                else:
+                    self._capacitance = EngineeringUnit(value[-1], value[:-1])
+            elif value.lower().endswith('farads'):
+                if value.lower() == 'farads':
+                    self._capacitance = EngineeringUnit(value)
+                else:
+                    self.capacitance = EngineeringUnit(value[-6:], value[:-6])
             else:
-                self._capacitance.symbol = value[-1]
-                self._capacitance.magnitude = value[:-1]
-        elif value.lower().endswith('farads'):
-            if value.lower() == 'farads':
-                self._capacitance.symbol = value
-                self._capacitance.magnitude = 1
-            else:
-                self._capacitance.symbol = value[-6:]
-                self._capacitance.magnitude = value[:-6]
-        else:
-            raise ValueError(f'Invalid capacitance unit: {value}')
+                raise ValueError(f'Invalid capacitance unit: {value}')
+        elif isinstance(value, EngineeringUnit):
+            if value.symbol.lower() in ['f', 'farads']:
+                self._capacitance = value
     
     @property
     def resistance(self):
         return self._resistance
 
     @resistance.setter
-    def resistance(self, value: str):
+    def resistance(self, value):
         # Valid symbols are "Ω" or "Ohms"
-        if value.endswith('Ω'):
-            if value == 'Ω':
-                self._resistance.symbol = 'Ω'
-                self._resistance.magnitude = 1
+        if isinstance(value, str):
+            if value.endswith('Ω'):
+                if value == 'Ω':
+                    self._resistance = EngineeringUnit('Ω')
+                else:
+                    self._resistance = EngineeringUnit(value[-1], value[:-1])
+            elif value.lower().endswith('ohms') or value.lower().endswith('ohm'):
+                if value.lower() == 'ohms' or value.lower() == 'ohm':
+                    self._resistance = EngineeringUnit(value)
+                else:
+                    self._resistance = EngineeringUnit(value[-3:], value[:-3])
             else:
-                self._resistance.symbol = value[-1]
-                self._resistance.magnitude = value[:-1]
-        elif value.lower().endswith('ohms') or value.lower().endswith('ohm'):
-            if value.lower() == 'ohms' or value.lower() == 'ohm':
-                self._resistance.symbol = value
-                self._resistance.magnitude = 1
-            else:
-                self._resistance.symbol = value[-3:]
-                self._resistance.magnitude = value[:-3]
-        else:
-            raise ValueError(f'Invalid resistance unit: {value}')
+                raise ValueError(f'Invalid resistance unit: {value}')
+        elif isinstance(value, EngineeringUnit):
+            if value.symbol == 'Ω' or value.symbol.lower() in ['ohm', 'ohms']:
+                self._resistance = value
     
     @property
     def current(self):
         return self._current
 
     @current.setter
-    def current(self, value: str):
+    def current(self, value):
         # Valid symbols are "A" or "Amps"
-        if value.lower().endswith('a'):
-            if value.lower() == 'a':
-                self._current.symbol = 'A'
-                self._current.magnitude = 1
+        if isinstance(value, str):
+            if value.lower().endswith('a'):
+                if value.lower() == 'a':
+                    self._current = EngineeringUnit('A')
+                else:
+                    self._current = EngineeringUnit(value[-1], value[:-1])
+            elif value.lower().endswith('amps'):
+                if value.lower() == 'amps':
+                    self._current = EngineeringUnit(value)
+                else:
+                    self._current = EngineeringUnit(value[-4:], value[:-4])
             else:
-                self._current.symbol = value[-1]
-                self._current.magnitude = value[:-1]
-        elif value.lower().endswith('amps'):
-            if value.lower() == 'amps':
-                self._current.symbol = value
-                self._current.magnitude = 1
-            else:
-                self._current.symbol = value[-4:]
-                self._current.magnitude = value[:-4]
-        else:
-            raise ValueError(f'Invalid current unit: {value}')
+                raise ValueError(f'Invalid current unit: {value}')
+        elif isinstance(value, EngineeringUnit):
+            if value.symbol.lower() in ['a', 'amps']:
+                self._current = value
     
     @property
     def time(self):
         return self._time
 
     @time.setter
-    def time(self, value: str):
+    def time(self, value):
         # Valid symbols are "s" or "seconds"
-        if value.lower().endswith('seconds'):
-            if value.lower() == 'seconds':
-                self._time.symbol = value
-                self._time.magnitude = 1
+        if isinstance(value, str):
+            if value.lower().endswith('seconds'):
+                if value.lower() == 'seconds':
+                    self._time = EngineeringUnit(value)
+                else:
+                    self._time = EngineeringUnit(value[-7], value[:-7])
+            elif value.lower().endswith('s'):
+                if value.lower() == 's':
+                    self._time = EngineeringUnit(value)
+                else:
+                    self._time = EngineeringUnit(value[-1], value[:-1])
             else:
-                self._time.symbol = value[-7]
-                self._time.magnitude = value[:-7]
-        elif value.lower().endswith('s'):
-            if value.lower() == 's':
-                self._time.symbol = value
-                self._time.magnitude = 1
-            else:
-                self._time.symbol = value[-1]
-                self._time.magnitude = value[:-1]
-        else:
-            raise ValueError(f'Invalid time unit: {value}')
+                raise ValueError(f'Invalid time unit: {value}')
+        elif isinstance(value, EngineeringUnit):
+            if value.symbol.lower() in ['s', 'seconds']:
+                self._time = value
     
     @property
     def power(self):
         return self._power
     
     @power.setter
-    def power(self, value: str):
+    def power(self, value):
         # Valid symbols are "W" or "Watts"
-        if value.lower().endswith('w'):
-            if value.lower() == 'w':
-                self._power.symbol = 'W'
-                self._power.magnitude = 1
+        if isinstance(value, str):
+            if value.lower().endswith('w'):
+                if value.lower() == 'w':
+                    self._power = EngineeringUnit(value)
+                else:
+                    self._power = EngineeringUnit(value[-1], value[:-1])
+            elif value.lower().endswith('watts'):
+                if value.lower() == 'watts':
+                    self._power = EngineeringUnit(value)
+                else:
+                    self._power = EngineeringUnit(value[-5:], value[:-5])
             else:
-                self._power.symbol = value[-1]
-                self._power.magnitude = value[:-1]
-        elif value.lower().endswith('watts'):
-            if value.lower() == 'watts':
-                self._power.symbol = value
-                self._power.magnitude = 1
-            else:
-                self._power.symbol = value[-5:]
-                self._power.magnitude = value[:-5]
-        else:
-            raise ValueError(f'Invalid leakage power unit: {value}')
+                raise ValueError(f'Invalid leakage power unit: {value}')
+        elif isinstance(value, EngineeringUnit):
+            if value.symbol.lower() in ['w', 'watts']:
+                self._power = value
     
     @property
     def energy(self):
         return self._energy
     
     @energy.setter
-    def energy(self, value: str):
+    def energy(self, value):
         # Valid symbols are "J" or "Joules"
-        if value.lower().endswith('j'):
-            if value.lower() == 'j':
-                self._energy.symbol = 'J'
-                self._energy.magnitude = 1
+        if isinstance(value, str):
+            if value.lower().endswith('j'):
+                if value.lower() == 'j':
+                    self._energy = EngineeringUnit(value)
+                else:
+                    self._energy = EngineeringUnit(value[-1], value[:-1])
+            elif value.lower().endswith('joules'):
+                if value.lower() == 'joules':
+                    self._energy = EngineeringUnit(value)
+                else:
+                    self._energy = EngineeringUnit(value[-6:], value[:-6])
             else:
-                self._energy.symbol = value[-1]
-                self._energy.magnitude = value[:-1]
-        elif value.lower().endswith('joules'):
-            if value.lower() == 'joules':
-                self._energy.symbol = value
-                self._energy.magnitude = 1
-            else:
-                self._energy.symbol = value[-6:]
-                self._energy.magnitude = value[:-6]
-        else:
-            raise ValueError(f'Invalid energy unit: {value}')
+                raise ValueError(f'Invalid energy unit: {value}')
+        elif isinstance(value, EngineeringUnit):
+            if value.symbol.lower() in ['j', 'joules']:
+                self._energy = value

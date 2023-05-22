@@ -1,9 +1,10 @@
 # Ignored directories
 __pycache__
-spice_*
+*_temp
 work
 
-# Ignored file types
+# Ignored files
+b3v3_1check.log
 *.cmd
 *.lib
 *.txt
