@@ -22,7 +22,7 @@ class Characterizer:
                 lines.append(f'    {line}')
         return '\n'.join(lines)
 
-    def target_cell(self) -> LogicCell:
+    def last_cell(self) -> LogicCell:
         """Get last cell"""
         return self.cells[-1]
 
