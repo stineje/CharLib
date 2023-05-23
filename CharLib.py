@@ -104,8 +104,6 @@ def execute_lib(characterizer: Characterizer, library_dir):
         else:
             characterizer.add_cell(name, inputs, outputs, functions, **properties)
 
-    print(str(characterizer))
-
     # Initialize workspace & characterize
     characterizer.initialize_work_dir()
     characterizer.characterize()
@@ -288,7 +286,7 @@ def execute_command(characterizer: Characterizer, command: str):
                     arg = arg.replace('{', '')
                 if '}' in arg:
                     arg = arg.replace('}', '')
-                characterizer.target_cell().add_in_slew(float(arg))
+                characterizer.last_cell().add_in_slew(float(arg))
         elif cmd == 'add_load':
             # Expected arg format: {1 2 ... N}
             for arg in args:
@@ -296,37 +294,37 @@ def execute_command(characterizer: Characterizer, command: str):
                     arg = arg.replace('{', '')
                 if '}' in arg:
                     arg = arg.replace('}', '')
-                characterizer.target_cell().add_out_load(float(arg))
+                characterizer.last_cell().add_out_load(float(arg))
         elif cmd == 'add_area':
-            characterizer.target_cell().area = args[0]
+            characterizer.last_cell().area = args[0]
         elif cmd == 'add_netlist':
-            characterizer.target_cell().netlist = args[0]
+            characterizer.last_cell().netlist = args[0]
         elif(command.startswith('add_model')):
-            characterizer.target_cell().model = args[0]
+            characterizer.last_cell().model = args[0]
         elif(command.startswith('add_simulation_timestep')):
-            characterizer.target_cell().sim_timestep = args[0]
+            characterizer.last_cell().sim_timestep = args[0]
         elif cmd == 'add_clock_slope':
-            characterizer.target_cell().clock_slope = args[0]
+            characterizer.last_cell().clock_slope = args[0]
         elif(command.startswith('add_simulation_setup_auto')):
-            characterizer.target_cell().sim_setup_lowest = 'auto'
-            characterizer.target_cell().sim_setup_highest = 'auto'
-            characterizer.target_cell().sim_setup_timestep = 'auto'
+            characterizer.last_cell().sim_setup_lowest = 'auto'
+            characterizer.last_cell().sim_setup_highest = 'auto'
+            characterizer.last_cell().sim_setup_timestep = 'auto'
         elif cmd == 'add_simulation_setup_lowest':
-            characterizer.target_cell().sim_setup_lowest = args[0]
+            characterizer.last_cell().sim_setup_lowest = args[0]
         elif(command.startswith('add_simulation_setup_highest')):
-            characterizer.target_cell().simulation_setup = args[0]
+            characterizer.last_cell().simulation_setup = args[0]
         elif(command.startswith('add_simulation_setup_timestep')):
-            characterizer.target_cell().sim_setup_timestep = args[0]
+            characterizer.last_cell().sim_setup_timestep = args[0]
         elif(command.startswith('add_simulation_hold_auto')):
-            characterizer.target_cell().sim_hold_lowest = 'auto'
-            characterizer.target_cell().sim_hold_highest = 'auto'
-            characterizer.target_cell().sim_hold_timestep = 'auto'
+            characterizer.last_cell().sim_hold_lowest = 'auto'
+            characterizer.last_cell().sim_hold_highest = 'auto'
+            characterizer.last_cell().sim_hold_timestep = 'auto'
         elif(command.startswith('add_simulation_hold_lowest')):
-            characterizer.target_cell().sim_hold_lowest = args[0]
+            characterizer.last_cell().sim_hold_lowest = args[0]
         elif(command.startswith('add_simulation_hold_highest')):
-            characterizer.target_cell().sim_hold_highest = args[0]
+            characterizer.last_cell().sim_hold_highest = args[0]
         elif(command.startswith('add_simulation_hold_timestep')):
-            characterizer.target_cell().sim_hold_timestep = args[0]
+            characterizer.last_cell().sim_hold_timestep = args[0]
 
     # get command
     elif cmd.startswith('get_'):
