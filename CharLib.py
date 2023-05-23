@@ -12,16 +12,18 @@ from liberty.ExportUtils import exportFiles, exitFiles
 def main():
     """Reads in command line arguments, then enters the requested execution mode.
 
-    Batch mode (-b arg) executes a batch of commands from the specified cmd file.
-    Library mode (-l arg) parses in a user-provided library from the specified directory
-    and	characterizes it automatically. If a mode is not specified, we enter shell mode 
-    to read in commands one at a time."""
+    Batch mode (-b arg) executes a batch of commands from the specified batchfile.
+
+    Library mode (-l arg) searches for a YAML configuration file in the specified directory, then
+    characterizes cells according to that configuration.
+    
+    If a mode is not specified, we enter shell mode to read in commands one at a time."""
     
     # Read in arguments
     parser = argparse.ArgumentParser(
             prog='CharLib',
             description='Characterize combinational and sequential standard cells.',
-            epilog='If no options are provided, a shell is launched where users may enter CharLib commands using cmd file syntax.')
+            epilog='If no options are provided, a shell is launched where users may enter CharLib commands.')
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument('-b','--batch', type=str,
             help='Execute specified batch .cmd file')
@@ -104,7 +106,7 @@ def execute_lib(characterizer: Characterizer, library_dir):
         else:
             characterizer.add_cell(name, inputs, outputs, functions, **properties)
 
-    # Initialize workspace & characterize
+    # Initialize workspace, characterize, and export
     characterizer.initialize_work_dir()
     characterizer.characterize()
     for cell in characterizer.cells:
