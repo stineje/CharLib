@@ -5,11 +5,51 @@ When running in automatic mode, CharLib requires a YAML file with configuration 
 ## Library and Simulation Settings
 Library and characterization settings are specified as key-value pairs under the `settings` key.
 
-### Required Keys
-TODO
+### Recommended Keys
+While CharLib does provide defaults for all key-value pairs under the `settings` key, many of them may be incorrect for your characterization needs. For this reason, we recommend including the following keys (at minimum):
+
+* `lib_name`: The library name to use within the exported liberty file. Defaults to 'unnamed_lib'.
+* `units`: A dictionary describing the unit symbols to use for input and output values. If omitted, the default units below are used. May contain the following key-value pairs:
+    * `voltage`: The unit symbol to use when expressing electrical potential values. Defaults to Volts.
+    * `capacitance`: The unit symbol to use when expressing capacitance values. Defaults to picofarads.
+    * `resistance`: The unit symbol to use when expressing resistance values. Defaults to Ohms.
+    * `current`: The unit symbol to use when expressing electrical current values. Defaults to microamps.
+    * `time`: The unit symbol to use when expressing time values. Defaults to nanoseconds.
+    * `power`: The unit symbol to use when expressing power values. Defaults to nanowatts.
+    * `energy`: The unit symbol to use when expressing energy values. Defaults to femtojoules.
+* `named_nodes`: A dictionary mapping important node names to the names used in spice models. May contain the following key-value pairs:
+    * `vdd`: The name used for device supply voltage. Defaults to 'VDD'.
+    * `vss`: The name used for device ground. Defaults to 'VSS'.
+    * `pwell`: The name used for device p-wells. Defaults to 'VPW'
+    * `nwell`: The name used for device n-wells. Defaults to 'VNW'
 
 ### Optional Keys
-TODO
+These keys may optionally be included to change simulation parameters:
+
+* `dotlib_name`: The file name to use for the exported liberty file. Defaults to whatever `lib_name` is set to + '.lib'.
+* `verilog_name`: The file name to use for the exported verilog file. Defaults to whatever `lib_name` is set to + '.v'.
+* `cell_name_prefix`: A static prefix to append to the start of each cell name in the exported liberty file. Empty by default.
+* `cell_name_suffix`: A static prefix to append to the end of each cell name in the exported liberty file. Empty by default.
+* `simulator`: The absolute path to the spice simulator binary. If omitted, CharLib searches your system's PATH for the `ngspice` binary.
+    * CharLib currently supports ngspice and hspice simulators. Other spice simulators may be added in the future.
+* `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
+* `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
+* `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution.
+* `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
+* `logic_thresholds`: A dictionary containing logic thresholds specified relative to `named_nodes.vdd`. May contain the following key-value pairs:
+    * `low`: The maximum fraction supply voltage which registers as a logical zero. Defaults to 0.2 (20 percent of supply voltage).
+    * `high`: The minimum fraction of supply voltage which registers as a logical one. Defaults to 0.8 (80 percent of supply voltage).
+    * `high_to_low`: The threshold which must be crossed before a particular signal can be considered falling from one to zero. Defaults to 0.5 (50% of supply voltage).
+    * `low to high`: The threshold which must be crossed before a particular signal can be considered rising from zero to one. Defaults to 0.5 (50% of supply voltage).
+* `energy_measurement`: A dictionary containing parameters for energy measurement during simulation. May contain the following key-value pairs:
+    * `low_threshold`: The minimum fraction of supply voltage to include in switching energy measurements. Defaults to 0.01 (1% of supply voltage).
+    * `high_threshold`: The maximum fraction of supply voltage to include in switching energy measurements. Defaults to 0.99 (99% of supply voltage).
+    * `time_extent`: The time interval to use for energy measurements. Defaults to 10 time units.
+* `process`: The process condition to include in the exported liberty file. Empty by default.
+* `temperature`: The temperature to use during spice simulations.
+* `operating_conditions`: The operating conditions to include in the exported liberty file. Empty by default.
+* `delay_model`: The delay model keyword to include in the exported liberty file. Defaults to 'table_lookup`.
+* `cell_defaults`: A dictionary of default values to use for all cells. See **Cells** below for more information. May contain any key-value pair valid for a cell entry.
 
 ## Cells
 Specific cells to characterize are specified as entries under the `cells` key. 
@@ -47,8 +87,12 @@ Sequential Cell entries must specify the following key-value pairs in addition t
 These keys may optionally be included to provide additional cell documentation or improve CharLib performance.
 
 * `area`: The physical area occupied by the cell layout. Defaults to 0 if omitted.
-* `test_vectors`: A sequence of test vectors for simulation. Each test vector should be in the format `[clk, set, reset, flop1, ..., flopK, in1, ..., inN, out1, ..., outM]` (omit `clk, set, reset, flop1, ..., flopK` for combinational cells). If omitted, test vectors are instead generated based on the cell's `functions`.
-    * > Including the `test_vectors` key can result in significant reductions in CharLib simulation times. If you already know the test conditions that will reveal critical paths for your cells, you should include them as test vectors under this key.
+* `test_vectors`: A sequence of test vectors for simulation. If omitted, test vectors are instead generated based on the cell's `functions`.
+    * Each test vector should be in the format `[clk, set (if present), reset (if present), flop1, ..., flopK, in1, ..., inN, out1, ..., outM]` (omit `clk, set, reset, flop1, ..., flopK` for combinational cells).
+    * Including the `test_vectors` key can result in significant reductions in CharLib simulation times. If you already know the test conditions that will reveal critical paths for your cells, you should include them as test vectors under this key.
 * `set_pin`: The pin name for the set pin on sequential cells. If omitted, CharLib assumes the cell does not have a set pin.
 * `reset_pin`: The pin name for the reset pin on sequential cells. If omitted, CharLib assumes the cell does not have a reset pin.
 * `clock_slew`: The slew rate to use for the clock signal in simulation. Defaults to 0 if omitted.
+
+## Example: OSU350 YAML Configuration
+TODO

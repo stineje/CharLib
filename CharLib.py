@@ -74,7 +74,7 @@ def execute_lib(characterizer: Characterizer, library_dir):
     if not config:
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
 
-    # Read in settings from a YAML file and apply settings to characterizer
+    # Read in library settings
     characterizer.settings = LibrarySettings(**config['settings'])
 
     # Read cells
@@ -105,6 +105,8 @@ def execute_lib(characterizer: Characterizer, library_dir):
             characterizer.add_flop(name, inputs, outputs, clock, flops, functions, **properties)
         else:
             characterizer.add_cell(name, inputs, outputs, functions, **properties)
+
+    # TODO: Add print statements to display which keys in YAML were not used
 
     # Initialize workspace, characterize, and export
     characterizer.initialize_work_dir()
