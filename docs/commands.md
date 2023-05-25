@@ -118,7 +118,6 @@ Other **add** commands for sequential cells:
 ## Commands for Displaying Information
 These commands are used to show the current configuration of the characterizer or export results.
 
-### `charaacterize` and `export`
 | Command          | Argument example | Description |
 | ---------------- | ---------------- | ----------- |
 | characterize     | AND2X1 OR2X1     | Run characterization for the specified cells, or all cells if no arguments are passed. |
