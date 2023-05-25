@@ -25,7 +25,7 @@ Using CharLib in shell or batchfile mode is a very manual process: you enter com
 ### Automatic Mode
 Syntax: `python3 CharLib.py -l LIBRARY_PATH`
 
-Automatic mode scans the specified directory for YAML files with CharLib configuration settings, then characterizes cells based on those settings. Expected key-value pairs and file format are described in [yaml.md](https://github.com/stineje/CharLib/blog/main/docs/yaml.md).
+Automatic mode scans the specified directory for YAML files with CharLib configuration settings, then characterizes cells based on those settings. Expected key-value pairs and file format are described in [yaml.md](https://github.com/stineje/CharLib/blob/main/docs/yaml.md).
 
 
 ### Batchfile Mode

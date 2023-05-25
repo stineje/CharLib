@@ -18,10 +18,13 @@ While CharLib does provide defaults for all key-value pairs under the `settings`
     * `power`: The unit symbol to use when expressing power values. Defaults to nanowatts.
     * `energy`: The unit symbol to use when expressing energy values. Defaults to femtojoules.
 * `named_nodes`: A dictionary mapping important node names to the names used in spice models. May contain the following key-value pairs:
-    * `vdd`: The name used for device supply voltage. Defaults to 'VDD'.
-    * `vss`: The name used for device ground. Defaults to 'VSS'.
-    * `pwell`: The name used for device p-wells. Defaults to 'VPW'
-    * `nwell`: The name used for device n-wells. Defaults to 'VNW'
+    * `vdd`: A dictionary containing the name and voltage used for device supply voltage. Defaults to 'VDD' with voltage 3.3V.
+    * `vss`: A dictionary containing the name and voltage used for device ground. Defaults to 'VSS' with voltage 0V.
+    * `pwell`: A dictionary containing the name and voltage used for device p-wells. Defaults to 'VPW' with voltage 0V.
+    * `nwell`: A dictionary containing the name and voltage used for device n-wells. Defaults to 'VNW' with voltage 3.3V.
+    * Each entry in `named_nodes` contains the following keys:
+        * `name`: The name used to refer to this node in spice files.
+        * `voltage`: The voltage at this node.
 
 ### Optional Keys
 These keys may optionally be included to change simulation parameters:
@@ -34,7 +37,7 @@ These keys may optionally be included to change simulation parameters:
     * CharLib currently supports ngspice and hspice simulators. Other spice simulators may be added in the future.
 * `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
 * `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
-* `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution.
+* `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
 * `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
 * `logic_thresholds`: A dictionary containing logic thresholds specified relative to `named_nodes.vdd`. May contain the following key-value pairs:
     * `low`: The maximum fraction supply voltage which registers as a logical zero. Defaults to 0.2 (20 percent of supply voltage).
@@ -46,13 +49,13 @@ These keys may optionally be included to change simulation parameters:
     * `high_threshold`: The maximum fraction of supply voltage to include in switching energy measurements. Defaults to 0.99 (99% of supply voltage).
     * `time_extent`: The time interval to use for energy measurements. Defaults to 10 time units.
 * `process`: The process condition to include in the exported liberty file. Empty by default.
-* `temperature`: The temperature to use during spice simulations.
+* `temperature`: The temperature to use during spice simulations. Defaults to 25C. 
 * `operating_conditions`: The operating conditions to include in the exported liberty file. Empty by default.
 * `delay_model`: The delay model keyword to include in the exported liberty file. Defaults to 'table_lookup`.
 * `cell_defaults`: A dictionary of default values to use for all cells. See **Cells** below for more information. May contain any key-value pair valid for a cell entry.
 
 ## Cells
-Specific cells to characterize are specified as entries under the `cells` key. 
+Specific cells to characterize are specified as entries under the `cells` key.
 
 ### Required Keys for all Cell Entries
 Each cell entry is a dictionary with (at minimum) the following required keys:
@@ -94,5 +97,100 @@ These keys may optionally be included to provide additional cell documentation o
 * `reset_pin`: The pin name for the reset pin on sequential cells. If omitted, CharLib assumes the cell does not have a reset pin.
 * `clock_slew`: The slew rate to use for the clock signal in simulation. Defaults to 0 if omitted.
 
-## Example: OSU350 YAML Configuration
-TODO
+## Examples 
+
+### Example 1: OSU350 INVX1 Characterization
+The YAML below configures CharLib to perform timing and power characterization for a single-input single-output inverter cell.
+
+``` YAML
+settings:
+    lib_name:           OSU350
+    cell_name_prefix:   OSU350_
+    cell_name_suffix:   _V1
+    units:
+        voltage:        V
+        capacitance:    pF
+        resistance:     kOhm
+        current:        uA
+        leakage_power:  nW
+        energy:         fJ
+        time:           ns
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       GND
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
+cells:
+    INVX1:
+        netlist:    osu350_spice_temp/INVX1.sp
+        models:     test/osu350/model.sp
+        area:       128
+        inputs:     [A]
+        outputs:    ['Y'] # We have to put this in quotes because YAML interprets Y as boolean True by default
+        functions:  [Y=~A]
+        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        simulation_timestep: auto
+```
+
+
+### Example 2: Characterizing Multiple OSU350 Cells
+The YAML below configures CharLib to perform timing and power characterization for full adder and half adder cells. Note the contents of `settings` are mostly the same, but several cell parameters are moved into `settings.cell_defaults` to avoid repeating them for each cell.
+
+``` YAML
+settings:
+    lib_name:           OSU350
+    cell_name_prefix:   _V1
+    cell_name_suffix:   OSU350_
+    units:
+        voltage:        V
+        capacitance:    pF
+        resistance:     kOhm
+        current:        uA
+        leakage_power:  nW
+        energy:         fJ
+        time:           ns
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       GND
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
+    cell_defaults:
+        model: test/osu350/model.sp
+        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        simulation_timestep: auto
+cells:
+    FAX1:
+        netlist:    osu350_spice_temp/FAX1.sp
+        area:       480
+        inputs:     [A, B, C]
+        outputs:    [YC, YS]
+        functions:
+            - YC=(A&B)|(C&(A^B))
+            - YS=A^B^C
+    HAX1:
+        netlist:    osu350_spice_temp/HAX1.sp
+        area:       320
+        inputs:     [A, B]
+        outputs:    [YC, YS]
+        functions:
+            - YC=A&B
+            - YS=A^B
+```

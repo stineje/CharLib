@@ -134,3 +134,5 @@ These commands are used to show the current configuration of the characterizer o
 | ------- | ---------------- | ----------- |
 | exit    | n/a              | Exit the CharLib shell.|
 
+## Examples
+For an example of what a CharLib batchfile might look like, see the [OSU350 batchfile used to test CharLib](https://github.com/stineje/CharLib/blob/main/test/osu350/OSU350.cmd).
