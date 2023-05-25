@@ -41,19 +41,19 @@ cells:
         outputs:    ['Y']
         functions:
             - Y=~A
-    FAX1:
-        netlist:    osu350_spice_temp/FAX1.sp
-        area:       480
-        inputs:     [A, B, C]
-        outputs:    [YC, YS]
-        functions:
-            - YC=(A&B)|(C&(A^B))
-            - YS=A^B^C
-    HAX1:
-        netlist:    osu350_spice_temp/HAX1.sp
-        area:       320
-        inputs:     [A, B]
-        outputs:    [YC, YS]
-        functions:
-            - YC=A&B
-            - YS=A^B
+    # FAX1:
+    #     netlist:    osu350_spice_temp/FAX1.sp
+    #     area:       480
+    #     inputs:     [A, B, C]
+    #     outputs:    [YC, YS]
+    #     functions:
+    #         - YC=(A&B)|(C&(A^B))
+    #         - YS=A^B^C
+    # HAX1:
+    #     netlist:    osu350_spice_temp/HAX1.sp
+    #     area:       320
+    #     inputs:     [A, B]
+    #     outputs:    [YC, YS]
+    #     functions:
+    #         - YC=A&B
+    #         - YS=A^B
