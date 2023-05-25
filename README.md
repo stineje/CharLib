@@ -53,8 +53,8 @@ There is some setup work required prior to running in automatic mode. Library an
 If CharLib successfully generates a batchfile for the standard cell library, it will place that batchfile in the directory specified by LIBRARY_PATH. Subsequent runs in automatic mode will check for this batchfile and use it to run characterization. This allows users to make tweaks to the generated batchfile if desired. If you want to generate a new batchfile, you should delete the existing batchfile prior to running CharLib. 
 
 ### References
-[1] Synopsys, "What is Library Characterization?", https://www.synopsys.com/glossary/what-is-library-characterization.html, 2023
-[2] Shinichi NISHIZAWA, Toru NAKURA, libretto: An Open Cell Timing Characterizer for Open Source VLSI Design, IEICE Transactions on Fundamentals of Electronics, Communications and Computer Sciences, 論文ID 2022VLP0007, [早期公開] 公開日 2022/09/13, Online ISSN 1745-1337, Print ISSN 0916-8508, https://doi.org/10.1587/transfun.2022VLP0007, https://www.jstage.jst.go.jp/article/transfun/advpub/0/advpub_2022VLP0007/_article/-char/ja, 抄録:
-[3] I. K. Rachit and M. S. Bhat, "AutoLibGen: An open source tool for standard cell library characterization at 65nm technology," 2008 International Conference on Electronic Design, Penang, Malaysia, 2008, pp. 1-6, doi: 10.1109/ICED.2008.4786726.
+[1] Synopsys, "What is Library Characterization?", https://www.synopsys.com/glossary/what-is-library-characterization.html, 2023 <br>
+[2] Shinichi NISHIZAWA, Toru NAKURA, libretto: An Open Cell Timing Characterizer for Open Source VLSI Design, IEICE Transactions on Fundamentals of Electronics, Communications and Computer Sciences, 論文ID 2022VLP0007, [早期公開] 公開日 2022/09/13, Online ISSN 1745-1337, Print ISSN 0916-8508, https://doi.org/10.1587/transfun.2022VLP0007, https://www.jstage.jst.go.jp/article/transfun/advpub/0/advpub_2022VLP0007/_article/-char/ja, <br>
+[3] I. K. Rachit and M. S. Bhat, "AutoLibGen: An open source tool for standard cell library characterization at 65nm technology," 2008 International Conference on Electronic Design, Penang, Malaysia, 2008, pp. 1-6, doi: 10.1109/ICED.2008.4786726. <br>
 
 
