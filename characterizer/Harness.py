@@ -1,4 +1,4 @@
-from liberty.UnitsSettings import EngineeringUnit
+from PySpice.Unit import *
 
 class Harness:
     """Characterization parameters for one path through a cell
@@ -156,8 +156,10 @@ class Harness:
         else:
             return 'negative_unate'
 
-    def average_input_capacitance(self, vdd_voltage, capacitance_unit: EngineeringUnit) -> float:
-        input_capacitance = 0
+    def average_input_capacitance(self, vdd_voltage) -> float:
+        """Calculates the average input capacitance over all trials"""
+        # TODO: Usually we want minimum input capacitance instead of average
+        input_capacitance = 0.0 @ u_F
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
@@ -165,20 +167,24 @@ class Harness:
                 q = self.results[slope][load]['q_in_dyn']
                 input_capacitance += q / vdd_voltage
                 n += 1
-        input_capacitance = input_capacitance / (n * capacitance_unit.magnitude)
+        input_capacitance = input_capacitance / n
         return input_capacitance
 
     def average_transition_delay(self) -> float:
-        total_delay = 0
+        """Calculates the average transition delay over all trials"""
+        # TODO: Usually we want longest transport delay instead of average
+        total_delay = 0.0 @ u_s
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
                 total_delay += self.results[slope][load]['trans_out']
                 n += 1
-        return total_delay/n
+        return total_delay / n
     
     def average_propagation_delay(self) -> float:
-        total_delay = 0
+        """Calculates the average propagation delay over all trials"""
+        # TODO: Usually we want longest prop delay instead of average
+        total_delay = 0.0 @ u_s
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
@@ -192,39 +198,40 @@ class Harness:
         avg_current = (i_vdd_leak + i_vss_leak) / 2
         return avg_current * vdd_voltage
     
-    def get_leakage_power(self, vdd_voltage, power_unit: EngineeringUnit):
-        leakage_power = 0
+    def get_leakage_power(self, vdd_voltage):
+        """Calculates the average leakage power over all trials"""
+        leakage_power = 0.0 @ u_J
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
                 leakage_power += self._calc_leakage_power(slope, load, vdd_voltage)
                 n += 1
-        leakage_power = leakage_power / (n * power_unit.magnitude)
+        leakage_power = leakage_power / n
         return leakage_power
 
-    def _get_lut_value_groups_by_key(self, in_slews, out_loads, unit, key: str):
+    def _get_lut_value_groups_by_key(self, in_slews, out_loads, key: str):
         value_groups = []
         for slew in in_slews:
-            values = [self.results[str(slew)][str(load)][key]/unit for load in out_loads]
+            values = [self.results[str(slew)][str(load)][key] for load in out_loads]
             value_groups.append(f'"{", ".join([f"{value:f}" for value in values])}"')
         sep = ', \\\n  '
         return f'values( \\\n  {sep.join(value_groups)});'
 
-    def get_propagation_delay_lut(self, in_slews, out_loads, time_unit: EngineeringUnit) -> list:
+    def get_propagation_delay_lut(self, in_slews, out_loads) -> list:
         lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slews, out_loads, time_unit.magnitude, 'prop_in_out')
+        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'prop_in_out')
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def get_transport_delay_lut(self, in_slews, out_loads, time_unit: EngineeringUnit):
+    def get_transport_delay_lut(self, in_slews, out_loads):
         lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slews, out_loads, time_unit.magnitude, 'trans_out')
+        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'trans_out')
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def _calc_internal_energy(self, in_slew: str, out_load: str, energy_meas_high_threshold_voltage: float, energy_unit: EngineeringUnit, current_unit: EngineeringUnit):
+    def _calc_internal_energy(self, in_slew: str, out_load: str, energy_meas_high_threshold_voltage: float):
         """Calculates internal energy for a particular slope/load combination"""
         # Fetch calculation parameters
         e_start = self.results[in_slew][out_load]['energy_start']
@@ -237,14 +244,14 @@ class Harness:
         energy_delta = (e_end - e_start)
         avg_current = (i_vdd_leak + i_vss_leak) / 2
         internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current
-        return internal_charge * energy_meas_high_threshold_voltage /energy_unit.magnitude
+        return internal_charge * energy_meas_high_threshold_voltage
 
-    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, e_unit: EngineeringUnit, i_unit: EngineeringUnit):
+    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float):
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
         energy_groups = []
         for slew in in_slews:
-            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth, e_unit, i_unit) for out_load in out_loads]
+            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth) for out_load in out_loads]
             energy_groups.append(f'"{", ".join(["{:f}".format(energy) for energy in energies])}"')
         sep = ', \\\n  '
         [lines.append(value_line) for value_line in f'values( \\\n  {sep.join(energy_groups)});'.split('\n')]

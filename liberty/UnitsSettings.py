@@ -52,7 +52,7 @@ class UnitsSettings:
         else:
             raise ValueError(f'Invalid capacitance unit: {value}')
         self._capacitance = self._parse_unit(prefix_str, Unit.u_F)
-    
+
     @property
     def resistance(self):
         return self._resistance
@@ -62,12 +62,14 @@ class UnitsSettings:
         # Valid symbols are "Ω" or "Ohms"
         if value.endswith('Ω'):
             prefix_str = value.removesuffix('Ω')
+        elif value.lower().endswith('ohm'):
+            prefix_str = value.removesuffix(value[-3:])
         elif value.lower().endswith('ohms'):
             prefix_str = value.removesuffix(value[-4:])
         else:
             raise ValueError(f'Invalid resistance unit: {value}')
         self._resistance = self._parse_unit(prefix_str, Unit.u_Ω)
-    
+
     @property
     def current(self):
         return self._current
@@ -77,6 +79,8 @@ class UnitsSettings:
         # Valid symbols are "A" or "Amps"
         if value.lower().endswith('a'):
             prefix_str = value.removesuffix(value[-1])
+        elif value.lower().endswith('amp'):
+            prefix_str = value.removesuffix(value[-3:])
         elif value.lower().endswith('amps'):
             prefix_str = value.removesuffix(value[-4:])
         else:
@@ -97,11 +101,11 @@ class UnitsSettings:
         else:
             raise ValueError(f'Invalid time unit: {value}')
         self._time = self._parse_unit(prefix_str, Unit.u_s)
-    
+
     @property
     def power(self):
         return self._power
-    
+
     @power.setter
     def power(self, value: str):
         # Valid symbols are "W" or "Watts"
@@ -112,7 +116,7 @@ class UnitsSettings:
         else:
             raise ValueError(f'Invalid leakage power unit: {value}')
         self._power = self._parse_unit(prefix_str, Unit.u_W)
-    
+
     @property
     def energy(self):
         return self._energy
@@ -152,5 +156,5 @@ class UnitsSettings:
         ]
         prefix_str = prefix_str.lower() if len(prefix_str) > 1 else prefix_str # Allow case-insensitive long prefixes
         for (prefixes, exponent) in lookup_table:
-            if prefix_str in prefixes: return unit(10**exponent).canonise()
+            if prefix_str in prefixes: return unit(10.0**exponent).canonise()
         raise ValueError(f'"{prefix_str}" is not a recognized metric prefix! Supported values are: {[prefixes for (prefixes,_) in lookup_table]}')

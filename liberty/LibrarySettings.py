@@ -13,11 +13,6 @@ class NamedNode:
     def __repr__(self) -> str:
         return f'NamedNode({self.name}, {self.voltage})'
 
-    def normalized_voltage(self, units_settings: UnitsSettings) -> float:
-        """Returns the voltage after converting from global units to V"""
-        return self.voltage * units_settings.voltage.magnitude
-
-
 def str_to_bool(value: str) -> bool:
     if value.lower() in ['true', 't', '1', 'yes']:
         return True
@@ -247,7 +242,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_threshold_high: {value}')
 
     def logic_threshold_high_voltage(self) -> float:
-        return self.logic_threshold_high * self.vdd.normalized_voltage(self.units)
+        return self.logic_threshold_high * self.vdd
 
     @property
     def logic_threshold_low(self) -> float:
@@ -261,7 +256,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_threshold_high: {value}')
 
     def logic_threshold_low_voltage(self) -> float:
-        return self.logic_threshold_low * self.vdd.normalized_voltage(self.units)
+        return self.logic_threshold_low * self.vdd
 
     @property
     def logic_high_to_low_threshold(self) -> float:
@@ -275,7 +270,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_high_to_low_threshold: {value}')
 
     def logic_high_to_low_threshold_voltage(self) -> float:
-        return self.logic_high_to_low_threshold * self.vdd.normalized_voltage(self.units)
+        return self.logic_high_to_low_threshold * self.vdd
 
     @property
     def logic_low_to_high_threshold(self) -> float:
@@ -289,7 +284,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_low_to_high_threshold: {value}')
 
     def logic_low_to_high_threshold_voltage(self) -> float:
-        return self.logic_low_to_high_threshold * self.vdd.normalized_voltage(self.units)
+        return self.logic_low_to_high_threshold * self.vdd
 
     @property
     def energy_meas_low_threshold(self) -> float:
@@ -303,7 +298,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for energy_meas_low_threshold: {value}')
 
     def energy_meas_low_threshold_voltage(self) -> float:
-        return self.energy_meas_low_threshold * self.vdd.normalized_voltage(self.units)
+        return self.energy_meas_low_threshold * self.vdd
 
     @property
     def energy_meas_high_threshold(self) -> float:
@@ -317,7 +312,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for energy_meas_high_threshold: {value}')
 
     def energy_meas_high_threshold_voltage(self) -> float:
-        return self.energy_meas_high_threshold * self.vdd.normalized_voltage(self.units)
+        return self.energy_meas_high_threshold * self.vdd
 
     @property
     def energy_meas_time_extent(self) -> float:
