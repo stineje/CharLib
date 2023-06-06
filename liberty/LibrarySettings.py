@@ -1,5 +1,4 @@
 from pathlib import Path
-from shutil import which
 from liberty.UnitsSettings import UnitsSettings
 
 class NamedNode:
@@ -33,7 +32,7 @@ class LibrarySettings:
         self.units = UnitsSettings(**kwargs.get('units', {}))
 
         # Simulator Settings
-        self._simulator = Path(kwargs.get('simulator', which('ngspice')))
+        self._simulator = kwargs.get('simulator', 'ngspice-shared')
         self._work_dir = Path(kwargs.get('work_dir', 'work'))
         self._results_dir = Path(kwargs.get('results_dir', 'results'))
         self._run_sim = kwargs.get('run_simulation', True)
@@ -130,14 +129,8 @@ class LibrarySettings:
     @simulator.setter
     def simulator(self, value):
         if value is not None:
-            if isinstance(value, Path):
-                if not value.is_file():
-                    raise ValueError(f'Invalid value for simulator: {value} is not a file')
+            if isinstance(value, str) and any([backend in value for backend in ['ngspice', 'xyce']]):
                 self._simulator = value
-            elif isinstance(value, str):
-                if not Path(value).is_file():
-                    raise ValueError(f'Invalid value for simulator: {value} is not a file')
-                self._simulator = Path(value)
             else:
                 raise TypeError(f'Invalid type for simulator: {type(value)}')
         else:

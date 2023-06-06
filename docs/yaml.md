@@ -33,8 +33,7 @@ These keys may optionally be included to change simulation parameters:
 * `verilog_name`: The file name to use for the exported verilog file. Defaults to whatever `lib_name` is set to + '.v'.
 * `cell_name_prefix`: A static prefix to append to the start of each cell name in the exported liberty file. Empty by default.
 * `cell_name_suffix`: A static prefix to append to the end of each cell name in the exported liberty file. Empty by default.
-* `simulator`: The absolute path to the spice simulator binary. If omitted, CharLib searches your system's PATH for the `ngspice` binary.
-    * CharLib currently supports ngspice and hspice simulators. Other spice simulators may be added in the future.
+* `simulator`: A string specifying which PySpice simulator backend to use. See the [PySpice FAQ](https://pyspice.fabrice-salvaire.fr/releases/latest/faq.html#how-to-set-the-simulator) for available options. Defaults to 'ngspice-shared'.
 * `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
 * `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
 * `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
