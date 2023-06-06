@@ -18,17 +18,18 @@ class LogicCell:
 
         # Characterization settings
         self.harnesses = [] # list of lists of harnesses indexed by in_slews and out_loads
-        self._netlist = kwargs.get('netlist')               # Cell spice netlist
-        self._model = kwargs.get('model')                   # cell transistor models
-        self._in_slews = kwargs.get('slews', [])            # input pin slew rates
-        self._out_loads = kwargs.get('loads', [])           # output pin capacitive loads
+        self._netlist = kwargs.get('netlist')       # Cell spice netlist file
+        self._model = kwargs.get('model')           # Cell transistor model file
+        self._in_slews = kwargs.get('slews', [])    # input pin slew rates
+        self._out_loads = kwargs.get('loads', [])   # output pin capacitive loads
         self._sim_timestep = 0
         if 'simulation_timestep' in kwargs.keys():
             self.sim_timestep = kwargs['simulation_timestep']
         self.stored_test_vectors = kwargs.get('test_vectors')
 
         # Behavioral settings
-        self._is_exported = False   # whether the cell has been exported
+        self.plots = kwargs.get('plots', [])    # Which plots to generate for this cell
+        self._is_exported = False               # whether the cell has been exported
 
     def __str__(self) -> str:
         lines = []
@@ -177,6 +178,7 @@ class LogicCell:
 
     @property
     def definition(self) -> str:
+        # Search the netlist file for the circuit definition
         with open(self.netlist, 'r') as f:
             for line in f:
                 if self.name.lower() in line.lower() and 'subckt' in line.lower():
@@ -188,8 +190,10 @@ class LogicCell:
 
     @property
     def instance(self) -> str:
+        # Reorganize the definition into an instantiation with instance name XDUT
+        # TODO: Instance name should probably be configurable from library settings
         instance = self.definition.split()[1:]  # Delete .subckt
-        instance.append(instance.pop(0))    # Move circuit name to last element
+        instance.append(instance.pop(0))        # Move circuit name to last element
         instance.insert(0, 'XDUT')              # Insert instance name
         return ' '.join(instance)
 
@@ -206,6 +210,21 @@ class LogicCell:
 
     def add_out_load(self, value: float):
         self._out_loads.append(float(value))
+
+    @property
+    def plots(self) -> list:
+        return self._plots
+    
+    @plots.setter
+    def plots(self, value):
+        if value == 'all':
+            self._plots = ['io', 'delay', 'power']
+        elif value == 'none':
+            self._plots = []
+        elif isinstance(value, list):
+            self._plots = value
+        else:
+            raise ValueError(f'Invalid value for plots: "{value}"')
 
     @property
     def is_exported(self) -> bool:
@@ -292,7 +311,6 @@ class LogicCell:
                         for n in range(len(self.out_ports)):
                             test_vector.append(f'{y1}{y0}' if n == out_index else '0')
                         test_vectors.append(test_vector)
-            [print(t) for t in test_vectors]
             return test_vectors
 
     def get_input_capacitance(self, in_port, vdd_voltage, capacitance_unit):

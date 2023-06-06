@@ -26,18 +26,10 @@ While CharLib does provide defaults for all key-value pairs under the `settings`
         * `name`: The name used to refer to this node in spice files.
         * `voltage`: The voltage at this node.
 
-### Optional Keys
-These keys may optionally be included to change simulation parameters:
+### Optional Simulation Parameter Keys
+These keys may optionally be included to specify simulation parameters:
 
-* `dotlib_name`: The file name to use for the exported liberty file. Defaults to whatever `lib_name` is set to + '.lib'.
-* `verilog_name`: The file name to use for the exported verilog file. Defaults to whatever `lib_name` is set to + '.v'.
-* `cell_name_prefix`: A static prefix to append to the start of each cell name in the exported liberty file. Empty by default.
-* `cell_name_suffix`: A static prefix to append to the end of each cell name in the exported liberty file. Empty by default.
 * `simulator`: A string specifying which PySpice simulator backend to use. See the [PySpice FAQ](https://pyspice.fabrice-salvaire.fr/releases/latest/faq.html#how-to-set-the-simulator) for available options. Defaults to 'ngspice-shared'.
-* `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
-* `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
-* `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
-* `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
 * `logic_thresholds`: A dictionary containing logic thresholds specified relative to `named_nodes.vdd`. May contain the following key-value pairs:
     * `low`: The maximum fraction supply voltage which registers as a logical zero. Defaults to 0.2 (20 percent of supply voltage).
     * `high`: The minimum fraction of supply voltage which registers as a logical one. Defaults to 0.8 (80 percent of supply voltage).
@@ -52,6 +44,18 @@ These keys may optionally be included to change simulation parameters:
 * `operating_conditions`: The operating conditions to include in the exported liberty file. Empty by default.
 * `delay_model`: The delay model keyword to include in the exported liberty file. Defaults to 'table_lookup`.
 * `cell_defaults`: A dictionary of default values to use for all cells. See **Cells** below for more information. May contain any key-value pair valid for a cell entry.
+
+### Optional Behavioral Keys
+These keys may optionally be included to adjust CharLib behavior:
+
+* `dotlib_name`: The file name to use for the exported liberty file. Defaults to whatever `lib_name` is set to + '.lib'.
+* `verilog_name`: The file name to use for the exported verilog file. Defaults to whatever `lib_name` is set to + '.v'.
+* `cell_name_prefix`: A static prefix to append to the start of each cell name in the exported liberty file. Empty by default.
+* `cell_name_suffix`: A static prefix to append to the end of each cell name in the exported liberty file. Empty by default.
+* `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
+* `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
+* `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
+* `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
 
 ## Cells
 Specific cells to characterize are specified as entries under the `cells` key.
@@ -95,6 +99,7 @@ These keys may optionally be included to provide additional cell documentation o
 * `set_pin`: The pin name for the set pin on sequential cells. If omitted, CharLib assumes the cell does not have a set pin.
 * `reset_pin`: The pin name for the reset pin on sequential cells. If omitted, CharLib assumes the cell does not have a reset pin.
 * `clock_slew`: The slew rate to use for the clock signal in simulation. Defaults to 0 if omitted.
+* `plots`: A string (or list of strings) specifying which plots to show for this cell. May be set to 'all', 'none', or a subset of 'io', 'delay', and 'power'. Defaults to 'none'.
 
 ## Examples 
 

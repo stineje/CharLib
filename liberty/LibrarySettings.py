@@ -23,21 +23,21 @@ def str_to_bool(value: str) -> bool:
 
 class LibrarySettings:
     def __init__(self, **kwargs):
-        # Key Library settings
+        # Behavioral settings
         self._lib_name = kwargs.get('lib_name', 'unnamed_lib')
         self._dotlib_name = kwargs.get('dotlib_name')
         self._verilog_name = kwargs.get('verilog_name')
         self._cell_name_suffix = kwargs.get('cell_name_suffix', '')
         self._cell_name_prefix = kwargs.get('cell_name_prefix', '')
-        self.units = UnitsSettings(**kwargs.get('units', {}))
-
-        # Simulator Settings
-        self._simulator = kwargs.get('simulator', 'ngspice-shared')
         self._work_dir = Path(kwargs.get('work_dir', 'work'))
         self._results_dir = Path(kwargs.get('results_dir', 'results'))
         self._run_sim = kwargs.get('run_simulation', True)
         self._use_multithreaded = kwargs.get('multithreaded', True)
         self._is_exported = False
+
+        # Simulation Settings
+        self._simulator = kwargs.get('simulator', 'ngspice-shared')
+        self.units = UnitsSettings(**kwargs.get('units', {}))
 
         named_nodes = kwargs.get('named_nodes', {})
         self.vdd = NamedNode(**named_nodes.get('vdd', {'name':'VDD'}))
