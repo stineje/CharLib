@@ -343,10 +343,11 @@ class CombinationalCell(LogicCell):
                 # Split simulation jobs into threads and run multiple simultaneously
                 thread_id = 0
                 threadlist = []
-                for tmp_slope in self.in_slews:
-                    for tmp_load in self.out_loads:
+                for slew in self.in_slews:
+                    for load in self.out_loads:
                         thread = threading.Thread(target=characterizer.char_comb.runCombinationalDelay,
-                                args=([settings, self, harness, spice_prefix, tmp_slope, tmp_load]),
+                                args=([settings, self, harness, spice_prefix,
+                                       slew * settings.units.time, load * settings.units.capacitance]),
                                 name="%d" % thread_id)
                         threadlist.append(thread)
                         thread_id += 1
@@ -354,9 +355,11 @@ class CombinationalCell(LogicCell):
                 [thread.join() for thread in threadlist]
             else:
                 # Run simulation jobs sequentially
-                for in_slew in self.in_slews:
-                    for out_load in self.out_loads:
-                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix, in_slew, out_load)
+                for slew in self.in_slews:
+                    for load in self.out_loads:
+                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix,
+                                                                      slew * settings.units.time,
+                                                                      load * settings.units.capacitance)
             # Save harness to the cell
             unsorted_harnesses.append(harness)
         # Filter and sort harnesses

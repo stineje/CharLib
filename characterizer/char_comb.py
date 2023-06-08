@@ -50,6 +50,7 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
     circuit.V('ss_leak', 'vss_leak', circuit.gnd, vss)
     circuit.V('nw_leak', 'vnw_leak', circuit.gnd, vnw)
     circuit.V('pw_leak', 'vpw_leak', circuit.gnd, vpw)
+    circuit.V('o_cap', 'vout', 'wout', 0)
     circuit.C('0', 'wout', 'vss_dyn', out_load)
 
     # Initialize device under test subcircuit and wire up ports
