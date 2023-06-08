@@ -56,19 +56,19 @@ class Harness:
         # Get inputs from test vector
         for in_port, state in zip(target_cell.in_ports, input_test_vector):
             if len(state) > 1:
-                self._target_in_port = in_port
+                self._target_in_port = in_port.lower()
                 self._target_in_port_state = state
             else:
-                self._stable_in_ports.append(in_port)
+                self._stable_in_ports.append(in_port.lower())
                 self._stable_in_port_states.append(state)
 
         # Get outputs from test vector
         for out_port, state in zip(target_cell.out_ports, output_test_vector):
             if len(state) > 1:
-                self._target_out_port = out_port
+                self._target_out_port = out_port.lower()
                 self._target_out_port_state = state
             else:
-                self._nontarget_out_ports.append(out_port)
+                self._nontarget_out_ports.append(out_port.lower())
                 self._nontarget_out_port_states.append(state)
         if not self._target_out_port:
             raise ValueError(f'Unable to parse target output port from test vector {test_vector}')

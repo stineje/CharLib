@@ -3,6 +3,7 @@ from liberty.UnitsSettings import UnitsSettings
 
 class NamedNode:
     def __init__(self, name, voltage = 0):
+        # TODO: Use units for voltages
         self.name = name
         self.voltage = voltage
 
