@@ -236,7 +236,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_threshold_high: {value}')
 
     def logic_threshold_high_voltage(self) -> float:
-        return self.logic_threshold_high * self.vdd
+        return self.logic_threshold_high * self.vdd.voltage
 
     @property
     def logic_threshold_low(self) -> float:
@@ -250,7 +250,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_threshold_high: {value}')
 
     def logic_threshold_low_voltage(self) -> float:
-        return self.logic_threshold_low * self.vdd
+        return self.logic_threshold_low * self.vdd.voltage
 
     @property
     def logic_high_to_low_threshold(self) -> float:
@@ -264,7 +264,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_high_to_low_threshold: {value}')
 
     def logic_high_to_low_threshold_voltage(self) -> float:
-        return self.logic_high_to_low_threshold * self.vdd
+        return self.logic_high_to_low_threshold * self.vdd.voltage
 
     @property
     def logic_low_to_high_threshold(self) -> float:
@@ -278,7 +278,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_low_to_high_threshold: {value}')
 
     def logic_low_to_high_threshold_voltage(self) -> float:
-        return self.logic_low_to_high_threshold * self.vdd
+        return self.logic_low_to_high_threshold * self.vdd.voltage
 
     @property
     def energy_meas_low_threshold(self) -> float:
@@ -292,7 +292,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for energy_meas_low_threshold: {value}')
 
     def energy_meas_low_threshold_voltage(self) -> float:
-        return self.energy_meas_low_threshold * self.vdd
+        return self.energy_meas_low_threshold * self.vdd.voltage
 
     @property
     def energy_meas_high_threshold(self) -> float:
@@ -306,7 +306,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for energy_meas_high_threshold: {value}')
 
     def energy_meas_high_threshold_voltage(self) -> float:
-        return self.energy_meas_high_threshold * self.vdd
+        return self.energy_meas_high_threshold * self.vdd.voltage
 
     @property
     def energy_meas_time_extent(self) -> float:

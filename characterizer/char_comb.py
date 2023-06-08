@@ -89,18 +89,33 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
 
     print(str(circuit))
 
-    # Perform spice simulation
-    simulator = circuit.simulator(temperature=settings.temperature, nominal_temperature=settings.temperature, simulator=settings.simulator)
-    analysis = simulator.transient(step_time=cell.sim_timestep, end_time=t_simend)
-
-    # Take a first attempt at plotting
-    figure, ax = plt.subplots(figsize=(20, 10))
-    ax.plot(analysis['vout'])
-    ax.plot(analysis['vin'])
-    ax.grid()
-    ax.set_xlabel('Time')
-    ax.set_ylabel('Voltage')
-    plt.show()
+    # Initialize simulator
+    simulator = circuit.simulator(temperature=settings.temperature,
+                                  nominal_temperature=settings.temperature,
+                                  simulator=settings.simulator)
+    
+    # Measure energy for future trials
+    if not energy:
+        simulator.measure('tran', 'energy_start',
+                          f"when v(Vin)='{str(settings.energy_meas_low_threshold_voltage())}' {harness.in_direction}=1")
+        simulator.measure('tran', 'energy_end',
+                          f"when v(Vin)='{str(settings.energy_meas_high_threshold_voltage())}' {harness.out_direction}=1")
+    else:
+        [energy_start, energy_end] = energy
+        simulator.measure('tran', 'q_in_dyn',
+                          f'integ i(Vin) from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_out_dyn',
+                          f'integ i(Vo_cap) from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_vdd_dyn',
+                          f'integ i(Vdd_dyn) from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_vss_dyn',
+                          f'integ i(Vss_dyn), from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'i_vdd_leak',
+                          f'avg i(Vdd_dyn) from={0.1 * t_start} to={t_start}')
+        simulator.measure('tran', 'i_vss_leak',
+                          f'avg i(Vss_dyn) from={0.1 * t_start} to={t_start}')
+        simulator.measure('tran', 'i_in_leak',
+                          f'avg i(Vin) from={0.1 * t_start} to={t_start}')
 
     # TODO:
     # - Set up prop and trans delay probes
