@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import inspect
 
 from PySpice.Spice.Netlist import Circuit
 from PySpice import Unit
@@ -27,7 +28,7 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
     # Set up parameters
     t_start = in_slew
     t_end = t_start + in_slew
-    t_simend = 10000 * in_slew
+    t_simend = 100 * in_slew
     vdd = settings.vdd.voltage * settings.units.voltage
     vss = settings.vss.voltage * settings.units.voltage
     vpw = settings.pwell.voltage * settings.units.voltage
@@ -38,7 +39,7 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
     circuit.include(cell.model)
     circuit.include(cell.netlist)
     (v_start, v_end) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
-    pwl_values = [(1@Unit.u_ps, v_start), (t_start, v_start), (t_end, v_end), (t_simend, v_end)]
+    pwl_values = [(0, v_start), (t_start, v_start), (t_end, v_end), (t_simend, v_end)]
     circuit.PieceWiseLinearVoltageSource('in', 'vin', circuit.gnd, values=pwl_values)
     circuit.V('high', 'vhigh', circuit.gnd, vdd)
     circuit.V('low', 'vlow', circuit.gnd, vss)
@@ -87,19 +88,38 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
         raise ValueError(f'Failed to match all ports identified in definition "{cell.definition.strip()}"')
     circuit.X('dut', subcircuit_name, *connections)
 
-    print(str(circuit))
-
     # Initialize simulator
     simulator = circuit.simulator(temperature=settings.temperature,
                                   nominal_temperature=settings.temperature,
                                   simulator=settings.simulator)
-    
-    # Measure energy for future trials
+    simulator.options('nopage', 'nomod', 'autostop', post=1, ingold=2)
+
+    # Measure delay
+    if harness.in_direction == 'rise':
+        v_prop_start = settings.logic_low_to_high_threshold_voltage()
+    else:
+        v_prop_start = settings.logic_high_to_low_threshold_voltage()
+    if harness.out_direction == 'rise':
+        v_prop_end = settings.logic_low_to_high_threshold_voltage()
+        v_trans_start = settings.logic_threshold_low_voltage()
+        v_trans_end = settings.logic_threshold_high_voltage()
+    else:
+        v_prop_end = settings.logic_low_to_high_threshold_voltage()
+        v_trans_start = settings.logic_threshold_high_voltage()
+        v_trans_end = settings.logic_threshold_low_voltage()
+    simulator.measure('tran', 'prop_in_out',
+                      f'trig v(Vin) val={v_prop_start} {harness.in_direction}=1',
+                      f'targ v(Vout) val={v_prop_end} {harness.out_direction}=1')
+    simulator.measure('tran', 'trans_out',
+                      f'trig v(Vout) val={v_trans_start} {harness.out_direction}=1',
+                      f'targ v(Vout) val={v_trans_end} {harness.out_direction}=1')
+
+    # Measure energy
     if not energy:
         simulator.measure('tran', 'energy_start',
                           f"when v(Vin)='{str(settings.energy_meas_low_threshold_voltage())}' {harness.in_direction}=1")
         simulator.measure('tran', 'energy_end',
-                          f"when v(Vin)='{str(settings.energy_meas_high_threshold_voltage())}' {harness.out_direction}=1")
+                          f"when v(Vout)='{str(settings.energy_meas_high_threshold_voltage())}' {harness.out_direction}=1")
     else:
         [energy_start, energy_end] = energy
         simulator.measure('tran', 'q_in_dyn',
@@ -117,6 +137,46 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
         simulator.measure('tran', 'i_in_leak',
                           f'avg i(Vin) from={0.1 * t_start} to={t_start}')
 
-    # TODO:
-    # - Set up prop and trans delay probes
-    # - Set up energy probes
+    print(str(simulator))
+
+    # Run transient analysis and extract results
+    analysis = simulator.transient(step_time=cell.sim_timestep, end_time=t_simend)
+
+    walk_members(analysis)
+
+    if 'io' in cell.plots:
+        # Generate plots for Vin and Vout
+        figure, (ax_i, ax_o) = plt.subplots(2, sharex=True)
+        figure.suptitle('I/O Voltage vs. Time')
+        
+        # Set up Vin plot
+        ax_i.grid()
+        ax_i.set_ylabel(f'Vin (pin {harness.target_in_port}) [{str(settings.units.voltage.prefixed_unit)}]')
+        ax_i.plot(analysis.time, analysis['vin'])
+
+        # Set up Vout plot
+        ax_o.grid()
+        ax_o.set_ylabel(f'Vout (pin {harness.target_out_port}) [{str(settings.units.voltage.prefixed_unit)}]')
+        ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
+        ax_o.plot(analysis.time, analysis['vout'])
+
+        # Add horizontal lines indicating logic levels and energy measurement bounds
+        for ax in [ax_i, ax_o]:
+            for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
+                ax.axhline(level, color='0.5', linestyle='--')
+            for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
+                ax.axhline(level, color='g', linestyle=':')
+
+        # Add vertical lines indicating timing
+        for ax in [ax_i, ax_o]:
+            for t in [t_start, t_end]:
+                ax.axvline(float(t), color='r', linestyle=':')
+
+        plt.show(block=False)
+
+    return analysis
+
+def walk_members(obj, indent=0):
+    for k in inspect.getmembers(obj):
+        if not k[0].startswith('_'):
+            print(k)

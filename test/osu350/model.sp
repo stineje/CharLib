@@ -13,7 +13,7 @@
 +KETA    = -7.8181E-3     A1      = 0              A2      = 1
 +RDSW    = 925.2701982    PRWG    = -1E-3          PRWB    = -1E-3
 +WR      = 1              WINT    = 7.186965E-8    LINT    = 1.735515E-9
-+XL      = -2E-8          XW      = 0              DWG     = -1.712973E-8
++DWG     = -1.712973E-8
 +DWB     = 5.851691E-9    VOFF    = -0.132935      NFACTOR = 0.5710974
 +CIT     = 0              CDSC    = 8.607229E-4    CDSCD   = 0
 +CDSCB   = 0              ETA0    = 2.128321E-3    ETAB    = 0
@@ -46,7 +46,7 @@
 +KETA    = -9.27E-3       A1      = 0              A2      = 1
 +RDSW    = 2.30725E3      PRWG    = -1E-3          PRWB    = 0
 +WR      = 1              WINT    = 5.962233E-8    LINT    = 4.30928E-9
-+XL      = -2E-8          XW      = 0              DWG     = -1.596201E-8
++DWG     = -1.596201E-8
 +DWB     = 1.378919E-8    VOFF    = -0.15          NFACTOR = 2
 +CIT     = 0              CDSC    = 6.593084E-4    CDSCD   = 0
 +CDSCB   = 0              ETA0    = 0.0286461      ETAB    = 0
@@ -79,7 +79,7 @@
 +KETA    = -7.8181E-3     A1      = 0              A2      = 1
 +RDSW    = 925.2701982    PRWG    = -1E-3          PRWB    = -1E-3
 +WR      = 1              WINT    = 7.186965E-8    LINT    = 1.735515E-9
-+XL      = -2E-8          XW      = 0              DWG     = -1.712973E-8
++DWG     = -1.712973E-8
 +DWB     = 5.851691E-9    VOFF    = -0.132935      NFACTOR = 0.5710974
 +CIT     = 0              CDSC    = 8.607229E-4    CDSCD   = 0
 +CDSCB   = 0              ETA0    = 2.128321E-3    ETAB    = 0
@@ -112,7 +112,7 @@
 +KETA    = -9.27E-3       A1      = 0              A2      = 1
 +RDSW    = 2.30725E3      PRWG    = -1E-3          PRWB    = 0
 +WR      = 1              WINT    = 5.962233E-8    LINT    = 4.30928E-9
-+XL      = -2E-8          XW      = 0              DWG     = -1.596201E-8
++DWG     = -1.596201E-8
 +DWB     = 1.378919E-8    VOFF    = -0.15          NFACTOR = 2
 +CIT     = 0              CDSC    = 6.593084E-4    CDSCD   = 0
 +CDSCB   = 0              ETA0    = 0.0286461      ETAB    = 0

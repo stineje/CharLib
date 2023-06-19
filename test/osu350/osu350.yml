@@ -6,7 +6,7 @@ settings:
     export_lib:         yes
     export_cmd:         no
     run_simulation:     yes
-    multithreaded:      yes
+    multithreaded:      no
     units:
         voltage:        V
         capacitance:    pF
@@ -33,6 +33,8 @@ settings:
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         simulation_timestep: auto
+        plots:
+            - io
 cells:
     INVX1:
         netlist:    osu350_spice_temp/INVX1.sp
