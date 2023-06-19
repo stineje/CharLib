@@ -1,4 +1,5 @@
 import threading
+from matplotlib import pyplot as plt
 from pathlib import Path
 
 import characterizer.char_comb
@@ -361,22 +362,28 @@ class CombinationalCell(LogicCell):
                                                                       slew * settings.units.time,
                                                                       load * settings.units.capacitance)
             # Save harness to the cell
-            unsorted_harnesses.append(harness)
-        # Filter and sort harnesses
+            self.harnesses.append(harness)
+            #unsorted_harnesses.append(harness)
+
+        # TODO: Filter and sort harnesses
         # The result should be:
         # - For each input-output path:
         #   - 1 harness for the critical path rising case
         #   - 1 harness for the critical path falling case
-        for output in self.out_ports:
-            for input in self.in_ports:
-                for direction in ['rise', 'fall']:
-                    # Iterate over harnesses that match output, input, and direction
-                    harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, input, output) if harness.out_direction == direction]
-                    worst_case_harness = harnesses[0]
-                    for harness in harnesses:
-                        if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
-                            worst_case_harness = harness # This harness is worse
-                    self.harnesses.append(worst_case_harness)
+        # for output in self.out_ports:
+        #     for input in self.in_ports:
+        #         for direction in ['rise', 'fall']:
+        #             # Iterate over harnesses that match output, input, and direction
+        #             harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, input, output) if harness.out_direction == direction]
+        #             worst_case_harness = harnesses[0]
+        #             for harness in harnesses:
+        #                 if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
+        #                     worst_case_harness = harness # This harness is worse
+        #             self.harnesses.append(worst_case_harness)
+
+        # Display plots
+        if 'io' in self.plots:
+            [harness.plot_io(settings, self.in_slews, self.out_loads) for harness in self.harnesses]
 
     def export(self, settings):
         cell_lib = [

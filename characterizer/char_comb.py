@@ -1,21 +1,17 @@
-import matplotlib.pyplot as plt
-import inspect
-
 from PySpice.Spice.Netlist import Circuit
-from PySpice import Unit
 
 def runCombinationalDelay(settings, cell, harness, spice_filename, in_slew, out_load):
     spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slew)
 
     ## 1st trial, extract energy_start and energy_end
     trial_results = runCombinationalTrial(settings, cell, harness, in_slew, out_load, spice_results_filename)
-    energy_start = trial_results['energy_start']
-    energy_end = trial_results['energy_end']
+    # energy_start = trial_results['energy_start']
+    # energy_end = trial_results['energy_end']
 
-    ## 2nd trial
-    trial_results = runCombinationalTrial(settings, cell, harness, in_slew, out_load, spice_results_filename, energy_start, energy_end)
-    trial_results['energy_start'] = energy_start
-    trial_results['energy_end'] = energy_end
+    # ## 2nd trial
+    # trial_results = runCombinationalTrial(settings, cell, harness, in_slew, out_load, spice_results_filename, energy_start, energy_end)
+    # trial_results['energy_start'] = energy_start
+    # trial_results['energy_end'] = energy_end
 
     if not harness.results.get(str(in_slew)):
         harness.results[str(in_slew)] = {}
@@ -137,46 +133,5 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
         simulator.measure('tran', 'i_in_leak',
                           f'avg i(Vin) from={0.1 * t_start} to={t_start}')
 
-    print(str(simulator))
-
     # Run transient analysis and extract results
-    analysis = simulator.transient(step_time=cell.sim_timestep, end_time=t_simend)
-
-    walk_members(analysis)
-
-    if 'io' in cell.plots:
-        # Generate plots for Vin and Vout
-        figure, (ax_i, ax_o) = plt.subplots(2, sharex=True)
-        figure.suptitle('I/O Voltage vs. Time')
-        
-        # Set up Vin plot
-        ax_i.grid()
-        ax_i.set_ylabel(f'Vin (pin {harness.target_in_port}) [{str(settings.units.voltage.prefixed_unit)}]')
-        ax_i.plot(analysis.time, analysis['vin'])
-
-        # Set up Vout plot
-        ax_o.grid()
-        ax_o.set_ylabel(f'Vout (pin {harness.target_out_port}) [{str(settings.units.voltage.prefixed_unit)}]')
-        ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
-        ax_o.plot(analysis.time, analysis['vout'])
-
-        # Add horizontal lines indicating logic levels and energy measurement bounds
-        for ax in [ax_i, ax_o]:
-            for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
-                ax.axhline(level, color='0.5', linestyle='--')
-            for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
-                ax.axhline(level, color='g', linestyle=':')
-
-        # Add vertical lines indicating timing
-        for ax in [ax_i, ax_o]:
-            for t in [t_start, t_end]:
-                ax.axvline(float(t), color='r', linestyle=':')
-
-        plt.show(block=False)
-
-    return analysis
-
-def walk_members(obj, indent=0):
-    for k in inspect.getmembers(obj):
-        if not k[0].startswith('_'):
-            print(k)
+    return simulator.transient(step_time=cell.sim_timestep, end_time=t_simend)

@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from PySpice.Unit import *
 
 class Harness:
@@ -277,6 +278,38 @@ class CombinationalHarness (Harness):
     @property
     def timing_type(self) -> str:
         return "combinational"
+
+    def plot_io(self, settings, in_slews, out_loads):
+        """Plot I/O voltages vs time for the given slew rates and output loads"""
+        # Group data by slew rate so that Vin is the same
+        for slew in in_slews:
+            # Generate plots for Vin and Vout
+            figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
+            figure.suptitle('I/O Voltage vs. Time')
+
+            # Set up plot parameters
+            ax_i.grid()
+            ax_i.set_ylabel(f'Vin (pin {self.target_in_port}) [{str(settings.units.voltage.prefixed_unit)}]')
+            ax_i.set_title(f'Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew: {str(slew * settings.units.time)}')
+            ax_o.grid()
+            ax_o.set_ylabel(f'Vout (pin {self.target_out_port}) [{str(settings.units.voltage.prefixed_unit)}]')
+            ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
+
+            # Add dotted lines indicating logic levels, energy measurement bounds, and timing
+            for ax in [ax_i, ax_o]:
+                for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
+                    ax.axhline(level, color='0.5', linestyle='--')
+                for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
+                    ax.axhline(level, color='g', linestyle=':')
+                for t in [slew, 2*slew]:
+                    ax.axvline(float(t), color='r', linestyle=':')
+
+            # Plot simulation data
+            for load in out_loads:
+                data = self.results[str(slew * settings.units.time)][str(load * settings.units.capacitance)]
+                ax_o.plot(data.time / settings.units.time, data['vout'], label=f'Fanout={load*settings.units.capacitance}')
+            ax_i.plot(data.time / settings.units.time, data['vin'])
+            ax_o.legend(loc='lower right')
 
 
 class SequentialHarness (Harness):
