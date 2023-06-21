@@ -159,8 +159,7 @@ class Harness:
 
     def average_input_capacitance(self, vdd_voltage) -> float:
         """Calculates the average input capacitance over all trials"""
-        # TODO: Usually we want minimum input capacitance instead of average
-        input_capacitance = 0.0 @ u_F
+        input_capacitance = 0.0
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
@@ -169,12 +168,18 @@ class Harness:
                 input_capacitance += q / vdd_voltage
                 n += 1
         input_capacitance = input_capacitance / n
-        return input_capacitance
+        return input_capacitance @ u_F
+    
+    def minimum_input_capacitance(self, vdd_voltage):
+        """Finds the minimum measured input capacitance"""
+        # Find minimum q
+        q = min([self.results[slope][load]['q_in_dyn'] for slope in self.results.keys() for load in self.results[slope].keys()])
+        return (q / vdd_voltage) @ u_F
 
     def average_transition_delay(self) -> float:
         """Calculates the average transition delay over all trials"""
         # TODO: Usually we want longest transport delay instead of average
-        total_delay = 0.0 @ u_s
+        total_delay = 0.0
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
@@ -185,13 +190,13 @@ class Harness:
     def average_propagation_delay(self) -> float:
         """Calculates the average propagation delay over all trials"""
         # TODO: Usually we want longest prop delay instead of average
-        total_delay = 0.0 @ u_s
+        total_delay = 0.0
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
                 total_delay += self.results[slope][load]['prop_in_out']
                 n += 1
-        return total_delay / n
+        return (total_delay / n) @ u_s
 
     def _calc_leakage_power(self, in_slew, out_load, vdd_voltage: float):
         i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak'])
@@ -201,58 +206,58 @@ class Harness:
     
     def get_leakage_power(self, vdd_voltage):
         """Calculates the average leakage power over all trials"""
-        leakage_power = 0.0 @ u_J
+        leakage_power = 0.0
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
                 leakage_power += self._calc_leakage_power(slope, load, vdd_voltage)
                 n += 1
-        leakage_power = leakage_power / n
-        return leakage_power
+        return (leakage_power / n) @ u_W
 
-    def _get_lut_value_groups_by_key(self, in_slews, out_loads, key: str):
+    def _get_lut_value_groups_by_key(self, in_slews, out_loads, key: str, base_unit, output_unit):
         value_groups = []
         for slew in in_slews:
             values = [self.results[str(slew)][str(load)][key] for load in out_loads]
+            values = [float((v@base_unit).convert(output_unit)) for v in values]
             value_groups.append(f'"{", ".join([f"{value:f}" for value in values])}"')
         sep = ', \\\n  '
         return f'values( \\\n  {sep.join(value_groups)});'
 
-    def get_propagation_delay_lut(self, in_slews, out_loads) -> list:
+    def get_propagation_delay_lut(self, in_slews, out_loads, time_unit) -> list:
         lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'prop_in_out')
+        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'prop_in_out', u_s, time_unit)
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def get_transport_delay_lut(self, in_slews, out_loads):
+    def get_transport_delay_lut(self, in_slews, out_loads, time_unit):
         lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'trans_out')
+        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'trans_out', u_s, time_unit)
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def _calc_internal_energy(self, in_slew: str, out_load: str, energy_meas_high_threshold_voltage: float):
+    def _calc_internal_energy(self, slew: str, load: str, energy_meas_high_threshold_voltage: float, energy_unit):
         """Calculates internal energy for a particular slope/load combination"""
         # Fetch calculation parameters
-        e_start = self.results[in_slew][out_load]['energy_start']
-        e_end = self.results[in_slew][out_load]['energy_end']
-        q_vdd_dyn = self.results[in_slew][out_load]['q_vdd_dyn']
-        q_vss_dyn = self.results[in_slew][out_load]['q_vss_dyn']
-        i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak'])
-        i_vss_leak = abs(self.results[in_slew][out_load]['i_vss_leak'])
+        e_start = self.results[slew][load]['energy_start'] @ u_J
+        e_end = self.results[slew][load]['energy_end'] @ u_J
+        q_vdd_dyn = self.results[slew][load]['q_vdd_dyn'] @ u_C
+        q_vss_dyn = self.results[slew][load]['q_vss_dyn'] @ u_C
+        i_vdd_leak = abs(self.results[slew][load]['i_vdd_leak']) @ u_A
+        i_vss_leak = abs(self.results[slew][load]['i_vss_leak']) @ u_A
         # Perform the calculation
         energy_delta = (e_end - e_start)
-        avg_current = (i_vdd_leak + i_vss_leak) / 2
-        internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current
-        return internal_charge * energy_meas_high_threshold_voltage
+        avg_current = ((i_vdd_leak + i_vss_leak) / 2)
+        internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current # TODO: Units don't work out
+        return float((internal_charge * energy_meas_high_threshold_voltage).convert(energy_unit))
 
-    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float):
+    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, energy_unit):
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
         energy_groups = []
         for slew in in_slews:
-            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth) for out_load in out_loads]
+            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth, energy_unit) for out_load in out_loads]
             energy_groups.append(f'"{", ".join(["{:f}".format(energy) for energy in energies])}"')
         sep = ', \\\n  '
         [lines.append(value_line) for value_line in f'values( \\\n  {sep.join(energy_groups)});'.split('\n')]
@@ -281,6 +286,7 @@ class CombinationalHarness (Harness):
 
     def plot_io(self, settings, in_slews, out_loads):
         """Plot I/O voltages vs time for the given slew rates and output loads"""
+        # TODO: Evaluate whether a 3d plot might be apt here instead of creating a huge number of 2d plots
         # Group data by slew rate so that Vin is the same
         for slew in in_slews:
             # Generate plots for Vin and Vout
@@ -306,10 +312,15 @@ class CombinationalHarness (Harness):
 
             # Plot simulation data
             for load in out_loads:
-                data = self.results[str(slew * settings.units.time)][str(load * settings.units.capacitance)]
+                data = self.results[str(slew)][str(load)]
                 ax_o.plot(data.time / settings.units.time, data['vout'], label=f'Fanout={load*settings.units.capacitance}')
             ax_i.plot(data.time / settings.units.time, data['vin'])
-            ax_o.legend(loc='lower right')
+            ax_o.legend()
+
+    def plot_delay(self, settings, in_slews, out_loads):
+        """Plot propagation delay and transport delay vs slew rate vs fanout"""
+
+        
 
 
 class SequentialHarness (Harness):
@@ -427,7 +438,9 @@ class SequentialHarness (Harness):
 # Utilities for working with Harnesses
 def filter_harnesses_by_ports(harness_list: list, in_port, out_port) -> list:
     """Finds harnesses in harness_list which target in_port and out_port"""
-    return [harness for harness in harness_list if harness.target_in_port == in_port and harness.target_out_port == out_port]
+    return [harness for harness in harness_list 
+            if harness.target_in_port.lower() == in_port.lower()
+            and harness.target_out_port.lower() == out_port.lower()]
 
 def find_harness_by_arc(harness_list: list, in_port, out_port, out_direction) -> Harness:
     harnesses = [harness for harness in filter_harnesses_by_ports(harness_list, in_port, out_port) if harness.out_direction == out_direction]

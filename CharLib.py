@@ -112,10 +112,10 @@ def execute_lib(characterizer: Characterizer, library_dir):
     # Initialize workspace, characterize, and export
     characterizer.initialize_work_dir()
     characterizer.characterize()
-    # for cell in characterizer.cells:
-    #     exportFiles(characterizer.settings, cell)
-    #     characterizer.num_files_generated += 1
-    # exitFiles(characterizer.settings, characterizer.num_files_generated)
+    for cell in characterizer.cells:
+        exportFiles(characterizer.settings, cell)
+        characterizer.num_files_generated += 1
+    exitFiles(characterizer.settings, characterizer.num_files_generated)
     plt.show()
 
 def execute_shell(characterizer: Characterizer):

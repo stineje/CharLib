@@ -314,17 +314,12 @@ class LogicCell:
                         test_vectors.append(test_vector)
             return test_vectors
 
-    def get_input_capacitance(self, in_port, vdd_voltage, capacitance_unit):
-        """Average input capacitance measured by all harnesses that target this input port"""
-        if in_port not in self.in_ports:
+    def get_input_capacitance(self, in_port, vdd_voltage):
+        """Minimum input capacitance measured by all harnesses that target this input port"""
+        if in_port.lower() not in [port.lower() for port in self.in_ports]:
             raise ValueError(f'Unrecognized input port {in_port}')
-        input_capacitance = 0
-        n = 0
-        for harness in self.harnesses:
-            if harness.target_in_port == in_port:
-                input_capacitance += harness.average_input_capacitance(vdd_voltage, capacitance_unit)
-                n += 1
-        return input_capacitance / n
+        return min([harness.minimum_input_capacitance(vdd_voltage) for harness in self.harnesses
+                    if harness.target_in_port.lower() == in_port.lower()])
 
 class CombinationalCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, **kwargs):
@@ -347,8 +342,7 @@ class CombinationalCell(LogicCell):
                 for slew in self.in_slews:
                     for load in self.out_loads:
                         thread = threading.Thread(target=characterizer.char_comb.runCombinationalDelay,
-                                args=([settings, self, harness, spice_prefix,
-                                       slew * settings.units.time, load * settings.units.capacitance]),
+                                args=([settings, self, harness, spice_prefix, slew, load]),
                                 name="%d" % thread_id)
                         threadlist.append(thread)
                         thread_id += 1
@@ -358,45 +352,45 @@ class CombinationalCell(LogicCell):
                 # Run simulation jobs sequentially
                 for slew in self.in_slews:
                     for load in self.out_loads:
-                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix,
-                                                                      slew * settings.units.time,
-                                                                      load * settings.units.capacitance)
+                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix, slew, load)
             # Save harness to the cell
-            self.harnesses.append(harness)
+            unsorted_harnesses.append(harness)
             #unsorted_harnesses.append(harness)
 
-        # TODO: Filter and sort harnesses
+        # Filter and sort harnesses
         # The result should be:
         # - For each input-output path:
         #   - 1 harness for the critical path rising case
         #   - 1 harness for the critical path falling case
-        # for output in self.out_ports:
-        #     for input in self.in_ports:
-        #         for direction in ['rise', 'fall']:
-        #             # Iterate over harnesses that match output, input, and direction
-        #             harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, input, output) if harness.out_direction == direction]
-        #             worst_case_harness = harnesses[0]
-        #             for harness in harnesses:
-        #                 if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
-        #                     worst_case_harness = harness # This harness is worse
-        #             self.harnesses.append(worst_case_harness)
+        for output in self.out_ports:
+            for input in self.in_ports:
+                for direction in ['rise', 'fall']:
+                    # Iterate over harnesses that match output, input, and direction
+                    harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, input, output) if harness.out_direction == direction]
+                    worst_case_harness = harnesses[0]
+                    for harness in harnesses:
+                        if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
+                            worst_case_harness = harness # This harness is worse
+                    self.harnesses.append(worst_case_harness)
 
         # Display plots
         if 'io' in self.plots:
             [harness.plot_io(settings, self.in_slews, self.out_loads) for harness in self.harnesses]
 
     def export(self, settings):
+        leakage_power = self.harnesses[0].get_leakage_power(settings.vdd.voltage).convert(settings.units.power.prefixed_unit) # TODO: Check whether we should use the 1st
         cell_lib = [
             f'cell ({self.name}) {{',
             f'  area : {self.area};',
-            f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # TODO: Check whether we should use the 1st
+            f'  cell_leakage_power : {float(leakage_power):.7f};',
         ]
         # Input ports
         for in_port in self.in_ports:
+            input_capacitance = self.get_input_capacitance(in_port, settings.vdd.voltage).convert(settings.units.capacitance.prefixed_unit)
             cell_lib.extend([
                 f'  pin ({in_port}) {{',
                 f'    direction : input;',
-                f'    capacitance : {self.get_input_capacitance(in_port, settings.vdd.voltage, settings.units.capacitance):.7f};',
+                f'    capacitance : {float(input_capacitance):.7f};',
                 f'    rise_capacitance : 0;', # TODO: calculate this (average over harnesses?)
                 f'    fall_capacitance : 0;', # TODO: calculate this (average over harnesses?)
                 f'  }}', # end pin
@@ -425,12 +419,12 @@ class CombinationalCell(LogicCell):
                     harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
                     # Propagation delay
                     cell_lib.append(f'      {harness.direction_prop} (delay_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
-                    for line in harness.get_propagation_delay_lut(self.in_slews, self.out_loads, settings.units.time):
+                    for line in harness.get_propagation_delay_lut(self.in_slews, self.out_loads, settings.units.time.prefixed_unit):
                         cell_lib.append(f'        {line}')
                     cell_lib.append(f'      }}') # end cell_rise/fall LUT
                     # Transition delay
                     cell_lib.append(f'      {harness.direction_tran} (delay_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
-                    for line in harness.get_transport_delay_lut(self.in_slews, self.out_loads, settings.units.time):
+                    for line in harness.get_transport_delay_lut(self.in_slews, self.out_loads, settings.units.time.prefixed_unit):
                         cell_lib.append(f'        {line}')
                     cell_lib.append(f'      }}') # end rise/fall_transition LUT
                 cell_lib.append(f'    }}') # end timing
@@ -445,7 +439,7 @@ class CombinationalCell(LogicCell):
                 for direction in ['rise', 'fall']:
                     harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
                     cell_lib.append(f'      {harness.direction_power} (energy_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
-                    for line in harness.get_internal_energy_lut(self.in_slews, self.out_loads, settings.energy_meas_high_threshold_voltage(), settings.units.energy, settings.units.current):
+                    for line in harness.get_internal_energy_lut(self.in_slews, self.out_loads, settings.energy_meas_high_threshold_voltage(), settings.units.energy.prefixed_unit):
                         cell_lib.append(f'        {line}')
                     cell_lib.append(f'      }}') # end rise/fall_power LUT
                 cell_lib.append(f'    }}') # end internal power

@@ -3,15 +3,22 @@ from PySpice.Spice.Netlist import Circuit
 def runCombinationalDelay(settings, cell, harness, spice_filename, in_slew, out_load):
     spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slew)
 
-    ## 1st trial, extract energy_start and energy_end
-    trial_results = runCombinationalTrial(settings, cell, harness, in_slew, out_load, spice_results_filename)
-    # energy_start = trial_results['energy_start']
-    # energy_end = trial_results['energy_end']
+    # 1st trial, extract energy_start and energy_end
+    trial_results = runCombinationalTrial(settings, cell, harness, 
+                                          in_slew * settings.units.time, 
+                                          out_load * settings.units.capacitance,
+                                          spice_results_filename)
+    energy_start = trial_results['energy_start']
+    energy_end = trial_results['energy_end']
 
-    # ## 2nd trial
-    # trial_results = runCombinationalTrial(settings, cell, harness, in_slew, out_load, spice_results_filename, energy_start, energy_end)
-    # trial_results['energy_start'] = energy_start
-    # trial_results['energy_end'] = energy_end
+    # 2nd trial
+    trial_results = runCombinationalTrial(settings, cell, harness,
+                                          in_slew * settings.units.time,
+                                          out_load * settings.units.capacitance,
+                                          spice_results_filename,
+                                          energy_start, energy_end)
+    trial_results.measurements['energy_start'] = energy_start
+    trial_results.measurements['energy_end'] = energy_end
 
     if not harness.results.get(str(in_slew)):
         harness.results[str(in_slew)] = {}
@@ -24,7 +31,7 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
     # Set up parameters
     t_start = in_slew
     t_end = t_start + in_slew
-    t_simend = 100 * in_slew
+    t_simend = 1000 * in_slew
     vdd = settings.vdd.voltage * settings.units.voltage
     vss = settings.vss.voltage * settings.units.voltage
     vpw = settings.pwell.voltage * settings.units.voltage
@@ -88,7 +95,7 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
     simulator = circuit.simulator(temperature=settings.temperature,
                                   nominal_temperature=settings.temperature,
                                   simulator=settings.simulator)
-    simulator.options('nopage', 'nomod', 'autostop', post=1, ingold=2)
+    simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
 
     # Measure delay
     if harness.in_direction == 'rise':
@@ -113,9 +120,9 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
     # Measure energy
     if not energy:
         simulator.measure('tran', 'energy_start',
-                          f"when v(Vin)='{str(settings.energy_meas_low_threshold_voltage())}' {harness.in_direction}=1")
+                          f'when v(Vin)={str(settings.energy_meas_low_threshold_voltage())} {harness.in_direction}=1')
         simulator.measure('tran', 'energy_end',
-                          f"when v(Vout)='{str(settings.energy_meas_high_threshold_voltage())}' {harness.out_direction}=1")
+                          f'when v(Vout)={str(settings.energy_meas_high_threshold_voltage())} {harness.out_direction}=1')
     else:
         [energy_start, energy_end] = energy
         simulator.measure('tran', 'q_in_dyn',
@@ -127,11 +134,11 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
         simulator.measure('tran', 'q_vss_dyn',
                           f'integ i(Vss_dyn), from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
         simulator.measure('tran', 'i_vdd_leak',
-                          f'avg i(Vdd_dyn) from={0.1 * t_start} to={t_start}')
+                          f'avg i(Vdd_dyn) from={float(t_start)/10} to={float(t_start)}')
         simulator.measure('tran', 'i_vss_leak',
-                          f'avg i(Vss_dyn) from={0.1 * t_start} to={t_start}')
+                          f'avg i(Vss_dyn) from={float(t_start)/10} to={float(t_start)}')
         simulator.measure('tran', 'i_in_leak',
-                          f'avg i(Vin) from={0.1 * t_start} to={t_start}')
+                          f'avg i(Vin) from={float(t_start)/10} to={float(t_start)}')
 
-    # Run transient analysis and extract results
+    # Run transient analysis
     return simulator.transient(step_time=cell.sim_timestep, end_time=t_simend)

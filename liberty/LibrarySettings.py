@@ -37,7 +37,7 @@ class LibrarySettings:
         self._is_exported = False
 
         # Simulation Settings
-        self._simulator = kwargs.get('simulator', 'ngspice-subprocess')
+        self._simulator = kwargs.get('simulator', 'ngspice-shared')
         self.units = UnitsSettings(**kwargs.get('units', {}))
 
         named_nodes = kwargs.get('named_nodes', {})
