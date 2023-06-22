@@ -390,7 +390,7 @@ class CombinationalCell(LogicCell):
             cell_lib.extend([
                 f'  pin ({in_port}) {{',
                 f'    direction : input;',
-                f'    capacitance : {float(input_capacitance.value):.7f};',
+                f'    capacitance : {float(abs(input_capacitance.value)):.7f};',
                 f'    rise_capacitance : 0;', # TODO: calculate this (average over harnesses?)
                 f'    fall_capacitance : 0;', # TODO: calculate this (average over harnesses?)
                 f'  }}', # end pin

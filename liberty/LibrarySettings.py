@@ -59,7 +59,7 @@ class LibrarySettings:
 
         self._process = kwargs.get('process')
         self._temperature = kwargs.get('temperature', 25)
-        self._operating_conditions = kwargs.get('operating_conditions')
+        self._operating_conditions = kwargs.get('operating_conditions', 'typical')
         self._delay_model = kwargs.get('delay_model', 'table_lookup')
         self.cell_defaults = kwargs.get('cell_defaults', {})
 

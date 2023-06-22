@@ -23,102 +23,80 @@ def exportLib(target_lib: LibrarySettings, target_cell: LogicCell):
     """Export library definition to liberty file"""
     outlines = []
     ## general settings
-    outlines.append(f'library ({target_lib.lib_name}) {{\n\n')
-    outlines.append(f'  delay_model : "{target_lib.delay_model}";\n')
-    outlines.append(f'  in_place_swap_mode : match_footprint;\n')
-    outlines.append('\n')
-    outlines.append(f'  /* unit attributes */\n')
-    outlines.append(f'  time_unit : "{str(target_lib.units.time)}";\n')
-    outlines.append(f'  voltage_unit : "{str(target_lib.units.voltage)}";\n')
-    outlines.append(f'  current_unit : "{str(target_lib.units.current)}";\n')
-    outlines.append(f'  pulling_resistance_unit : "{str(target_lib.units.resistance)}";\n')
-    outlines.append(f'  leakage_power_unit : "{str(target_lib.units.power)}";\n')
-    outlines.append(f'  capacitive_load_unit (1,{str(target_lib.units.capacitance.prefixed_unit)});\n')
-    outlines.append('\n')
-    outlines.append(f'  slew_upper_threshold_pct_rise : {str(target_lib.logic_threshold_high*100)};\n')
-    outlines.append(f'  slew_lower_threshold_pct_rise : {str(target_lib.logic_threshold_low*100)};\n')
-    outlines.append(f'  slew_upper_threshold_pct_fall : {str(target_lib.logic_threshold_high*100)};\n')
-    outlines.append(f'  slew_lower_threshold_pct_fall : {str(target_lib.logic_threshold_low*100)};\n')
-    outlines.append(f'  input_threshold_pct_rise : {str(target_lib.logic_low_to_high_threshold*100)};\n')
-    outlines.append(f'  input_threshold_pct_fall : {str(target_lib.logic_high_to_low_threshold*100)};\n')
-    outlines.append(f'  output_threshold_pct_rise : {str(target_lib.logic_low_to_high_threshold*100)};\n')
-    outlines.append(f'  output_threshold_pct_fall : {str(target_lib.logic_high_to_low_threshold*100)};\n')
-    outlines.append(f'  nom_process : 1;\n')
-    outlines.append(f'  nom_voltage : "{str(target_lib.vdd.voltage)}";\n')
-    outlines.append(f'  nom_temperature : "{str(target_lib.temperature)}";\n')
-    # outlines.append(f'  voltage_map ({str(target_lib.vdd.name)}, {str(target_lib.vdd.voltage)});\n')
-    # outlines.append(f'  voltage_map ({str(target_lib.vss.name)}, {str(target_lib.vss.voltage)});\n')
-    # outlines.append(f'  default_cell_leakage_power : 0;\n')
-    # outlines.append(f'  default_fanout_load : 1;\n')
-    # outlines.append(f'  default_max_transition : 1000;\n')
-    # outlines.append(f'  default_input_pin_cap : 0;\n')
-    # outlines.append(f'  default_inout_pin_cap : 0;\n')
-    # outlines.append(f'  default_leakage_power_density : 0;\n')
-    # outlines.append(f'  default_max_fanout : 100;\n')
-    # outlines.append(f'  default_output_pin_cap : 0;\n')
-    # outlines.append(f'  slew_derate_from_library : 1;\n')
-    ## operating conditions
-    outlines.append(f'  operating_conditions ({target_lib.operating_conditions}) {{\n')
-    outlines.append(f'    process : 1;\n')
-    outlines.append(f'    voltage : {str(target_lib.vdd.voltage)};\n')
-    outlines.append(f'    temperature : {str(target_lib.temperature)};\n')
-    outlines.append(f'  }}\n')
-    outlines.append(f'  default_operating_conditions : {target_lib.operating_conditions};\n')
-    outlines.append('\n')
-    # TODO: Generate these based on library contents (rather than the current cell)
-    outlines.append(f'  lu_table_template (constraint_template) {{\n')
-    outlines.append(f'    variable_1 : constrained_pin_transition;\n')
-    outlines.append(f'    variable_2 : related_pin_transition;\n')
-    outlines.append(f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'    index_2 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'  }}\n')
-    outlines.append(f'  lu_table_template (delay_template_{len(target_cell.in_slews)}x{len(target_cell.out_loads)}) {{\n')
-    outlines.append(f'    variable_1 : input_net_transition;\n')
-    outlines.append(f'    variable_2 : total_output_net_capacitance;\n')
-    outlines.append(f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'    index_2 ("{", ".join([str(load) for load in target_cell.out_loads])}");\n')
-    outlines.append(f'  }}\n')
-    outlines.append(f'  lu_table_template (recovery_template) {{\n')
-    outlines.append(f'    variable_1 : related_pin_transition;\n')
-    outlines.append(f'    variable_2 : constrained_pin_transition;\n')
-    outlines.append(f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'    index_2 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'  }}\n')
-    outlines.append(f'  lu_table_template (removal_template) {{\n')
-    outlines.append(f'    variable_1 : related_pin_transition;\n')
-    outlines.append(f'    variable_2 : constrained_pin_transition;\n')
-    outlines.append(f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'    index_2 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'  }}\n')
-    outlines.append(f'  lu_table_template (mpw_constraint_template) {{\n')
-    outlines.append(f'    variable_1 : constrained_pin_transition;\n')
-    outlines.append(f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'  }}\n')
-    outlines.append(f'  power_lut_template (passive_energy_template) {{\n')
-    outlines.append(f'    variable_1 : input_transition_time;\n')
-    outlines.append(f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'  }}\n')
-    outlines.append(f'  power_lut_template (energy_template_{len(target_cell.in_slews)}x{len(target_cell.out_loads)}) {{\n')
-    outlines.append(f'    variable_1 : input_transition_time;\n')
-    outlines.append(f'    variable_2 : total_output_net_capacitance;\n')
-    outlines.append(f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");\n')
-    outlines.append(f'    index_2 ("{", ".join([str(load) for load in target_cell.out_loads])}");\n')
-    outlines.append(f'  }}\n')
-    # outlines.append(f'  input_voltage (default_{target_lib.vdd.name}_{target_lib.vss.name}_input) {{\n')
-    # outlines.append(f'    vil : {str(target_lib.vss.voltage)};\n')
-    # outlines.append(f'    vih : {str(target_lib.vdd.voltage)};\n')
-    # outlines.append(f'    vimin : {str(target_lib.vss.voltage)};\n')
-    # outlines.append(f'    vimax : {str(target_lib.vdd.voltage)};\n')
-    # outlines.append(f'  }}\n')
-    # outlines.append(f'  output_voltage (default_{target_lib.vdd.name}_{target_lib.vss.name}_output) {{\n')
-    # outlines.append(f'    vol : {str(target_lib.vss.voltage)};\n')
-    # outlines.append(f'    voh : {str(target_lib.vdd.voltage)};\n')
-    # outlines.append(f'    vomin : {str(target_lib.vss.voltage)};\n')
-    # outlines.append(f'    vomax : {str(target_lib.vdd.voltage)};\n')
-    # outlines.append(f'  }}\n')
+    outlines = [
+        f'library ({target_lib.lib_name}) {{',
+        f'',
+        f'  delay_model : "{target_lib.delay_model}";'
+        f'  in_place_swap_mode : match_footprint;',
+        f'',
+        f'  /* unit attributes */',
+        f'  time_unit : "1{target_lib.units.time.prefixed_unit.str_spice()}";',
+        f'  voltage_unit : "1{target_lib.units.voltage.prefixed_unit.str_spice()}";',
+        f'  current_unit : "1{target_lib.units.current.prefixed_unit.str_spice()}";',
+        f'  pulling_resistance_unit : "1{target_lib.units.resistance.prefixed_unit.str_spice()}";',
+        f'  leakage_power_unit : "1{target_lib.units.power.prefixed_unit.str_spice()}";',
+        f'  capacitive_load_unit (1,{target_lib.units.capacitance.prefixed_unit.str_spice()});',
+        f'',
+        f'  slew_upper_threshold_pct_rise : {str(target_lib.logic_threshold_high*100)};',
+        f'  slew_lower_threshold_pct_rise : {str(target_lib.logic_threshold_low*100)};',
+        f'  slew_upper_threshold_pct_fall : {str(target_lib.logic_threshold_high*100)};',
+        f'  slew_lower_threshold_pct_fall : {str(target_lib.logic_threshold_low*100)};',
+        f'  input_threshold_pct_rise : {str(target_lib.logic_low_to_high_threshold*100)};',
+        f'  input_threshold_pct_fall : {str(target_lib.logic_high_to_low_threshold*100)};',
+        f'  output_threshold_pct_rise : {str(target_lib.logic_low_to_high_threshold*100)};',
+        f'  output_threshold_pct_fall : {str(target_lib.logic_high_to_low_threshold*100)};',
+        f'  nom_process : 1;',
+        f'  nom_voltage : {str(target_lib.vdd.voltage)};',
+        f'  nom_temperature : {str(target_lib.temperature)};',
+        f'  operating_conditions ({target_lib.operating_conditions}) {{',
+        f'    process : 1;',
+        f'    voltage : {str(target_lib.vdd.voltage)};',
+        f'    temperature : {str(target_lib.temperature)};',
+        f'  }}',
+        f'  default_operating_conditions : {target_lib.operating_conditions};',
+        f'',
+        f'  lu_table_template (constraint_template) {{',
+        f'    variable_1 : constrained_pin_transition;',
+        f'    variable_2 : related_pin_transition;',
+        f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'    index_2 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'  }}',
+        f'  lu_table_template (delay_template_{len(target_cell.in_slews)}x{len(target_cell.out_loads)}) {{',
+        f'    variable_1 : input_net_transition;',
+        f'    variable_2 : total_output_net_capacitance;',
+        f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'    index_2 ("{", ".join([str(load) for load in target_cell.out_loads])}");',
+        f'  }}',
+        f'  lu_table_template (recovery_template) {{',
+        f'    variable_1 : related_pin_transition;',
+        f'    variable_2 : constrained_pin_transition;',
+        f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'    index_2 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'  }}',
+        f'  lu_table_template (removal_template) {{',
+        f'    variable_1 : related_pin_transition;',
+        f'    variable_2 : constrained_pin_transition;',
+        f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'    index_2 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'  }}',
+        f'  lu_table_template (mpw_constraint_template) {{',
+        f'    variable_1 : constrained_pin_transition;',
+        f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'  }}',
+        f'  power_lut_template (passive_energy_template) {{',
+        f'    variable_1 : input_transition_time;',
+        f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'  }}',
+        f'  power_lut_template (energy_template_{len(target_cell.in_slews)}x{len(target_cell.out_loads)}) {{',
+        f'    variable_1 : input_transition_time;',
+        f'    variable_2 : total_output_net_capacitance;',
+        f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
+        f'    index_2 ("{", ".join([str(load) for load in target_cell.out_loads])}");',
+        f'  }}',
+    ]
     
     with open(target_lib.dotlib_name, 'w') as f:
-        f.writelines(outlines)
+        f.writelines('\n'.join(outlines))
         f.close()
     target_lib.set_exported()
 
