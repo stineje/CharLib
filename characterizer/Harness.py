@@ -157,68 +157,67 @@ class Harness:
         else:
             return 'negative_unate'
 
-    def average_input_capacitance(self, vdd_voltage) -> float:
+    def average_input_capacitance(self, vdd: float):
         """Calculates the average input capacitance over all trials"""
-        input_capacitance = 0.0
+        total_capacitance = 0.0 @ u_F
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
                 # TODO: Correct for cases where q is negative
-                q = self.results[slope][load]['q_in_dyn']
-                input_capacitance += q / vdd_voltage
+                q = self.results[slope][load]['q_in_dyn'] @ u_C
+                total_capacitance += q / (vdd @ u_V)
                 n += 1
-        input_capacitance = input_capacitance / n
-        return input_capacitance @ u_F
+        return total_capacitance / n
     
-    def minimum_input_capacitance(self, vdd_voltage):
+    def minimum_input_capacitance(self, vdd: float):
         """Finds the minimum measured input capacitance"""
         # Find minimum q
-        q = min([self.results[slope][load]['q_in_dyn'] for slope in self.results.keys() for load in self.results[slope].keys()])
-        return (q / vdd_voltage) @ u_F
+        q = min([self.results[slope][load]['q_in_dyn'] for slope in self.results.keys() for load in self.results[slope].keys()]) @ u_C
+        return q / (vdd @ u_V)
 
-    def average_transition_delay(self) -> float:
+    def average_transition_delay(self):
         """Calculates the average transition delay over all trials"""
         # TODO: Usually we want longest transport delay instead of average
-        total_delay = 0.0
+        total_delay = 0.0 @ u_s
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
-                total_delay += self.results[slope][load]['trans_out']
+                total_delay += self.results[slope][load]['trans_out'] @ u_s
                 n += 1
         return total_delay / n
     
-    def average_propagation_delay(self) -> float:
+    def average_propagation_delay(self):
         """Calculates the average propagation delay over all trials"""
         # TODO: Usually we want longest prop delay instead of average
-        total_delay = 0.0
+        total_delay = 0.0 @ u_s
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
-                total_delay += self.results[slope][load]['prop_in_out']
+                total_delay += self.results[slope][load]['prop_in_out'] @ u_s
                 n += 1
-        return (total_delay / n) @ u_s
+        return total_delay / n
 
-    def _calc_leakage_power(self, in_slew, out_load, vdd_voltage: float):
-        i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak'])
-        i_vss_leak = abs(self.results[in_slew][out_load]['i_vss_leak'])
-        avg_current = (i_vdd_leak + i_vss_leak) / 2
-        return avg_current * vdd_voltage
+    def _calc_leakage_power(self, in_slew, out_load, vdd: float):
+        # Calculate leakage power, using units to validate calculation
+        i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak']) @ u_A
+        i_vss_leak = abs(self.results[in_slew][out_load]['i_vss_leak']) @ u_A
+        i_avg = (i_vdd_leak + i_vss_leak) / 2
+        return i_avg * (vdd @ u_V)
     
-    def get_leakage_power(self, vdd_voltage):
+    def get_leakage_power(self, vdd: float):
         """Calculates the average leakage power over all trials"""
-        leakage_power = 0.0
+        leakage_power = 0.0 @ u_W
         n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
-                leakage_power += self._calc_leakage_power(slope, load, vdd_voltage)
+                leakage_power += self._calc_leakage_power(slope, load, vdd)
                 n += 1
-        return (leakage_power / n) @ u_W
+        return leakage_power / n
 
     def _get_lut_value_groups_by_key(self, in_slews, out_loads, key: str, base_unit, output_unit):
         value_groups = []
         for slew in in_slews:
-            values = [self.results[str(slew)][str(load)][key] for load in out_loads]
-            values = [float((v@base_unit).convert(output_unit)) for v in values]
+            values = [(self.results[str(slew)][str(load)][key]@base_unit).convert(output_unit).value for load in out_loads]
             value_groups.append(f'"{", ".join([f"{value:f}" for value in values])}"')
         sep = ', \\\n  '
         return f'values( \\\n  {sep.join(value_groups)});'
@@ -237,28 +236,28 @@ class Harness:
         [lines.append(value_line) for value_line in values.split('\n')]
         return lines
 
-    def _calc_internal_energy(self, slew: str, load: str, energy_meas_high_threshold_voltage: float, energy_unit):
+    def _calc_internal_energy(self, slew: str, load: str, energy_meas_high_threshold_voltage: float):
         """Calculates internal energy for a particular slope/load combination"""
-        # Fetch calculation parameters
-        e_start = self.results[slew][load]['energy_start'] @ u_J
-        e_end = self.results[slew][load]['energy_end'] @ u_J
+        # Fetch calculation parameters, using units to validate calculation
+        t_start = self.results[slew][load]['t_energy_start'] @ u_s
+        t_end = self.results[slew][load]['t_energy_end'] @ u_s
         q_vdd_dyn = self.results[slew][load]['q_vdd_dyn'] @ u_C
         q_vss_dyn = self.results[slew][load]['q_vss_dyn'] @ u_C
         i_vdd_leak = abs(self.results[slew][load]['i_vdd_leak']) @ u_A
         i_vss_leak = abs(self.results[slew][load]['i_vss_leak']) @ u_A
         # Perform the calculation
-        energy_delta = (e_end - e_start)
+        time_delta = (t_end - t_start)
         avg_current = ((i_vdd_leak + i_vss_leak) / 2)
-        internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - energy_delta * avg_current # TODO: Units don't work out
-        return float((internal_charge * energy_meas_high_threshold_voltage).convert(energy_unit))
+        internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - time_delta * avg_current
+        return internal_charge * (energy_meas_high_threshold_voltage @ u_V)
 
     def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, energy_unit):
         lines = [f'index_1("{", ".join([str(slope) for slope in in_slews])}");']
         lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
         energy_groups = []
         for slew in in_slews:
-            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth, energy_unit) for out_load in out_loads]
-            energy_groups.append(f'"{", ".join(["{:f}".format(energy) for energy in energies])}"')
+            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth) for out_load in out_loads]
+            energy_groups.append(f'"{", ".join(["{:f}".format(float(energy.convert(energy_unit).value)) for energy in energies])}"')
         sep = ', \\\n  '
         [lines.append(value_line) for value_line in f'values( \\\n  {sep.join(energy_groups)});'.split('\n')]
         return lines

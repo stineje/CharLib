@@ -382,7 +382,7 @@ class CombinationalCell(LogicCell):
         cell_lib = [
             f'cell ({self.name}) {{',
             f'  area : {self.area};',
-            f'  cell_leakage_power : {float(leakage_power):.7f};',
+            f'  cell_leakage_power : {float(leakage_power.value):.7f};',
         ]
         # Input ports
         for in_port in self.in_ports:
@@ -390,7 +390,7 @@ class CombinationalCell(LogicCell):
             cell_lib.extend([
                 f'  pin ({in_port}) {{',
                 f'    direction : input;',
-                f'    capacitance : {float(input_capacitance):.7f};',
+                f'    capacitance : {float(input_capacitance.value):.7f};',
                 f'    rise_capacitance : 0;', # TODO: calculate this (average over harnesses?)
                 f'    fall_capacitance : 0;', # TODO: calculate this (average over harnesses?)
                 f'  }}', # end pin

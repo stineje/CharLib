@@ -3,22 +3,22 @@ from PySpice.Spice.Netlist import Circuit
 def runCombinationalDelay(settings, cell, harness, spice_filename, in_slew, out_load):
     spice_results_filename = str(spice_filename)+"_"+str(out_load)+"_"+str(in_slew)
 
-    # 1st trial, extract energy_start and energy_end
+    # 1st trial, extract t_energy_start and t_energy_end
     trial_results = runCombinationalTrial(settings, cell, harness, 
                                           in_slew * settings.units.time, 
                                           out_load * settings.units.capacitance,
                                           spice_results_filename)
-    energy_start = trial_results['energy_start']
-    energy_end = trial_results['energy_end']
+    t_energy_start = trial_results['t_energy_start']
+    t_energy_end = trial_results['t_energy_end']
 
     # 2nd trial
     trial_results = runCombinationalTrial(settings, cell, harness,
                                           in_slew * settings.units.time,
                                           out_load * settings.units.capacitance,
                                           spice_results_filename,
-                                          energy_start, energy_end)
-    trial_results.measurements['energy_start'] = energy_start
-    trial_results.measurements['energy_end'] = energy_end
+                                          t_energy_start, t_energy_end)
+    trial_results.measurements['t_energy_start'] = t_energy_start
+    trial_results.measurements['t_energy_end'] = t_energy_end
 
     if not harness.results.get(str(in_slew)):
         harness.results[str(in_slew)] = {}
@@ -119,20 +119,20 @@ def runCombinationalTrial(settings, cell, harness, in_slew, out_load, trial_name
 
     # Measure energy
     if not energy:
-        simulator.measure('tran', 'energy_start',
+        simulator.measure('tran', 't_energy_start',
                           f'when v(Vin)={str(settings.energy_meas_low_threshold_voltage())} {harness.in_direction}=1')
-        simulator.measure('tran', 'energy_end',
+        simulator.measure('tran', 't_energy_end',
                           f'when v(Vout)={str(settings.energy_meas_high_threshold_voltage())} {harness.out_direction}=1')
     else:
-        [energy_start, energy_end] = energy
+        [t_energy_start, t_energy_end] = energy
         simulator.measure('tran', 'q_in_dyn',
-                          f'integ i(Vin) from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+                          f'integ i(Vin) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
         simulator.measure('tran', 'q_out_dyn',
-                          f'integ i(Vo_cap) from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+                          f'integ i(Vo_cap) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
         simulator.measure('tran', 'q_vdd_dyn',
-                          f'integ i(Vdd_dyn) from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+                          f'integ i(Vdd_dyn) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
         simulator.measure('tran', 'q_vss_dyn',
-                          f'integ i(Vss_dyn), from={energy_start} to={energy_end * settings.energy_meas_time_extent}')
+                          f'integ i(Vss_dyn), from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
         simulator.measure('tran', 'i_vdd_leak',
                           f'avg i(Vdd_dyn) from={float(t_start)/10} to={float(t_start)}')
         simulator.measure('tran', 'i_vss_leak',
