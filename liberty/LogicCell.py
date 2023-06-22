@@ -1,8 +1,8 @@
 import threading
 from matplotlib import pyplot as plt
+from PySpice.Spice.Netlist import Circuit
 from pathlib import Path
 
-import characterizer.char_comb
 import characterizer.char_seq
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc, check_timing_sense
 from characterizer.LogicParser import parse_logic
@@ -333,16 +333,17 @@ class CombinationalCell(LogicCell):
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
             # Determine spice filename prefix
-            spice_prefix = f'{settings.work_dir}/delay_{self.name}_{harness.spice_infix()}'
+            trial_name = f'delay {self.name} {harness.spice_infix()}'
             # Run delay characterization
-            if settings.use_multithreaded:
+            # Note: ngspice-shared doesn't work with multithreaded as the shared interface must be a singleton
+            if settings.use_multithreaded and not settings.simulator == 'ngspice-shared':
                 # Split simulation jobs into threads and run multiple simultaneously
                 thread_id = 0
                 threadlist = []
                 for slew in self.in_slews:
                     for load in self.out_loads:
-                        thread = threading.Thread(target=characterizer.char_comb.runCombinationalDelay,
-                                args=([settings, self, harness, spice_prefix, slew, load]),
+                        thread = threading.Thread(target=self._run_delay,
+                                args=([settings, harness, slew, load, trial_name]),
                                 name="%d" % thread_id)
                         threadlist.append(thread)
                         thread_id += 1
@@ -352,7 +353,7 @@ class CombinationalCell(LogicCell):
                 # Run simulation jobs sequentially
                 for slew in self.in_slews:
                     for load in self.out_loads:
-                        characterizer.char_comb.runCombinationalDelay(settings, self, harness, spice_prefix, slew, load)
+                        self._run_delay(settings, harness, slew, load, trial_name)
             # Save harness to the cell
             unsorted_harnesses.append(harness)
             #unsorted_harnesses.append(harness)
@@ -376,6 +377,140 @@ class CombinationalCell(LogicCell):
         # Display plots
         if 'io' in self.plots:
             [harness.plot_io(settings, self.in_slews, self.out_loads) for harness in self.harnesses]
+
+    def _run_delay(self, settings, harness, slew, load, trial_name):
+        print(f'Running {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
+
+        # 1st trial, extract t_energy_start and t_energy_end
+        trial_results = self._run_delay_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance)
+        t_energy_start = trial_results['t_energy_start']
+        t_energy_end = trial_results['t_energy_end']
+
+        # 2nd trial
+        trial_results = self._run_delay_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance, t_energy_start, t_energy_end)
+        trial_results.measurements['t_energy_start'] = t_energy_start
+        trial_results.measurements['t_energy_end'] = t_energy_end
+
+        if not harness.results.get(str(slew)):
+            harness.results[str(slew)] = {}
+        harness.results[str(slew)][str(load)] = trial_results
+
+    def _run_delay_trial(self, settings, harness, slew, load, *energy):
+        """Run delay measurement for a single trial"""
+        # Set up parameters
+        t_start = slew
+        t_end = t_start + slew
+        t_simend = 1000 * slew
+        vdd = settings.vdd.voltage * settings.units.voltage
+        vss = settings.vss.voltage * settings.units.voltage
+        vpw = settings.pwell.voltage * settings.units.voltage
+        vnw = settings.nwell.voltage * settings.units.voltage
+
+        # Initialize circuit
+        circuit = Circuit(self.name)
+        circuit.include(self.model)
+        circuit.include(self.netlist)
+        (v_start, v_end) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
+        pwl_values = [(0, v_start), (t_start, v_start), (t_end, v_end), (t_simend, v_end)]
+        circuit.PieceWiseLinearVoltageSource('in', 'vin', circuit.gnd, values=pwl_values)
+        circuit.V('high', 'vhigh', circuit.gnd, vdd)
+        circuit.V('low', 'vlow', circuit.gnd, vss)
+        circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd)
+        circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss)
+        circuit.V('nw_dyn', 'vnw_dyn', circuit.gnd, vnw)
+        circuit.V('pw_dyn', 'vpw_dyn', circuit.gnd, vpw)
+        circuit.V('dd_leak', 'vdd_leak', circuit.gnd, vdd)
+        circuit.V('ss_leak', 'vss_leak', circuit.gnd, vss)
+        circuit.V('nw_leak', 'vnw_leak', circuit.gnd, vnw)
+        circuit.V('pw_leak', 'vpw_leak', circuit.gnd, vpw)
+        circuit.V('o_cap', 'vout', 'wout', 0)
+        circuit.C('0', 'wout', 'vss_dyn', load)
+
+        # Initialize device under test subcircuit and wire up ports
+        ports = self.definition.split()[1:]
+        subcircuit_name = ports.pop(0)
+        connections = []
+        for port in ports:
+            if port.lower() == harness.target_in_port:
+                connections.append('vin')
+            elif port.lower() == harness.target_out_port:
+                connections.append('vout')
+            elif port.lower() == settings.vdd.name.lower():
+                connections.append('vdd_dyn')
+            elif port.lower() == settings.vss.name.lower():
+                connections.append('vss_dyn')
+            elif port.lower() == settings.nwell.name.lower():
+                connections.append('vnw_dyn')
+            elif port.lower() == settings.pwell.name.lower():
+                connections.append('vpw_dyn')
+            elif port.lower() in harness.stable_in_ports:
+                for stable_port, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
+                    if port.lower() == stable_port:
+                        if state == '1':
+                            connections.append('vhigh')
+                        elif state == '0':
+                            connections.append('vlow')
+                        else:
+                            raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
+            elif port.lower() in harness.nontarget_out_ports:
+                for nontarget_port, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
+                    if port.lower() == nontarget_port:
+                        connections.append(f'wfloat{str(state)}')
+        if len(connections) is not len(ports):
+            raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
+        circuit.X('dut', subcircuit_name, *connections)
+
+        # Initialize simulator
+        simulator = circuit.simulator(temperature=settings.temperature,
+                                      nominal_temperature=settings.temperature,
+                                      simulator=settings.simulator)
+        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
+
+        # Measure delay
+        if harness.in_direction == 'rise':
+            v_prop_start = settings.logic_low_to_high_threshold_voltage()
+        else:
+            v_prop_start = settings.logic_high_to_low_threshold_voltage()
+        if harness.out_direction == 'rise':
+            v_prop_end = settings.logic_low_to_high_threshold_voltage()
+            v_trans_start = settings.logic_threshold_low_voltage()
+            v_trans_end = settings.logic_threshold_high_voltage()
+        else:
+            v_prop_end = settings.logic_low_to_high_threshold_voltage()
+            v_trans_start = settings.logic_threshold_high_voltage()
+            v_trans_end = settings.logic_threshold_low_voltage()
+        simulator.measure('tran', 'prop_in_out',
+                        f'trig v(Vin) val={v_prop_start} {harness.in_direction}=1',
+                        f'targ v(Vout) val={v_prop_end} {harness.out_direction}=1')
+        simulator.measure('tran', 'trans_out',
+                        f'trig v(Vout) val={v_trans_start} {harness.out_direction}=1',
+                        f'targ v(Vout) val={v_trans_end} {harness.out_direction}=1')
+
+        # Measure energy
+        if not energy:
+            simulator.measure('tran', 't_energy_start',
+                            f'when v(Vin)={str(settings.energy_meas_low_threshold_voltage())} {harness.in_direction}=1')
+            simulator.measure('tran', 't_energy_end',
+                            f'when v(Vout)={str(settings.energy_meas_high_threshold_voltage())} {harness.out_direction}=1')
+        else:
+            [t_energy_start, t_energy_end] = energy
+            simulator.measure('tran', 'q_in_dyn',
+                            f'integ i(Vin) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+            simulator.measure('tran', 'q_out_dyn',
+                            f'integ i(Vo_cap) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+            simulator.measure('tran', 'q_vdd_dyn',
+                            f'integ i(Vdd_dyn) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+            simulator.measure('tran', 'q_vss_dyn',
+                            f'integ i(Vss_dyn), from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+            simulator.measure('tran', 'i_vdd_leak',
+                            f'avg i(Vdd_dyn) from={float(t_start)/10} to={float(t_start)}')
+            simulator.measure('tran', 'i_vss_leak',
+                            f'avg i(Vss_dyn) from={float(t_start)/10} to={float(t_start)}')
+            simulator.measure('tran', 'i_in_leak',
+                            f'avg i(Vin) from={float(t_start)/10} to={float(t_start)}')
+
+        # Run transient analysis
+        return simulator.transient(step_time=self.sim_timestep, end_time=t_simend)
 
     def export(self, settings):
         leakage_power = self.harnesses[0].get_leakage_power(settings.vdd.voltage).convert(settings.units.power.prefixed_unit) # TODO: Check whether we should use the 1st
