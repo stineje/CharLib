@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from PySpice.Unit import *
 
 class Harness:
@@ -283,11 +284,11 @@ class CombinationalHarness (Harness):
     def timing_type(self) -> str:
         return "combinational"
 
-    def plot_io(self, settings, in_slews, out_loads, cell_name):
+    def plot_io(self, settings, slews, loads, cell_name):
         """Plot I/O voltages vs time for the given slew rates and output loads"""
         # TODO: Evaluate whether a 3d plot might be apt here instead of creating a huge number of 2d plots
         # Group data by slew rate so that Vin is the same
-        for slew in in_slews:
+        for slew in slews:
             # Generate plots for Vin and Vout
             figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
             figure.suptitle(f'Cell {cell_name.upper()}: I/O Voltage vs. Time')
@@ -312,16 +313,44 @@ class CombinationalHarness (Harness):
             # Plot simulation data
             # Input is plotted once per slew rate group
             # Output is plotted by fanout (aka output capacitive load)
-            for load in out_loads:
+            for load in loads:
                 data = self.results[str(slew)][str(load)]
                 ax_o.plot(data.time / settings.units.time, data['vout'], label=f'Fanout={load*settings.units.capacitance}')
             ax_i.plot(data.time / settings.units.time, data['vin'])
             ax_o.legend()
 
-    def plot_delay(self, settings, in_slews, out_loads):
+    def plot_delay(self, settings, slews, loads, cell_name):
         """Plot propagation delay and transport delay vs slew rate vs fanout"""
+        figure = plt.figure()
+        figure.suptitle(f'Cell {cell_name}: Transport and Propagation delay vs. Slew Rate vs. Fanout')
 
-        
+        ax = figure.add_subplot(projection='3d')
+        ax.set_proj_type('ortho')
+
+        # Tabulate delay data
+        prop_data = []
+        tran_data = []
+        for slew in slews:
+            prop_row = []
+            tran_row = []
+            for load in loads:
+                prop_row.append(self.results[str(slew)][str(load)]['prop_in_out'])
+                tran_row.append(self.results[str(slew)][str(load)]['trans_out'])
+            prop_data.append(prop_row)
+            tran_data.append(tran_row)
+
+        # Expand x and y data
+        x_data = np.repeat(np.expand_dims(slews, 1), len(loads), 1)
+        y_data = np.swapaxes(np.repeat(np.expand_dims(loads, 1), len(slews), 1), 0, 1)
+
+        # Plot delay data
+        ax.plot_surface(x_data, y_data, np.asarray(prop_data), edgecolor='red', cmap='inferno', alpha=0.3, label='Propagation Delay')
+        ax.plot_surface(x_data, y_data, np.asarray(tran_data), edgecolor='blue', cmap='viridis', alpha=0.3, label='Transport Delay')
+        ax.set(xlabel=f'Slew Rate [{str(settings.units.time.prefixed_unit)}]',
+               ylabel=f'Fanout [{str(settings.units.capacitance.prefixed_unit)}]',
+               zlabel=f'Delay [{str(settings.units.time.prefixed_unit)}]',
+               title=f'Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew: {str(slew * settings.units.time)}')
+        # TODO: add legend for prop and transport delay
 
 
 class SequentialHarness (Harness):
