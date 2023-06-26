@@ -283,14 +283,14 @@ class CombinationalHarness (Harness):
     def timing_type(self) -> str:
         return "combinational"
 
-    def plot_io(self, settings, in_slews, out_loads):
+    def plot_io(self, settings, in_slews, out_loads, cell_name):
         """Plot I/O voltages vs time for the given slew rates and output loads"""
         # TODO: Evaluate whether a 3d plot might be apt here instead of creating a huge number of 2d plots
         # Group data by slew rate so that Vin is the same
         for slew in in_slews:
             # Generate plots for Vin and Vout
             figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
-            figure.suptitle('I/O Voltage vs. Time')
+            figure.suptitle(f'Cell {cell_name.upper()}: I/O Voltage vs. Time')
 
             # Set up plot parameters
             ax_i.grid()
@@ -310,6 +310,8 @@ class CombinationalHarness (Harness):
                     ax.axvline(float(t), color='r', linestyle=':')
 
             # Plot simulation data
+            # Input is plotted once per slew rate group
+            # Output is plotted by fanout (aka output capacitive load)
             for load in out_loads:
                 data = self.results[str(slew)][str(load)]
                 ax_o.plot(data.time / settings.units.time, data['vout'], label=f'Fanout={load*settings.units.capacitance}')
