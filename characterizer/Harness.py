@@ -344,13 +344,17 @@ class CombinationalHarness (Harness):
         y_data = np.swapaxes(np.repeat(np.expand_dims(loads, 1), len(slews), 1), 0, 1)
 
         # Plot delay data
-        ax.plot_surface(x_data, y_data, np.asarray(prop_data), edgecolor='red', cmap='inferno', alpha=0.3, label='Propagation Delay')
-        ax.plot_surface(x_data, y_data, np.asarray(tran_data), edgecolor='blue', cmap='viridis', alpha=0.3, label='Transport Delay')
+        p = ax.plot_surface(x_data, y_data, np.asarray(prop_data), edgecolor='red', cmap='inferno', alpha=0.3, label='Propagation Delay')
+        p._edgecolors2d = p._edgecolor3d # Workaround for legend. See https://stackoverflow.com/questions/54994600/pyplot-legend-poly3dcollection-object-has-no-attribute-edgecolors2d
+        p._facecolors2d = p._facecolor3d # Workaround for legend
+        t = ax.plot_surface(x_data, y_data, np.asarray(tran_data), edgecolor='blue', cmap='viridis', alpha=0.3, label='Transport Delay')
+        t._edgecolors2d = t._edgecolor3d # Workaround for legend
+        t._facecolors2d = t._facecolor3d # Workaround for legend
         ax.set(xlabel=f'Slew Rate [{str(settings.units.time.prefixed_unit)}]',
                ylabel=f'Fanout [{str(settings.units.capacitance.prefixed_unit)}]',
                zlabel=f'Delay [{str(settings.units.time.prefixed_unit)}]',
                title=f'Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew: {str(slew * settings.units.time)}')
-        # TODO: add legend for prop and transport delay
+        ax.legend()
 
 
 class SequentialHarness (Harness):
