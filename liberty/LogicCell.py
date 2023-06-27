@@ -379,6 +379,8 @@ class CombinationalCell(LogicCell):
             [harness.plot_io(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
         if 'delay' in self.plots:
             [harness.plot_delay(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+        if 'energy' in self.plots:
+            [harness.plot_energy(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
 
     def _run_delay(self, settings, harness, slew, load, trial_name):
         print(f'Running {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')

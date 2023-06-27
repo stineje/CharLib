@@ -99,7 +99,7 @@ These keys may optionally be included to provide additional cell documentation o
 * `set_pin`: The pin name for the set pin on sequential cells. If omitted, CharLib assumes the cell does not have a set pin.
 * `reset_pin`: The pin name for the reset pin on sequential cells. If omitted, CharLib assumes the cell does not have a reset pin.
 * `clock_slew`: The slew rate to use for the clock signal in simulation. Defaults to 0 if omitted.
-* `plots`: A string (or list of strings) specifying which plots to show for this cell. May be set to 'all', 'none', or a subset of 'io', 'delay', and 'power'. Defaults to 'none'.
+* `plots`: A string (or list of strings) specifying which plots to show for this cell. May be set to 'all', 'none', or a subset of 'io', 'delay', and 'energy'. Defaults to 'none'.
 
 ## Examples 
 

@@ -240,6 +240,8 @@ class Harness:
     def _calc_internal_energy(self, slew: str, load: str, energy_meas_high_threshold_voltage: float):
         """Calculates internal energy for a particular slope/load combination"""
         # Fetch calculation parameters, using units to validate calculation
+        slew = str(slew)
+        load = str(load)
         t_start = self.results[slew][load]['t_energy_start'] @ u_s
         t_end = self.results[slew][load]['t_energy_end'] @ u_s
         q_vdd_dyn = self.results[slew][load]['q_vdd_dyn'] @ u_C
@@ -291,12 +293,12 @@ class CombinationalHarness (Harness):
         for slew in slews:
             # Generate plots for Vin and Vout
             figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
-            figure.suptitle(f'Cell {cell_name.upper()}: I/O Voltage vs. Time')
+            figure.suptitle(f'Cell {cell_name} | Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew Rate: {str(slew * settings.units.time)}')
 
             # Set up plot parameters
             ax_i.grid()
             ax_i.set_ylabel(f'Vin (pin {self.target_in_port}) [{str(settings.units.voltage.prefixed_unit)}]')
-            ax_i.set_title(f'Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew: {str(slew * settings.units.time)}')
+            ax_i.set_title('I/O Voltage vs. Time')
             ax_o.grid()
             ax_o.set_ylabel(f'Vout (pin {self.target_out_port}) [{str(settings.units.voltage.prefixed_unit)}]')
             ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
@@ -322,7 +324,7 @@ class CombinationalHarness (Harness):
     def plot_delay(self, settings, slews, loads, cell_name):
         """Plot propagation delay and transport delay vs slew rate vs fanout"""
         figure = plt.figure()
-        figure.suptitle(f'Cell {cell_name}: Transport and Propagation delay vs. Slew Rate vs. Fanout')
+        figure.suptitle(f'Cell {cell_name} | Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
 
         ax = figure.add_subplot(projection='3d')
         ax.set_proj_type('ortho')
@@ -334,12 +336,14 @@ class CombinationalHarness (Harness):
             prop_row = []
             tran_row = []
             for load in loads:
-                prop_row.append(self.results[str(slew)][str(load)]['prop_in_out'])
-                tran_row.append(self.results[str(slew)][str(load)]['trans_out'])
+                prop_delay = self.results[str(slew)][str(load)]['prop_in_out'] @ u_s
+                prop_row.append(float(prop_delay.convert(settings.units.time.prefixed_unit).value))
+                tran_delay = self.results[str(slew)][str(load)]['trans_out'] @ u_s
+                tran_row.append(float(tran_delay.convert(settings.units.time.prefixed_unit).value))
             prop_data.append(prop_row)
             tran_data.append(tran_row)
 
-        # Expand x and y data
+        # Expand x and y vectors to 2d arrays
         x_data = np.repeat(np.expand_dims(slews, 1), len(loads), 1)
         y_data = np.swapaxes(np.repeat(np.expand_dims(loads, 1), len(slews), 1), 0, 1)
 
@@ -353,8 +357,35 @@ class CombinationalHarness (Harness):
         ax.set(xlabel=f'Slew Rate [{str(settings.units.time.prefixed_unit)}]',
                ylabel=f'Fanout [{str(settings.units.capacitance.prefixed_unit)}]',
                zlabel=f'Delay [{str(settings.units.time.prefixed_unit)}]',
-               title=f'Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew: {str(slew * settings.units.time)}')
+               title='Transport and Propagation delay vs. Slew Rate vs. Fanout')
         ax.legend()
+
+    def plot_energy(self, settings, slews, loads, cell_name):
+        """Plot energy vs slew rate vs fanout"""
+        figure = plt.figure()
+        figure.suptitle(f'Cell {cell_name} | Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
+
+        ax = figure.add_subplot(projection='3d')
+        ax.set_proj_type('ortho')
+
+        energy_data = []
+        for slew in slews:
+            energy_row = []
+            for load in loads:
+                energy = self._calc_internal_energy(slew, load, settings.energy_meas_high_threshold_voltage())
+                energy_row.append(float(energy.convert(settings.units.energy.prefixed_unit).value))
+            energy_data.append(energy_row)
+
+        # Expand x and y vectors to 2d arrays
+        x_data = np.repeat(np.expand_dims(slews, 1), len(loads), 1)
+        y_data = np.swapaxes(np.repeat(np.expand_dims(loads, 1), len(slews), 1), 0, 1)
+
+        # Plot energy data
+        ax.plot_surface(x_data, y_data, np.asarray(energy_data), cmap='viridis', label='Energy')
+        ax.set(xlabel=f'Slew Rate [{str(settings.units.time.prefixed_unit)}]',
+               ylabel=f'Fanout [{str(settings.units.capacitance.prefixed_unit)}]',
+               zlabel=f'Energy [{str(settings.units.energy.prefixed_unit)}]',
+               title='Energy vs. Slew Rate vs. Fanout')
 
 
 class SequentialHarness (Harness):
