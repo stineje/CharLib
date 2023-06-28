@@ -90,6 +90,7 @@ def findSetupTime(settings, cell, harness, output_filename, load, slew, setup_mi
                     first_stage_failed = True
 
         # Add setup time to harness
+        print(t_setup)
         harness.results[str(slew)][str(load)]['t_setup'] = t_setup
 
         # If we failed this iteration, use previous results
@@ -204,7 +205,7 @@ def runSequentialTrial(settings, cell, harness, output_filename, load, slew, set
         outlines.append(f"VIN VIN 0 PWL(0 {v0} '_tstart1' {v0} '_tstart2' {v1} '_tend1' {v1} '_tend2' {v0} '_tsimend' {v0})")
     else:
         # If not targeted, hold stable
-        for port, value in zip(harness.stable_in_ports, harness.stable_in_port_values):
+        for port, value in zip(harness.stable_in_ports, harness.stable_in_port_states):
             outlines.append("VIN VIN 0 DC " + ("'_vdd'" if value == '1' else "'_vss'"))
     
     # Clock input: VCIN
@@ -411,6 +412,8 @@ def runSequentialTrial(settings, cell, harness, output_filename, load, slew, set
             raise ValueError(f"Port {port} not found in netlist")
     tmp_line += f" {circuit_name}\n"
     outlines.append(tmp_line)
+    print(tmp_line)
+    input('press any key to continue...')
     outlines.append(".ends")
 
     # Handle remaining parameters

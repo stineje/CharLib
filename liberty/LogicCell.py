@@ -821,15 +821,13 @@ class SequentialCell(LogicCell):
         for test_vector in self.test_vectors:
             # Generate harness
             harness = SequentialHarness(self, test_vector)
-            # Generate spice filename
-            spice_prefix = f'{settings.work_dir}/_{self.name}_{harness.spice_infix()}'
             # Run simulation
-            characterizer.char_seq.runSequential(settings, self, harness, spice_prefix)
+            characterizer.char_seq.runSequential(settings, self, harness, self.name)
             # Add harness to collection after characterization
             unsorted_harnesses.append(harness)
         # Filter and sort harnesses
         # For clock:
-        # - No harnesses TODO: Add clock energy calculations (this will require at least 1 harness)
+        # - No harnesses TODO: Add clock energy calculations
         # For each input-output path:
         # - 1 harness for setup_rising/falling
         # - 1 harness for hold_rising/falling
@@ -843,6 +841,98 @@ class SequentialCell(LogicCell):
         # - 1 harness for clock to reset removal_rising/falling
         # For set:
 
+    def _run_delay_trial(self, settings, harness, slew, load, trial_name, t_setup, t_hold, t_simend_mag, tran_mag, t_scale, *energy):
+        """Run delay measurement for a single trial"""
+        # Set up parameters
+        clk_slew = self.clock_slew * settings.units.time
+        t_stable = 100 @ u_ps
+        t_posedge_1_start = slew
+        t_posedge_1_end = t_posedge_1_start + clk_slew
+        t_negedge_1_start = t_posedge_1_end + t_stable
+        t_negedge_1_end = t_negedge_1_start + clk_slew
+        t_removal = t_negedge_1_end + t_stable
+        t_data_start = t_removal + 10 * t_stable + t_setup
+        t_data_start_slew = t_data_start + slew
+        t_data_end = t_data_start_slew + t_stable + t_hold
+        t_data_end_slew = t_data_end + slew
+        t_posedge_2_start = t_posedge_1_start + 10 * t_stable
+        t_posedge_2_end = t_posedge_2_start + clk_slew
+        t_simend = t_data_end_slew + 50 * t_stable * t_simend_mag
+        vdd = settings.vdd.voltage * settings.units.voltage
+        vss = settings.vss.voltage * settings.units.voltage
+        vpw = settings.pwell.voltage * settings.units.voltage
+        vnw = settings.nwell.voltage * settings.units.voltage
+
+        # Initialize circuit
+        circuit = Circuit(self.name)
+        circuit.include(self.model)
+        circuit.include(self.netlist)
+        circuit.V('high', 'vhigh', circuit.gnd, vdd)
+        circuit.V('low', 'vlow', circuit.gnd, vss)
+        circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd)
+        circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss)
+        circuit.V('nw_dyn', 'vnw_dyn', circuit.gnd, vnw)
+        circuit.V('pw_dyn', 'vpw_dyn', circuit.gnd, vpw)
+        circuit.V('dd_leak', 'vdd_leak', circuit.gnd, vdd)
+        circuit.V('ss_leak', 'vss_leak', circuit.gnd, vss)
+        circuit.V('nw_leak', 'vnw_leak', circuit.gnd, vnw)
+        circuit.V('pw_leak', 'vpw_leak', circuit.gnd, vpw)
+        circuit.V('o_cap', 'vout', 'wout', 0)
+        circuit.C('0', 'wout', 'vss_dyn', load)
+
+        # Set up clock input
+        v0, v1 = vss, vdd if harness.timing_type_clock == 'falling_edge' else vdd, vss
+        circuit.V('cin', 'vcin', circuit.gnd, values=[
+            (0, v0), (t_posedge_1_start, v0), (t_posedge_1_end, v1), (t_negedge_1_start, v1), (t_negedge_1_end, v0), (t_posedge_2_start, v0), (t_posedge_2_end, v1), (t_simend, v1)
+        ])
+
+        # Set up data input node
+        # TODO: Fix this to handle multiple data inputs
+        if harness.target_in_port in self.in_ports:
+            v0, v1 = vss, vdd if harness.in_direction == 'rise' else vdd, vss
+            target_node = circuit.PieceWiseLinearVoltageSource('in', 'vin', circuit.gnd, values=[
+                (0, v0), (t_data_start, v0), (t_data_start_slew, v1), (t_data_end, v1), (t_data_end_slew, v0), (t_simend, v0)
+            ])
+        else:
+            # FIXME: Only works with a single stable in port
+            circuit.V('in', 'vin', circuit.gnd, vdd if harness.stable_in_port_values[0] is '1' else vss)
+
+        # Set up reset node
+        # Note: active low reset
+        if harness.reset:
+            if harness.reset_direction:
+                v0, v1 = vdd, vss if harness.reset_direction == 'rise' else vss, vdd
+                target_node = circuit.PieceWiseLinearVoltageSource('rin', 'vrin', circuit.gnd, values=[
+                    (0, v0), (t_data_start, v0), (t_data_start_slew, v1), (t_data_end, v1), (t_data_end_slew, v0), (t_simend, v0)
+                ])
+            else:
+                circuit.V('rin', 'vrin', circuit.gnd, vdd if harness.reset_state == '1' else vss)
+
+        # Set up set node
+        # Note: active low set
+        if harness.set:
+            if harness.set_direction:
+                v0, v1 = vdd, vss if harness.set_direction == 'rise' else vss, vdd
+                target_node = circuit.PieceWiseLinearVoltageSource('sin', 'vsin', circuit.gnd, values=[
+                    (0, v0), (t_data_start, v0), (t_data_start_slew, v1), (t_data_end, v1), (t_data_end_slew, v0), (t_simend, v0)
+                ])
+            else:
+                circuit.V('sin', 'vsin', circuit.gnd, vdd if harness.set_state == '1' else vss)
+
+        # Initialize device under test subcircuit and wire up ports
+        ports = self.definition.split()[1:]
+        subcircuit_name = ports.pop(0)
+        connections = []
+
+        # D to Q propagation delay
+
+        # c to Q propagation delay
+
+        # D to C propagation delay
+
+        # C to D hold delay
+
+        # Measure energy
 
     def export(self, settings):
         cell_lib = [

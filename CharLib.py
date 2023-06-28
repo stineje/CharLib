@@ -98,7 +98,7 @@ def execute_lib(characterizer: Characterizer, library_dir):
         inputs = properties.pop('inputs')
         outputs = properties.pop('outputs')
         functions = properties.pop('functions')
-        clock = properties.pop('clock', None)
+        clock = properties.pop('clock_pin', None)
         flops = properties.pop('flops', [])
 
         # Add cells
