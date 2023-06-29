@@ -39,7 +39,7 @@ class LogicCell:
         lines.append(f'    Outputs:             {", ".join(self.out_ports)}')
         lines.append(f'    Functions:')
         for p,f in zip(self.out_ports,self.functions):
-            lines.append(f'    {p}={f}')
+            lines.append(f'        {p}={f}')
         if self.area:
             lines.append(f'    Area:                {str(self.area)}')
         if self.netlist:
@@ -47,11 +47,11 @@ class LogicCell:
             lines.append(f'    Definition:          {self.definition.rstrip()}')
             lines.append(f'    Instance:            {self.instance}')
         if self.in_slews:
-            lines.append(f'    Input pin simulation slopes:')
+            lines.append(f'    Input pin simulation slew rates:')
             for slope in self.in_slews:
                 lines.append(f'        {str(slope)}')
         if self.out_loads:
-            lines.append(f'    Output pin simulation loads:')
+            lines.append(f'    Output pin simulation fanouts:')
             for load in self.out_loads:
                 lines.append(f'        {str(load)}')
         lines.append(f'    Simulation timestep: {str(self.sim_timestep)}')
@@ -435,9 +435,9 @@ class CombinationalCell(LogicCell):
         subcircuit_name = ports.pop(0)
         connections = []
         for port in ports:
-            if port.lower() == harness.target_in_port:
+            if port.lower() == harness.target_in_port.lower():
                 connections.append('vin')
-            elif port.lower() == harness.target_out_port:
+            elif port.lower() == harness.target_out_port.lower():
                 connections.append('vout')
             elif port.lower() == settings.vdd.name.lower():
                 connections.append('vdd_dyn')
@@ -619,16 +619,17 @@ class SequentialCell(LogicCell):
 
     def __str__(self) -> str:
         lines = super().__str__().split('\n')
-        function_line_index = lambda : lines.index(next([line for line in lines if line.startswith('Functions:')]))
+        function_line_index = lambda : lines.index([line for line in lines if 'Functions:' in line][0])
         # Insert pin names before functions line
         if self.clock:
-            lines.insert(function_line_index, f'Clock pin:           {self.clock}')
+            lines.insert(function_line_index(), f'    Clock pin:           {self.clock}')
         if self.set:
-            lines.insert(function_line_index, f'Set pin:             {self.set}')
+            lines.insert(function_line_index(), f'    Set pin:             {self.set}')
         if self.reset:
-            lines.insert(function_line_index, f'Reset pin:           {self.reset}')
+            lines.insert(function_line_index(), f'    Reset pin:           {self.reset}')
         if self.flops:
-            lines.insert(function_line_index, f'Registers:           {", ".join(self.flops)}')
+            lines.insert(function_line_index(), f'    Registers:           {", ".join(self.flops)}')
+        return '\n'.join(lines)
 
     def __repr__(self):
         return f'SequentialCell({self.name},{self.in_ports},{self.out_ports},{self.clock},{self.set},{self.reset},{self.flops},{self.functions},{self. area})'
@@ -841,7 +842,46 @@ class SequentialCell(LogicCell):
         # - 1 harness for clock to reset removal_rising/falling
         # For set:
 
-    def _run_delay_trial(self, settings, harness, slew, load, trial_name, t_setup, t_hold, t_simend_mag, tran_mag, t_scale, *energy):
+    def _find_setup_time(self, settings, harness, slew, load, t_setup_range, t_hold_min, t_scale):
+        t_simend_mag_range = [1, 10]
+        prev_results = {}
+        for t_setup in t_setup_range:
+            first_stage_failed = False
+            for t_simend_mag in t_simend_mag_range:
+                # Delay simulation
+                if not first_stage_failed:
+                    try:
+                        harness.results[str(slew)][str(load)] = self._run_delay_trial(
+                            settings, harness, slew, load,
+                            t_setup, t_hold_min, t_simend_mag, t_scale
+                        )
+                    except NameError:
+                        first_stage_failed = True
+
+                # Energy simulation
+                if not first_stage_failed:
+                    try:
+                        harness.results[str(slew)][str(load)] = self._run_delay_trial(
+                            settings, harness, slew, load,
+                            t_setup, t_hold_min, t_simend_mag, t_scale,
+                            True # Use energy results stored in this harness
+                        )
+                    except NameError:
+                        first_stage_failed = True
+
+            # Add setup time to harness
+            harness.results[str(slew)][str(load)]['t_setup'] = t_setup
+
+            # If we failed this iteration, use previous results
+            if first_stage_failed or harness.results[str(slew)][str(load)]['prop_in_out'] > min(prev_results.get('prop_in_out'), 10*max(self.in_slews)):
+                harness.results[str(slew)][str(load)] = prev_results
+                # TODO: Handle the possibility that we failed on iteration 1 and don't have a setup time
+                return
+            
+            # Save previous results
+            prev_results = harness.results[str(slew)][str(load)]
+
+    def _run_delay_trial(self, settings, harness, slew, load, t_setup, t_hold, t_simend_mag, t_scale, *energy):
         """Run delay measurement for a single trial"""
         # Set up parameters
         clk_slew = self.clock_slew * settings.units.time
@@ -895,7 +935,7 @@ class SequentialCell(LogicCell):
             ])
         else:
             # FIXME: Only works with a single stable in port
-            circuit.V('in', 'vin', circuit.gnd, vdd if harness.stable_in_port_values[0] is '1' else vss)
+            circuit.V('in', 'vin', circuit.gnd, vdd if harness.stable_in_port_values[0] == '1' else vss)
 
         # Set up reset node
         # Note: active low reset
@@ -923,16 +963,136 @@ class SequentialCell(LogicCell):
         ports = self.definition.split()[1:]
         subcircuit_name = ports.pop(0)
         connections = []
+        for port in ports:
+            if port.lower() == harness.target_in_port.lower():
+                connections.append('vin')
+            elif port.lower() == harness.target_out_port.lower():
+                connections.append('vout')
+            elif port.lower() == settings.vdd.name.lower():
+                connections.append('vdd_dyn')
+            elif port.lower() == settings.vss.name.lower():
+                connections.append('vss_dyn')
+            elif port.lower() == settings.nwell.name.lower():
+                connections.append('vnw_dyn')
+            elif port.lower() == settings.pwell.name.lower():
+                connections.append('vpw_dyn')
+            elif port.lower() == harness.clock.lower():
+                connections.append('vcin')
+            elif self.reset and port.lower() == harness.reset.lower():
+                connections.append('vrin')
+            elif self.set and port.lower() == harness.set.lower():
+                connections.append('vsin')
+            elif port.lower() in harness.stable_in_ports:
+                for stable_port, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
+                    if port.lower() == stable_port.lower():
+                        if state == '1':
+                            connections.append('vhigh')
+                        elif state == '0':
+                            connections.append('vlow')
+                        else:
+                            raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
+            elif port.lower() in harness.nontarget_out_ports:
+                for nontarget_port, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
+                    if port.lower() == nontarget_port:
+                        connections.append(f'wfloat{str(state)}')
+        if len(connections) is not len(ports):
+            raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
+        circuit.X('dut', subcircuit_name, *connections)
+
+        # Initialize simulator
+        simulator = circuit.simulator(temperature=settings.temperature,
+                                      nominal_temperature=settings.temperature,
+                                      simulator=settings.simulator)
+        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
+
+        # Set up voltage bounds for measurements
+        if harness.in_direction == 'rise':
+            v_prop_start = settings.logic_low_to_high_threshold_voltage()
+            v_clk2d_end = settings.logic_threshold_low_voltage()
+            v_clk2q_end = settings.logic_high_to_low_threshold_voltage()
+        elif harness.in_direction == 'fall':
+            v_prop_start = settings.logic_high_to_low_threshold_voltage()
+            v_clk2d_end = settings.logic_threshold_high_voltage()
+            v_clk2q_end = settings.logic_low_to_high_threshold_voltage()
+        else:
+            raise ValueError(f'Unable to configure simulation: no target input pin')
+        if harness.out_direction == 'rise':
+            v_trans_start = settings.logic_threshold_low_voltage()
+            v_trans_end = settings.logic_threshold_high_voltage()
+            v_prop_end = settings.logic_low_to_high_threshold_voltage()
+        elif harness.out_direction == 'fall':
+            v_trans_start = settings.logic_threshold_high_voltage()
+            v_trans_end = settings.logic_threshold_low_voltage()
+            v_prop_end = settings.logic_high_to_low_threshold_voltage()
+        else:
+            raise ValueError(f'Unable to configure simulation: no target output pin')
+        if harness.timing_type_clock == 'rising_edge':
+            clk_direction = 'rise'
+            v_clk_energy_start = settings.logic_threshold_low_voltage()
+            v_clk_energy_end = settings.logic_threshold_high_voltage()
+            v_clk_transition = settings.logic_low_to_high_threshold_voltage()
+        else:
+            clk_direction = 'fall'
+            v_clk_energy_start = settings.logic_threshold_high_voltage()
+            v_clk_energy_end = settings.logic_threshold_low_voltage()
+            v_clk_transition = settings.logic_high_to_low_threshold_voltage()
 
         # D to Q propagation delay
+        simulator.measure('tran', 'prop_in_out',
+                          f'trig v({target_node}) val={v_prop_start} td={t_removal} {harness.in_direction}=1'
+                          f'targ v(vout) val={v_prop_end} {harness.out_direction}=1')
+        simulator.measure('tran', 'trans_out',
+                          f'trig v(vout) val={v_trans_start} {harness.out_direction}=1',
+                          f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
 
-        # c to Q propagation delay
+        # C to Q propagation delay
+        simulator.measure('tran', 'prop_cin_out',
+                          f'trig v(vcin) val={v_clk_transition} td={t_removal} {clk_direction}=1',
+                          f'targ v(vout) val={v_clk2q_end} {harness.in_direction}=1')
 
-        # D to C propagation delay
+        # D to C setup delay
+        simulator.measure('tran', 'prop_in_d2c',
+                          f'trig v({target_node}) val={v_prop_start} td={t_removal} {harness.in_direction}=1',
+                          f'targ v(vcin) val={v_clk_transition} {clk_direction}=1')
 
         # C to D hold delay
+        simulator.measure('tran', 'prop_in_c2d',
+                          f'trig v(vcin) val={v_clk_transition} td={t_removal} {clk_direction}=1',
+                          f'targ v({target_node}) val={v_clk2d_end} {"rise" if harness.in_direction == "fall" else "fall"}=1')
 
         # Measure energy
+        if not energy:
+            simulator.measure('tran', 't_energy_start',
+                              f'when v({target_node})={v_prop_start} {harness.in_direction}=1')
+            simulator.measure('tran', 't_energy_end',
+                              f'when v(vout)={v_trans_end} {harness.out_direction}=1')
+            simulator.measure('tran', 't_clk_energy_start',
+                              f'when v(vcin)={v_clk_energy_start} {clk_direction}=1')
+            simulator.measure('tran', 't_clk_energy_end',
+                              f'when v(vcin)={v_clk_energy_end} {clk_direction}=1')
+        else:
+            t_energy_start = harness.results[str(slew)][str(load)]['t_energy_start']
+            t_energy_end = harness.results[str(slew)][str(load)]['t_energy_end']
+            t_clk_energy_start = harness.results[str(slew)][str(load)]['t_clk_energy_start']
+            t_clk_energy_end = harness.results[str(slew)][str(load)]['t_clk_energy_end']
+            simulator.measure('tran', 'q_in_dyn',
+                              f'integ i({target_node}) from={t_energy_start} to={t_energy_end}')
+            simulator.measure('tran', 'q_out_dyn',
+                              f'integ i(vocap) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
+            simulator.measure('tran', 'q_clk_dyn',
+                              f'integ i(vcin) from={t_clk_energy_start} to={t_clk_energy_end}')
+            simulator.measure('tran', 'q_vdd_dyn',
+                              f'integ i(vdd_dyn) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
+            simulator.measure('tran', 'q_vss_dyn',
+                              f'integ i(vss_dyn) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
+            simulator.measure('tran', 'i_vdd_leak',
+                              f'avg i(vdd_dyn) from={0.1*t_data_start} to={t_data_start}')
+            simulator.measure('tran', 'i_vss_leak',
+                              f'avg i(vss_dyn) from={0.1*t_data_start} to={t_data_start}')
+            simulator.measure('tran', 'i_in_leak',
+                              f'avg i(vin) from={0.1*t_data_start} to={t_data_start}')
+            
+        return simulator.transient(step_tim=(self.sim_timestep*t_scale), end_time=t_simend)
 
     def export(self, settings):
         cell_lib = [
