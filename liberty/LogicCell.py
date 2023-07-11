@@ -1,9 +1,9 @@
 import threading
 from matplotlib import pyplot as plt
 from PySpice.Spice.Netlist import Circuit
+from PySpice import Unit
 from pathlib import Path
 
-import characterizer.char_seq
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc, check_timing_sense
 from characterizer.LogicParser import parse_logic
 
@@ -333,7 +333,7 @@ class CombinationalCell(LogicCell):
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
             # Determine spice filename prefix
-            trial_name = f'delay {self.name} {harness.spice_infix()}'
+            trial_name = f'delay {self.name} {harness.short_str()}'
             # Run delay characterization
             # Note: ngspice-shared doesn't work with multithreaded as the shared interface must be a singleton
             if settings.use_multithreaded and not settings.simulator == 'ngspice-shared':
@@ -386,12 +386,12 @@ class CombinationalCell(LogicCell):
         print(f'Running {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
 
         # 1st trial, extract t_energy_start and t_energy_end
-        trial_results = self._run_delay_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance)
+        trial_results = self._run_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance)
         t_energy_start = trial_results['t_energy_start']
         t_energy_end = trial_results['t_energy_end']
 
         # 2nd trial
-        trial_results = self._run_delay_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance, t_energy_start, t_energy_end)
+        trial_results = self._run_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance, t_energy_start, t_energy_end)
         trial_results.measurements['t_energy_start'] = t_energy_start
         trial_results.measurements['t_energy_end'] = t_energy_end
 
@@ -399,7 +399,7 @@ class CombinationalCell(LogicCell):
             harness.results[str(slew)] = {}
         harness.results[str(slew)][str(load)] = trial_results
 
-    def _run_delay_trial(self, settings, harness, slew, load, *energy):
+    def _run_trial(self, settings, harness, slew, load, *energy):
         """Run delay measurement for a single trial"""
         # Set up parameters
         t_start = slew
@@ -589,6 +589,7 @@ class CombinationalCell(LogicCell):
 class SequentialCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, flops: str, function: str, **kwargs):
         super().__init__(name, in_ports, out_ports, function, **kwargs)
+        # TODO: Use flops in place of functions for sequential cells
         self.set = kwargs.get('set_pin')        # set pin name
         self.reset = kwargs.get('reset_pin')    # reset pin name
         self.clock = clock_pin                  # clock pin name
@@ -663,10 +664,12 @@ class SequentialCell(LogicCell):
 
     @property
     def flops(self) -> list:
+        # TODO: Use flops in place of functions for sequential cells
         return self._flops
 
     @flops.setter
     def flops(self, value):
+        # TODO: Use flops in place of functions for sequential cells
         if isinstance(value, str):
             self._flops = value.split()
         elif isinstance(value, list):
@@ -822,16 +825,22 @@ class SequentialCell(LogicCell):
         for test_vector in self.test_vectors:
             # Generate harness
             harness = SequentialHarness(self, test_vector)
-            # Run simulation
-            characterizer.char_seq.runSequential(settings, self, harness, self.name)
+            trial_name = f'delay {self.name} {harness.short_str()}'
+            # Run characterization
+            # TODO: Figure out how to thread this
+            for slew in self.in_slews:
+                for load in self.out_loads:
+                    self._run_delay(settings, harness, slew, load, trial_name)
+
             # Add harness to collection after characterization
-            unsorted_harnesses.append(harness)
-        # Filter and sort harnesses
+            self.harnesses.append(harness)
+
+        # TODO: Filter and sort harnesses
         # For clock:
         # - No harnesses TODO: Add clock energy calculations
         # For each input-output path:
-        # - 1 harness for setup_rising/falling
-        # - 1 harness for hold_rising/falling
+        # - 1 harness for setup/hold_rising
+        # - 1 harness for setup/hold_falling
         # For each output port:
         # - 2 harnesses characterizing path from clock to output: rise and fall
         # - 1 harness characterizing path from reset to output
@@ -842,66 +851,128 @@ class SequentialCell(LogicCell):
         # - 1 harness for clock to reset removal_rising/falling
         # For set:
 
-    def _find_setup_time(self, settings, harness, slew, load, t_setup_range, t_hold_min, t_scale):
-        t_simend_mag_range = [1, 10]
+    def _run_delay(self, settings, harness, slew, load, trial_name):
+        print(f'Running {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
+
+        self._find_setup_time(settings, harness, slew, load, 10*max(self.in_slews))
+        self._find_hold_time(settings, harness, slew, load, harness.results[str(slew)][str(load)]['t_setup'])
+
+    def _find_setup_time(self, settings, harness, slew, load, t_hold):
+        """Perform a binary search to identify setup time"""
         prev_results = {}
-        for t_setup in t_setup_range:
-            first_stage_failed = False
-            for t_simend_mag in t_simend_mag_range:
-                # Delay simulation
-                if not first_stage_failed:
-                    try:
-                        harness.results[str(slew)][str(load)] = self._run_delay_trial(
-                            settings, harness, slew, load,
-                            t_setup, t_hold_min, t_simend_mag, t_scale
-                        )
-                    except NameError:
-                        first_stage_failed = True
+        t_max = self.sim_setup_highest * settings.units.time
+        t_min = self.sim_setup_lowest * settings.units.time
+        t_setup = t_max # Start with the longest setup time
 
-                # Energy simulation
-                if not first_stage_failed:
-                    try:
-                        harness.results[str(slew)][str(load)] = self._run_delay_trial(
-                            settings, harness, slew, load,
-                            t_setup, t_hold_min, t_simend_mag, t_scale,
-                            True # Use energy results stored in this harness
-                        )
-                    except NameError:
-                        first_stage_failed = True
+        loop_count = 0
+        while t_setup > (self.sim_setup_highest * settings.units.time):
+            loop_count += 1
+            print(f'Loop {loop_count}')
+            failed = False
 
-            # Add setup time to harness
-            harness.results[str(slew)][str(load)]['t_setup'] = t_setup
+            # Delay simulation
+            try:
+                harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
+            except NameError:
+                failed = True
 
-            # If we failed this iteration, use previous results
-            if first_stage_failed or harness.results[str(slew)][str(load)]['prop_in_out'] > min(prev_results.get('prop_in_out'), 10*max(self.in_slews)):
-                harness.results[str(slew)][str(load)] = prev_results
-                # TODO: Handle the possibility that we failed on iteration 1 and don't have a setup time
-                return
-            
-            # Save previous results
+            # Energy simulation
+            if not failed:
+                try:
+                    harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold, True)
+                except NameError:
+                    print('Failed')
+                    failed = True
+
+            # Identify next setup time
+            if failed or harness.results[str(slew)][str(load)]['prop_in_out'] > prev_results.get('prop_in_out', t_max):
+                t_min = t_setup
+            else:
+                t_max = t_setup
+            t_next = (t_max + t_min) / 2
+
+            # Check that the next t_setup is greater than 1 timestep difference from the previous t_setup
+            if abs(t_setup - t_next) > (self.sim_setup_timestep * settings.units.time):
+                t_setup = t_next
+            else:
+                break # We've achieved the desired accuracy
+
+            # Save previous results for comparison with next iteration
             prev_results = harness.results[str(slew)][str(load)]
 
-    def _run_delay_trial(self, settings, harness, slew, load, t_setup, t_hold, t_simend_mag, t_scale, *energy):
+        # Save setup time to the harness
+        harness.results[str(slew)][str(load)]['t_setup'] = t_setup
+
+    def _find_hold_time(self, settings, harness, slew, load, t_setup):
+        """Perform a binary search to identify hold time"""
+        prev_results = {}
+        t_max = self.sim_hold_highest * settings.units.time
+        t_min = self.sim_hold_lowest * settings.units.time
+        t_hold = t_max # Start with the longest hold delay
+
+        loop_count = 0
+        while t_hold > (self.sim_hold_lowest * settings.units.time):
+            loop_count += 1
+            print(f'Loop {loop_count}')
+            failed = False
+
+            # Delay simulation
+            try:
+                harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
+            except NameError:
+                print('Failed')
+                failed = True
+
+            # Energy simulation
+            if not failed:
+                try:
+                    harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold, True)
+                except NameError:
+                    failed = True
+
+            # Identify the next hold time
+            if failed or harness.results[str(slew)][str(load)]['prop_in_out'] > prev_results.get('prop_in_out', t_max):
+                t_min = t_hold
+            else:
+                t_max = t_hold
+            t_next = (t_max + t_min) / 2
+
+            # Check that the next t_hold is greater than 1 timestep difference from the previous t_hold
+            if abs(t_hold - t_next) > (self.sim_hold_timestep * settings.units.time):
+                t_hold = t_next
+            else:
+                break # We've achieved the desired accuracy
+
+            # Save previous results so we can compare with next iteration
+            prev_results = harness.results[str(slew)][str(load)]
+
+        # Save hold time to the harness
+        harness.results[str(slew)][str(load)]['t_hold'] = t_hold
+
+    def _run_trial(self, settings, harness, slew, load, t_setup, t_hold, *energy):
         """Run delay measurement for a single trial"""
         # Set up parameters
         clk_slew = self.clock_slew * settings.units.time
-        t_stable = 100 @ u_ps
-        t_posedge_1_start = slew
-        t_posedge_1_end = t_posedge_1_start + clk_slew
-        t_negedge_1_start = t_posedge_1_end + t_stable
-        t_negedge_1_end = t_negedge_1_start + clk_slew
-        t_removal = t_negedge_1_end + t_stable
-        t_data_start = t_removal + 10 * t_stable + t_setup
-        t_data_start_slew = t_data_start + slew
-        t_data_end = t_data_start_slew + t_stable + t_hold
-        t_data_end_slew = t_data_end + slew
-        t_posedge_2_start = t_posedge_1_start + 10 * t_stable
-        t_posedge_2_end = t_posedge_2_start + clk_slew
-        t_simend = t_data_end_slew + 50 * t_stable * t_simend_mag
+        data_slew = slew * settings.units.time
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
         vpw = settings.pwell.voltage * settings.units.voltage
         vnw = settings.nwell.voltage * settings.units.voltage
+
+        # Set up timing parameters for clock and data events
+        t_stable = 100 @ Unit.u_ps
+        t_clk_posedge_1_start = data_slew
+        t_clk_posedge_1_end = t_clk_posedge_1_start + clk_slew
+        t_clk_negedge_1_start = t_clk_posedge_1_end + t_stable
+        t_clk_negedge_1_end = t_clk_negedge_1_start + clk_slew
+        t_removal = t_clk_negedge_1_end + t_stable
+        t_clk_posedge_2_start = t_clk_negedge_1_end + 10 * t_stable
+        t_clk_posedge_2_end = t_clk_posedge_2_start + clk_slew
+        t_data_edge_1_start = t_removal + 10 * t_stable + t_setup
+        t_data_edge_1_end = t_data_edge_1_start + data_slew
+        t_data_edge_2_start = t_data_edge_1_end + t_stable + t_hold
+        t_data_edge_2_end = t_data_edge_2_start + data_slew
+        t_sim_end = t_data_edge_2_end + 50 * t_stable
 
         # Initialize circuit
         circuit = Circuit(self.name)
@@ -921,29 +992,29 @@ class SequentialCell(LogicCell):
         circuit.C('0', 'wout', 'vss_dyn', load)
 
         # Set up clock input
-        v0, v1 = vss, vdd if harness.timing_type_clock == 'falling_edge' else vdd, vss
-        circuit.V('cin', 'vcin', circuit.gnd, values=[
-            (0, v0), (t_posedge_1_start, v0), (t_posedge_1_end, v1), (t_negedge_1_start, v1), (t_negedge_1_end, v0), (t_posedge_2_start, v0), (t_posedge_2_end, v1), (t_simend, v1)
+        (v0, v1) = (vss, vdd) if harness.timing_type_clock == 'falling_edge' else (vdd, vss)
+        circuit.PieceWiseLinearVoltageSource('cin', 'vcin', circuit.gnd, values=[
+            (0, v0), (t_clk_posedge_1_start, v0), (t_clk_posedge_1_end, v1), (t_clk_negedge_1_start, v1), (t_clk_negedge_1_end, v0), (t_clk_posedge_2_start, v0), (t_clk_posedge_2_end, v1), (t_sim_end, v1)
         ])
 
         # Set up data input node
         # TODO: Fix this to handle multiple data inputs
-        if harness.target_in_port in self.in_ports:
-            v0, v1 = vss, vdd if harness.in_direction == 'rise' else vdd, vss
+        if harness.target_in_port.lower() in [port.lower() for port in self.in_ports]:
+            (v0, v1) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
             target_node = circuit.PieceWiseLinearVoltageSource('in', 'vin', circuit.gnd, values=[
-                (0, v0), (t_data_start, v0), (t_data_start_slew, v1), (t_data_end, v1), (t_data_end_slew, v0), (t_simend, v0)
+                (0, v0), (t_data_edge_1_start, v0), (t_data_edge_1_end, v1), (t_data_edge_2_start, v1), (t_data_edge_2_end, v0), (t_sim_end, v0)
             ])
         else:
             # FIXME: Only works with a single stable in port
-            circuit.V('in', 'vin', circuit.gnd, vdd if harness.stable_in_port_values[0] == '1' else vss)
+            circuit.V('in', 'vin', circuit.gnd, vdd if harness.stable_in_port_states[0] == '1' else vss)
 
         # Set up reset node
         # Note: active low reset
         if harness.reset:
             if harness.reset_direction:
-                v0, v1 = vdd, vss if harness.reset_direction == 'rise' else vss, vdd
+                (v0, v1) = (vdd, vss) if harness.reset_direction == 'rise' else (vss, vdd)
                 target_node = circuit.PieceWiseLinearVoltageSource('rin', 'vrin', circuit.gnd, values=[
-                    (0, v0), (t_data_start, v0), (t_data_start_slew, v1), (t_data_end, v1), (t_data_end_slew, v0), (t_simend, v0)
+                    (0, v0), (t_data_edge_1_start, v0), (t_data_edge_1_end, v1), (t_data_edge_2_start, v1), (t_data_edge_2_end, v0), (t_sim_end, v0)
                 ])
             else:
                 circuit.V('rin', 'vrin', circuit.gnd, vdd if harness.reset_state == '1' else vss)
@@ -952,9 +1023,9 @@ class SequentialCell(LogicCell):
         # Note: active low set
         if harness.set:
             if harness.set_direction:
-                v0, v1 = vdd, vss if harness.set_direction == 'rise' else vss, vdd
+                (v0, v1) = (vdd, vss) if harness.set_direction == 'rise' else (vss, vdd)
                 target_node = circuit.PieceWiseLinearVoltageSource('sin', 'vsin', circuit.gnd, values=[
-                    (0, v0), (t_data_start, v0), (t_data_start_slew, v1), (t_data_end, v1), (t_data_end_slew, v0), (t_simend, v0)
+                    (0, v0), (t_data_edge_1_start, v0), (t_data_edge_1_end, v1), (t_data_edge_2_start, v1), (t_data_edge_2_end, v0), (t_sim_end, v0)
                 ])
             else:
                 circuit.V('sin', 'vsin', circuit.gnd, vdd if harness.set_state == '1' else vss)
@@ -1037,25 +1108,25 @@ class SequentialCell(LogicCell):
             v_clk_energy_end = settings.logic_threshold_low_voltage()
             v_clk_transition = settings.logic_high_to_low_threshold_voltage()
 
-        # D to Q propagation delay
+        # Measure D to Q propagation delay
         simulator.measure('tran', 'prop_in_out',
-                          f'trig v({target_node}) val={v_prop_start} td={t_removal} {harness.in_direction}=1'
+                          f'trig v({target_node}) val={v_prop_start} td={t_removal} {harness.in_direction}=1',
                           f'targ v(vout) val={v_prop_end} {harness.out_direction}=1')
         simulator.measure('tran', 'trans_out',
                           f'trig v(vout) val={v_trans_start} {harness.out_direction}=1',
                           f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
 
-        # C to Q propagation delay
+        # Measure C to Q propagation delay
         simulator.measure('tran', 'prop_cin_out',
                           f'trig v(vcin) val={v_clk_transition} td={t_removal} {clk_direction}=1',
                           f'targ v(vout) val={v_clk2q_end} {harness.in_direction}=1')
 
-        # D to C setup delay
+        # Measure D to C setup delay
         simulator.measure('tran', 'prop_in_d2c',
                           f'trig v({target_node}) val={v_prop_start} td={t_removal} {harness.in_direction}=1',
                           f'targ v(vcin) val={v_clk_transition} {clk_direction}=1')
 
-        # C to D hold delay
+        # Measure C to D hold delay
         simulator.measure('tran', 'prop_in_c2d',
                           f'trig v(vcin) val={v_clk_transition} td={t_removal} {clk_direction}=1',
                           f'targ v({target_node}) val={v_clk2d_end} {"rise" if harness.in_direction == "fall" else "fall"}=1')
@@ -1086,22 +1157,23 @@ class SequentialCell(LogicCell):
             simulator.measure('tran', 'q_vss_dyn',
                               f'integ i(vss_dyn) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
             simulator.measure('tran', 'i_vdd_leak',
-                              f'avg i(vdd_dyn) from={0.1*t_data_start} to={t_data_start}')
+                              f'avg i(vdd_dyn) from={0.1*t_data_edge_1_start} to={t_data_edge_1_start}')
             simulator.measure('tran', 'i_vss_leak',
-                              f'avg i(vss_dyn) from={0.1*t_data_start} to={t_data_start}')
+                              f'avg i(vss_dyn) from={0.1*t_data_edge_1_start} to={t_data_edge_1_start}')
             simulator.measure('tran', 'i_in_leak',
-                              f'avg i(vin) from={0.1*t_data_start} to={t_data_start}')
-            
-        return simulator.transient(step_tim=(self.sim_timestep*t_scale), end_time=t_simend)
+                              f'avg i(vin) from={0.1*t_data_edge_1_start} to={t_data_edge_1_start}')
+
+        return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
 
     def export(self, settings):
+        leakage_power = self.harnesses[0].get_leakage_power(settings.vdd.voltage).convert(settings.units.power.prefixed_unit) # TODO: Check whether we should use the 1st
         cell_lib = [
             f'cell ({self.name}) {{',
             f'  area : {self.area};',
-            f'  cell_leakage_power : {self.harnesses[0].get_leakage_power(settings.vdd.voltage, settings.units.power):.7f};', # TODO: Check whether we should use the 1st
+            f'  cell_leakage_power : {float(leakage_power.value):.7f};',
         ]
-        # Flip Flop (single flop supported per cell)
-        # TODO: This is not a very flexible way to store flops, and should be improved in the future
+        # Flops
+        # TODO: use flops in place of functions
         cell_lib.append(f'  ff ({",".join(self.flops)}) {{')
         for in_port in self.in_ports:
             cell_lib.append(f'    next_state : "{in_port}";')
@@ -1116,10 +1188,11 @@ class SequentialCell(LogicCell):
         cell_lib.append(f'  }}') # end ff
         # Clock and Input ports
         for in_port in [self.clock, *self.in_ports]:
+            input_capacitance = self.get_input_capacitance(in_port, settings.vdd.voltage).convert(settings.units.capacitance.prefixed_unit)
             cell_lib.extend([
                 f'  pin ({in_port}) {{',
                 f'    direction : input;',
-                f'    capacitance : {self.get_input_capacitance(in_port, settings.vdd.voltage, settings.units.capacitance):.7f};',
+                f'    capacitance : {float(input_capacitance.value):.7f};',
                 f'    rise_capacitance : 0;', # TODO: Calculate this
                 f'    fall_capacitance : 0;', # TODO: Calculate this
             ])
@@ -1128,19 +1201,24 @@ class SequentialCell(LogicCell):
                 cell_lib.append(f'    clock : true;')
             elif in_port in self.in_ports:
                 for out_port in self.out_ports:
-                    harnesses = filter_harnesses_by_ports(self.harnesses, in_port, out_port)
-                    # TODO: Fetch harnesses for setup and hold timing
-                    # TODO: Figure out which harnesses to use here (one for setup, one for hold)
-                    for harness in harnesses:
-                        cell_lib.extend([
-                            f'    timing () {{',
-                            f'      related_pin : "{self.clock}";',
-                            f'      timing_type : "{harness.timing_type}";',
-                            f'      when : "TODO";', # TODO
-                            f'      sdf_cond : "TODO";', # TODO
-                            f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
-                        ])
-                        cell_lib.append(f'    }}') # end timing
+                    rise_harness = find_harness_by_arc(self.harnesses, in_port, out_port, 'rise')
+                    # TODO: fall_harness
+                    cell_lib.extend([
+                        f'    timing () {{',
+                        f'      related_pin : "{self.clock}";',
+                        f'      timing_type : "{rise_harness.timing_type_hold}";',
+                        f'      when : "TODO";', # TODO
+                        f'      sdf_cond : "TODO";', # TODO
+                        f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
+                        f'    }}',
+                        f'    timing() {{',
+                        f'      related_pin : "{self.clock}";',
+                        f'      timing_type : "{rise_harness.timing_type_setup}";',
+                        f'      when : "TODO";', # TODO
+                        f'      sdf_cond : "TODO";', # TODO
+                        f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
+                        f'    }}',
+                    ])
             # Internal power
             cell_lib.extend([
                 f'    internal_power () {{',
@@ -1163,7 +1241,7 @@ class SequentialCell(LogicCell):
                 f'    rise_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
                 f'    fall_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
                 f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Check (or actually calculate this)
-                f'    function : "{self.functions[self.out_ports.index(out_port)]}";'
+                f'    function : "{self.functions[self.out_ports.index(out_port)]}";', # TODO: Use flops in place of functions
             ])
             # Timing and internal power
             related_ports = [self.clock]
@@ -1177,7 +1255,7 @@ class SequentialCell(LogicCell):
                     f'    timing () {{',
                     f'      related_pin : "{related_port}";',
                     f'      timing_sense : "{check_timing_sense(harnesses)}";',
-                    f'      timing_type : "{harness[0].timing_type}"'
+                    # TODO: f'      timing_type : "{harnesses[0].timing_type_}"'
                 ])
                 # TODO: add cell_rise, rise_transition, cell_fall, and fall_transition (as appropriate)
                 cell_lib.append(f'    }}') # end timing
@@ -1204,7 +1282,7 @@ class SequentialCell(LogicCell):
                 cell_lib.extend([
                     f'    timing () {{',
                     f'      related_pin : "{harness.target_in_port}";',
-                    f'      timing_type : {harness.timing_type};',
+                    # TODO: f'      timing_type : {harness.timing_type};',
                     f'      when : "TODO";', # TODO
                     f'      sdf_cond : "TODO";', # TODO
                     f'      /* TODO: add rise_constraint LUT */'
@@ -1226,7 +1304,7 @@ class SequentialCell(LogicCell):
                 cell_lib.extend([
                     f'    timing () {{',
                     f'      related_pin : "{harness.target_in_port}";',
-                    f'      timing_type : {harness.timing_type};',
+                    # TODO: f'      timing_type : {harness.timing_type};',
                     f'      when : "TODO";', # TODO
                     f'      sdf_cond : "TODO";', # TODO
                     f'      /* TODO: add rise_constraint LUT */'

@@ -94,6 +94,17 @@ class Harness:
                 lines.append(f'        {port}: {state}')
         # TODO: Display results if available
         return '\n'.join(lines)
+    
+    def short_str(self):
+        # Create an abbreviated string for the test vector represented by this harness
+        # TODO: Replace this with a method that generates the test vector string
+        harness_str = f'{self.target_in_port}{"01" if self.in_direction == "rise" else "10"}'
+        for input, state in zip(self.stable_in_ports, self.stable_in_port_states):
+            harness_str += f'_{input}{state}'
+        harness_str += f'_{self.target_out_port}{"01" if self.out_direction == "rise" else "10"}'
+        for output, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
+            harness_str += f'_{output}{state}'
+        return harness_str
 
     def _state_to_direction(self, state) -> str:
         return 'rise' if state == '01' else 'fall' if state == '10' else None
@@ -272,16 +283,6 @@ class CombinationalHarness (Harness):
         if not self._target_in_port:
             raise ValueError(f'Unable to parse target input port from test vector {test_vector}')
 
-    def spice_infix(self):
-        # Determine the infix for spice files dealing with this harness
-        infix = f'{self.target_in_port}{"01" if self.in_direction == "rise" else "10"}'
-        for input, state in zip(self.stable_in_ports, self.stable_in_port_states):
-            infix += f'_{input}{state}'
-        infix += f'_{self.target_out_port}{"01" if self.out_direction == "rise" else "10"}'
-        for output, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
-            infix += f'_{output}{state}'
-        return infix
-
     @property
     def timing_type(self) -> str:
         return "combinational"
@@ -386,7 +387,6 @@ class CombinationalHarness (Harness):
                ylabel=f'Fanout [{str(settings.units.capacitance.prefixed_unit)}]',
                zlabel=f'Energy [{str(settings.units.energy.prefixed_unit)}]',
                title='Energy vs. Slew Rate vs. Fanout')
-
 
 class SequentialHarness (Harness):
     def __init__(self, target_cell, test_vector: list) -> None:
