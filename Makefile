@@ -1,6 +1,6 @@
 # Makefile
 
-all:	setup osu350_lib
+all:	osu350_lib
 
 setup:
 	mkdir -p ./work
@@ -8,7 +8,7 @@ setup:
 gencmd: setup
 	python3 gen_cmd.py
 
-osu350:	CharLib.py test/osu350/OSU350.cmd
+osu350:	CharLib.py test/osu350/OSU350.cmd setup
 	$(shell test/osu350/fetch_spice.sh)
 	python3 CharLib.py -b test/osu350/OSU350.cmd
 

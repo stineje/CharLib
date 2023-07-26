@@ -382,29 +382,17 @@ class CombinationalCell(LogicCell):
         if 'energy' in self.plots:
             [harness.plot_energy(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
 
-    def _run_delay(self, settings, harness, slew, load, trial_name):
-        print(f'Running {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
+    def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
+        print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
+        harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load)
 
-        # 1st trial, extract t_energy_start and t_energy_end
-        trial_results = self._run_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance)
-        t_energy_start = trial_results['t_energy_start']
-        t_energy_end = trial_results['t_energy_end']
-
-        # 2nd trial
-        trial_results = self._run_trial(settings, harness, slew * settings.units.time, load * settings.units.capacitance, t_energy_start, t_energy_end)
-        trial_results.measurements['t_energy_start'] = t_energy_start
-        trial_results.measurements['t_energy_end'] = t_energy_end
-
-        if not harness.results.get(str(slew)):
-            harness.results[str(slew)] = {}
-        harness.results[str(slew)][str(load)] = trial_results
-
-    def _run_trial(self, settings, harness, slew, load, *energy):
+    def _run_trial(self, settings, harness: CombinationalHarness, slew, load):
         """Run delay measurement for a single trial"""
         # Set up parameters
-        t_start = slew
-        t_end = t_start + slew
-        t_simend = 1000 * slew
+        data_slew = slew * settings.units.time
+        t_start = data_slew
+        t_end = t_start + data_slew
+        t_simend = 1000 * data_slew
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
         vpw = settings.pwell.voltage * settings.units.voltage
@@ -427,8 +415,8 @@ class CombinationalCell(LogicCell):
         circuit.V('ss_leak', 'vss_leak', circuit.gnd, vss)
         circuit.V('nw_leak', 'vnw_leak', circuit.gnd, vnw)
         circuit.V('pw_leak', 'vpw_leak', circuit.gnd, vpw)
-        circuit.V('o_cap', 'vout', 'wout', 0)
-        circuit.C('0', 'wout', 'vss_dyn', load)
+        circuit.V('o_cap', 'vout', 'wout', circuit.gnd)
+        circuit.C('0', 'wout', 'vss_dyn', load * settings.units.capacitance)
 
         # Initialize device under test subcircuit and wire up ports
         ports = self.definition.split()[1:]
@@ -470,6 +458,15 @@ class CombinationalCell(LogicCell):
                                       simulator=settings.simulator)
         simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
 
+        # Measure energy threshold timings
+        simulator.measure('tran', 't_energy_start',
+                        f'when v(Vin)={str(settings.energy_meas_low_threshold_voltage())} {harness.in_direction}=1')
+        simulator.measure('tran', 't_energy_end',
+                        f'when v(Vout)={str(settings.energy_meas_high_threshold_voltage())} {harness.out_direction}=1')
+        energy_timings = simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
+        t_energy_start = energy_timings['t_energy_start']
+        t_energy_end = energy_timings['t_energy_end']
+
         # Measure delay
         if harness.in_direction == 'rise':
             v_prop_start = settings.logic_low_to_high_threshold_voltage()
@@ -484,37 +481,30 @@ class CombinationalCell(LogicCell):
             v_trans_start = settings.logic_threshold_high_voltage()
             v_trans_end = settings.logic_threshold_low_voltage()
         simulator.measure('tran', 'prop_in_out',
-                        f'trig v(Vin) val={v_prop_start} {harness.in_direction}=1',
-                        f'targ v(Vout) val={v_prop_end} {harness.out_direction}=1')
+                        f'trig v(vin) val={v_prop_start} {harness.in_direction}=1',
+                        f'targ v(vout) val={v_prop_end} {harness.out_direction}=1')
         simulator.measure('tran', 'trans_out',
-                        f'trig v(Vout) val={v_trans_start} {harness.out_direction}=1',
-                        f'targ v(Vout) val={v_trans_end} {harness.out_direction}=1')
+                        f'trig v(vout) val={v_trans_start} {harness.out_direction}=1',
+                        f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
 
-        # Measure energy
-        if not energy:
-            simulator.measure('tran', 't_energy_start',
-                            f'when v(Vin)={str(settings.energy_meas_low_threshold_voltage())} {harness.in_direction}=1')
-            simulator.measure('tran', 't_energy_end',
-                            f'when v(Vout)={str(settings.energy_meas_high_threshold_voltage())} {harness.out_direction}=1')
-        else:
-            [t_energy_start, t_energy_end] = energy
-            simulator.measure('tran', 'q_in_dyn',
-                            f'integ i(Vin) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
-            simulator.measure('tran', 'q_out_dyn',
-                            f'integ i(Vo_cap) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
-            simulator.measure('tran', 'q_vdd_dyn',
-                            f'integ i(Vdd_dyn) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
-            simulator.measure('tran', 'q_vss_dyn',
-                            f'integ i(Vss_dyn), from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
-            simulator.measure('tran', 'i_vdd_leak',
-                            f'avg i(Vdd_dyn) from={float(t_start)/10} to={float(t_start)}')
-            simulator.measure('tran', 'i_vss_leak',
-                            f'avg i(Vss_dyn) from={float(t_start)/10} to={float(t_start)}')
-            simulator.measure('tran', 'i_in_leak',
-                            f'avg i(Vin) from={float(t_start)/10} to={float(t_start)}')
+        # Use energy timings to capture energy measurements
+        simulator.measure('tran', 'q_in_dyn',
+                        f'integ i(Vin) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_out_dyn',
+                        f'integ i(Vo_cap) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_vdd_dyn',
+                        f'integ i(Vdd_dyn) from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_vss_dyn',
+                        f'integ i(Vss_dyn), from={t_energy_start} to={t_energy_end * settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'i_vdd_leak',
+                        f'avg i(Vdd_dyn) from={float(t_start)/10} to={float(t_start)}')
+        simulator.measure('tran', 'i_vss_leak',
+                        f'avg i(Vss_dyn) from={float(t_start)/10} to={float(t_start)}')
+        simulator.measure('tran', 'i_in_leak',
+                        f'avg i(Vin) from={float(t_start)/10} to={float(t_start)}')
 
         # Run transient analysis
-        return simulator.transient(step_time=self.sim_timestep, end_time=t_simend)
+        return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
 
     def export(self, settings):
         leakage_power = self.harnesses[0].get_leakage_power(settings.vdd.voltage).convert(settings.units.power.prefixed_unit) # TODO: Check whether we should use the 1st
@@ -679,6 +669,8 @@ class SequentialCell(LogicCell):
 
     @property
     def clock_slew(self) -> float:
+        if self.in_slews and not self._clock_slew:
+            return min(self.in_slews)
         return self._clock_slew
 
     @clock_slew.setter
@@ -693,7 +685,7 @@ class SequentialCell(LogicCell):
                 raise ValueError('Cannot use auto clock slew rate unless in_slews is set first!')
             else:
                 # Use minimum slew rate
-                self._clock_slew = min(self._in_slews)
+                self._clock_slew = min(self.in_slews)
         else:
             raise TypeError(f'Invalid type for clock slew rate: {type(value)}')
 
@@ -833,59 +825,42 @@ class SequentialCell(LogicCell):
                     self._run_delay(settings, harness, slew, load, trial_name)
 
             # Add harness to collection after characterization
-            self.harnesses.append(harness)
+            unsorted_harnesses.append(harness)
 
         # TODO: Filter and sort harnesses
-        # For clock:
-        # - No harnesses TODO: Add clock energy calculations
-        # For each input-output path:
-        # - 1 harness for setup/hold_rising
-        # - 1 harness for setup/hold_falling
-        # For each output port:
-        # - 2 harnesses characterizing path from clock to output: rise and fall
-        # - 1 harness characterizing path from reset to output
-        # - 1 harness characterizing path from set to output
-        # For reset:
-        # - 1 harness for clock to reset recovery_rising/falling
-        # - 1 harness for set to reset recovery_rising/falling
-        # - 1 harness for clock to reset removal_rising/falling
-        # For set:
+        [self.harnesses.append(h) for h in unsorted_harnesses]
 
-    def _run_delay(self, settings, harness, slew, load, trial_name):
-        print(f'Running {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
+        # Display plots
+        if 'io' in self.plots:
+            [harness.plot_io(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+        if 'delay' in self.plots:
+            [harness.plot_delay(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+        if 'energy' in self.plots:
+            [harness.plot_energy(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
 
-        self._find_setup_time(settings, harness, slew, load, 10*max(self.in_slews))
-        self._find_hold_time(settings, harness, slew, load, harness.results[str(slew)][str(load)]['t_setup'])
+    def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
+        print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
 
-    def _find_setup_time(self, settings, harness, slew, load, t_hold):
+        t_setup = self._find_setup_time(settings, harness, slew, load, 10*max(self.in_slews)*settings.units.time)
+        t_hold = self._find_hold_time(settings, harness, slew, load, t_setup)
+        print(f'Setup, Hold time: {t_setup}, {t_hold}')
+
+    def _find_setup_time(self, settings, harness: SequentialHarness, slew, load, t_hold):
         """Perform a binary search to identify setup time"""
-        prev_results = {}
         t_max = self.sim_setup_highest * settings.units.time
         t_min = self.sim_setup_lowest * settings.units.time
         t_setup = t_max # Start with the longest setup time
+        prev_t_prop = 1.0 # Set a very large value
 
-        loop_count = 0
-        while t_setup > (self.sim_setup_highest * settings.units.time):
-            loop_count += 1
-            print(f'Loop {loop_count}')
+        while t_setup > (self.sim_setup_lowest * settings.units.time):
             failed = False
-
-            # Delay simulation
             try:
                 harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
-            except NameError:
+            except Exception as e:
                 failed = True
 
-            # Energy simulation
-            if not failed:
-                try:
-                    harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold, True)
-                except NameError:
-                    print('Failed')
-                    failed = True
-
             # Identify next setup time
-            if failed or harness.results[str(slew)][str(load)]['prop_in_out'] > prev_results.get('prop_in_out', t_max):
+            if failed or harness.results[str(slew)][str(load)]['prop_in_out'] > prev_t_prop:
                 t_min = t_setup
             else:
                 t_max = t_setup
@@ -898,40 +873,28 @@ class SequentialCell(LogicCell):
                 break # We've achieved the desired accuracy
 
             # Save previous results for comparison with next iteration
-            prev_results = harness.results[str(slew)][str(load)]
+            prev_t_prop = harness.results[str(slew)][str(load)]['prop_in_out']
 
-        # Save setup time to the harness
-        harness.results[str(slew)][str(load)]['t_setup'] = t_setup
+        return t_setup
 
-    def _find_hold_time(self, settings, harness, slew, load, t_setup):
+    def _find_hold_time(self, settings, harness: SequentialHarness, slew, load, t_setup):
         """Perform a binary search to identify hold time"""
-        prev_results = {}
         t_max = self.sim_hold_highest * settings.units.time
         t_min = self.sim_hold_lowest * settings.units.time
         t_hold = t_max # Start with the longest hold delay
+        prev_t_prop = 1.0 # Set a very large value
 
-        loop_count = 0
         while t_hold > (self.sim_hold_lowest * settings.units.time):
-            loop_count += 1
-            print(f'Loop {loop_count}')
             failed = False
 
             # Delay simulation
             try:
                 harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
-            except NameError:
-                print('Failed')
+            except Exception as e:
                 failed = True
 
-            # Energy simulation
-            if not failed:
-                try:
-                    harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold, True)
-                except NameError:
-                    failed = True
-
             # Identify the next hold time
-            if failed or harness.results[str(slew)][str(load)]['prop_in_out'] > prev_results.get('prop_in_out', t_max):
+            if failed or harness.results[str(slew)][str(load)]['prop_in_out'] > prev_t_prop:
                 t_min = t_hold
             else:
                 t_max = t_hold
@@ -944,12 +907,11 @@ class SequentialCell(LogicCell):
                 break # We've achieved the desired accuracy
 
             # Save previous results so we can compare with next iteration
-            prev_results = harness.results[str(slew)][str(load)]
+            prev_t_prop = harness.results[str(slew)][str(load)]['prop_in_out']
 
-        # Save hold time to the harness
-        harness.results[str(slew)][str(load)]['t_hold'] = t_hold
+        return t_hold
 
-    def _run_trial(self, settings, harness, slew, load, t_setup, t_hold, *energy):
+    def _run_trial(self, settings, harness: SequentialHarness, slew, load, t_setup, t_hold, energy=False):
         """Run delay measurement for a single trial"""
         # Set up parameters
         clk_slew = self.clock_slew * settings.units.time
@@ -960,19 +922,19 @@ class SequentialCell(LogicCell):
         vnw = settings.nwell.voltage * settings.units.voltage
 
         # Set up timing parameters for clock and data events
-        t_stable = 100 @ Unit.u_ps
-        t_clk_posedge_1_start = data_slew
-        t_clk_posedge_1_end = t_clk_posedge_1_start + clk_slew
-        t_clk_negedge_1_start = t_clk_posedge_1_end + t_stable
-        t_clk_negedge_1_end = t_clk_negedge_1_start + clk_slew
-        t_removal = t_clk_negedge_1_end + t_stable
-        t_clk_posedge_2_start = t_clk_negedge_1_end + 10 * t_stable
-        t_clk_posedge_2_end = t_clk_posedge_2_start + clk_slew
-        t_data_edge_1_start = t_removal + 10 * t_stable + t_setup
+        t_stabilizing = 1 @ Unit.u_ns
+        t_clk_edge_1_start = data_slew + t_setup
+        t_clk_edge_1_end = t_clk_edge_1_start + clk_slew
+        t_clk_edge_2_start = t_clk_edge_1_end + t_hold
+        t_clk_edge_2_end = t_clk_edge_2_start + clk_slew
+        t_removal = t_clk_edge_2_end + t_hold
+        t_data_edge_1_start = t_removal + t_stabilizing
         t_data_edge_1_end = t_data_edge_1_start + data_slew
-        t_data_edge_2_start = t_data_edge_1_end + t_stable + t_hold
+        t_clk_edge_3_start = t_data_edge_1_end + t_setup
+        t_clk_edge_3_end = t_clk_edge_3_start + clk_slew
+        t_data_edge_2_start = t_clk_edge_3_end + t_hold
         t_data_edge_2_end = t_data_edge_2_start + data_slew
-        t_sim_end = t_data_edge_2_end + 50 * t_stable
+        t_sim_end = t_data_edge_2_end + 5*t_stabilizing
 
         # Initialize circuit
         circuit = Circuit(self.name)
@@ -989,12 +951,12 @@ class SequentialCell(LogicCell):
         circuit.V('nw_leak', 'vnw_leak', circuit.gnd, vnw)
         circuit.V('pw_leak', 'vpw_leak', circuit.gnd, vpw)
         circuit.V('o_cap', 'vout', 'wout', 0)
-        circuit.C('0', 'wout', 'vss_dyn', load)
+        circuit.C('0', 'wout', 'vss_dyn', load * settings.units.capacitance)
 
         # Set up clock input
         (v0, v1) = (vss, vdd) if harness.timing_type_clock == 'falling_edge' else (vdd, vss)
         circuit.PieceWiseLinearVoltageSource('cin', 'vcin', circuit.gnd, values=[
-            (0, v0), (t_clk_posedge_1_start, v0), (t_clk_posedge_1_end, v1), (t_clk_negedge_1_start, v1), (t_clk_negedge_1_end, v0), (t_clk_posedge_2_start, v0), (t_clk_posedge_2_end, v1), (t_sim_end, v1)
+            (0, v0), (t_clk_edge_1_start, v0), (t_clk_edge_1_end, v1), (t_clk_edge_2_start, v1), (t_clk_edge_2_end, v0), (t_clk_edge_3_start, v0), (t_clk_edge_3_end, v1), (t_sim_end, v1)
         ])
 
         # Set up data input node
@@ -1079,12 +1041,8 @@ class SequentialCell(LogicCell):
         # Set up voltage bounds for measurements
         if harness.in_direction == 'rise':
             v_prop_start = settings.logic_low_to_high_threshold_voltage()
-            v_clk2d_end = settings.logic_threshold_low_voltage()
-            v_clk2q_end = settings.logic_high_to_low_threshold_voltage()
         elif harness.in_direction == 'fall':
             v_prop_start = settings.logic_high_to_low_threshold_voltage()
-            v_clk2d_end = settings.logic_threshold_high_voltage()
-            v_clk2q_end = settings.logic_low_to_high_threshold_voltage()
         else:
             raise ValueError(f'Unable to configure simulation: no target input pin')
         if harness.out_direction == 'rise':
@@ -1108,60 +1066,56 @@ class SequentialCell(LogicCell):
             v_clk_energy_end = settings.logic_threshold_low_voltage()
             v_clk_transition = settings.logic_high_to_low_threshold_voltage()
 
-        # Measure D to Q propagation delay
+        # Measure energy threshold timings
+        simulator.measure('tran', 't_energy_start',
+                            f'when v({target_node.name})={v_prop_start} {harness.in_direction}=1')
+        simulator.measure('tran', 't_energy_end',
+                            f'when v(vout)={v_trans_end} {harness.out_direction}=1')
+        simulator.measure('tran', 't_clk_energy_start',
+                            f'when v(vcin)={v_clk_energy_start} {clk_direction}=1')
+        simulator.measure('tran', 't_clk_energy_end',
+                            f'when v(vcin)={v_clk_energy_end} {clk_direction}=1')
+        energy_timings = simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
+        t_energy_start = energy_timings['t_energy_start']
+        t_energy_end = energy_timings['t_energy_end']
+        t_clk_energy_start = energy_timings['t_clk_energy_start']
+        t_clk_energy_end = energy_timings['t_clk_energy_end']
+
+        # Measure propagation delay from first data edge to first output edge
         simulator.measure('tran', 'prop_in_out',
-                          f'trig v({target_node}) val={v_prop_start} td={t_removal} {harness.in_direction}=1',
+                          f'trig v({target_node.name}) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
                           f'targ v(vout) val={v_prop_end} {harness.out_direction}=1')
         simulator.measure('tran', 'trans_out',
                           f'trig v(vout) val={v_trans_start} {harness.out_direction}=1',
                           f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
 
-        # Measure C to Q propagation delay
-        simulator.measure('tran', 'prop_cin_out',
-                          f'trig v(vcin) val={v_clk_transition} td={t_removal} {clk_direction}=1',
-                          f'targ v(vout) val={v_clk2q_end} {harness.in_direction}=1')
-
-        # Measure D to C setup delay
-        simulator.measure('tran', 'prop_in_d2c',
-                          f'trig v({target_node}) val={v_prop_start} td={t_removal} {harness.in_direction}=1',
+        # Measure setup delay from first data edge to last clock edge
+        simulator.measure('tran', 't_setup',
+                          f'trig v({target_node.name}) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
                           f'targ v(vcin) val={v_clk_transition} {clk_direction}=1')
+        
+        # Measure hold delay from last clock edge to last data edge
+        simulator.measure('tran', 't_hold',
+                          f'trig v(vcin) val={v_clk_transition} td={float(t_removal)} {"fall" if clk_direction == "rise" else "rise"}=last',
+                          f'targ v({target_node.name}) val={v_prop_end} {"fall" if harness.in_direction == "rise" else "rise"}=1')
 
-        # Measure C to D hold delay
-        simulator.measure('tran', 'prop_in_c2d',
-                          f'trig v(vcin) val={v_clk_transition} td={t_removal} {clk_direction}=1',
-                          f'targ v({target_node}) val={v_clk2d_end} {"rise" if harness.in_direction == "fall" else "fall"}=1')
-
-        # Measure energy
-        if not energy:
-            simulator.measure('tran', 't_energy_start',
-                              f'when v({target_node})={v_prop_start} {harness.in_direction}=1')
-            simulator.measure('tran', 't_energy_end',
-                              f'when v(vout)={v_trans_end} {harness.out_direction}=1')
-            simulator.measure('tran', 't_clk_energy_start',
-                              f'when v(vcin)={v_clk_energy_start} {clk_direction}=1')
-            simulator.measure('tran', 't_clk_energy_end',
-                              f'when v(vcin)={v_clk_energy_end} {clk_direction}=1')
-        else:
-            t_energy_start = harness.results[str(slew)][str(load)]['t_energy_start']
-            t_energy_end = harness.results[str(slew)][str(load)]['t_energy_end']
-            t_clk_energy_start = harness.results[str(slew)][str(load)]['t_clk_energy_start']
-            t_clk_energy_end = harness.results[str(slew)][str(load)]['t_clk_energy_end']
-            simulator.measure('tran', 'q_in_dyn',
-                              f'integ i({target_node}) from={t_energy_start} to={t_energy_end}')
-            simulator.measure('tran', 'q_out_dyn',
-                              f'integ i(vocap) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
-            simulator.measure('tran', 'q_clk_dyn',
-                              f'integ i(vcin) from={t_clk_energy_start} to={t_clk_energy_end}')
-            simulator.measure('tran', 'q_vdd_dyn',
-                              f'integ i(vdd_dyn) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
-            simulator.measure('tran', 'q_vss_dyn',
-                              f'integ i(vss_dyn) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
-            simulator.measure('tran', 'i_vdd_leak',
-                              f'avg i(vdd_dyn) from={0.1*t_data_edge_1_start} to={t_data_edge_1_start}')
-            simulator.measure('tran', 'i_vss_leak',
-                              f'avg i(vss_dyn) from={0.1*t_data_edge_1_start} to={t_data_edge_1_start}')
-            simulator.measure('tran', 'i_in_leak',
-                              f'avg i(vin) from={0.1*t_data_edge_1_start} to={t_data_edge_1_start}')
+        # Use energy timings to capture energy measurements
+        simulator.measure('tran', 'q_in_dyn',
+                            f'integ i({target_node.name}) from={t_energy_start} to={t_energy_end}')
+        simulator.measure('tran', 'q_out_dyn',
+                            f'integ i(vo_cap) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_clk_dyn',
+                            f'integ i(vcin) from={t_clk_energy_start} to={t_clk_energy_end}')
+        simulator.measure('tran', 'q_vdd_dyn',
+                            f'integ i(vdd_dyn) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'q_vss_dyn',
+                            f'integ i(vss_dyn) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
+        simulator.measure('tran', 'i_vdd_leak',
+                            f'avg i(vdd_dyn) from={float(t_clk_edge_1_start)} to={float(t_data_edge_1_start)}')
+        simulator.measure('tran', 'i_vss_leak',
+                            f'avg i(vss_dyn) from={float(t_clk_edge_1_start)} to={float(t_data_edge_1_start)}')
+        simulator.measure('tran', 'i_in_leak',
+                            f'avg i(vin) from={float(t_clk_edge_1_start)} to={float(t_data_edge_1_start)}')
 
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
 

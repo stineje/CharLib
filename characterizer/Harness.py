@@ -97,13 +97,13 @@ class Harness:
     
     def short_str(self):
         # Create an abbreviated string for the test vector represented by this harness
-        # TODO: Replace this with a method that generates the test vector string
-        harness_str = f'{self.target_in_port}{"01" if self.in_direction == "rise" else "10"}'
+        # TODO: Replace this with a method that generates the test vector string (if possible)
+        harness_str = f'{self.target_in_port}={"01" if self.in_direction == "rise" else "10"}'
         for input, state in zip(self.stable_in_ports, self.stable_in_port_states):
-            harness_str += f'_{input}{state}'
-        harness_str += f'_{self.target_out_port}{"01" if self.out_direction == "rise" else "10"}'
+            harness_str += f' {input}={state}'
+        harness_str += f' {self.target_out_port}={"01" if self.out_direction == "rise" else "10"}'
         for output, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
-            harness_str += f'_{output}{state}'
+            harness_str += f' {output}={state}'
         return harness_str
 
     def _state_to_direction(self, state) -> str:
@@ -209,10 +209,10 @@ class Harness:
                 n += 1
         return total_delay / n
 
-    def _calc_leakage_power(self, in_slew, out_load, vdd: float):
+    def _calc_leakage_power(self, slew, load, vdd: float):
         # Calculate leakage power, using units to validate calculation
-        i_vdd_leak = abs(self.results[in_slew][out_load]['i_vdd_leak']) @ u_A
-        i_vss_leak = abs(self.results[in_slew][out_load]['i_vss_leak']) @ u_A
+        i_vdd_leak = abs(self.results[slew][load]['i_vdd_leak']) @ u_A
+        i_vss_leak = abs(self.results[slew][load]['i_vss_leak']) @ u_A
         i_avg = (i_vdd_leak + i_vss_leak) / 2
         return i_avg * (vdd @ u_V)
     
@@ -226,10 +226,10 @@ class Harness:
                 n += 1
         return leakage_power / n
 
-    def _get_lut_value_groups_by_key(self, in_slews, out_loads, key: str, base_unit, output_unit):
+    def _get_lut_value_groups_by_key(self, slews, loads, key: str, base_unit, output_unit):
         value_groups = []
-        for slew in in_slews:
-            values = [(self.results[str(slew)][str(load)][key]@base_unit).convert(output_unit).value for load in out_loads]
+        for slew in slews:
+            values = [(self.results[str(slew)][str(load)][key]@base_unit).convert(output_unit).value for load in loads]
             value_groups.append(f'"{", ".join([f"{value:f}" for value in values])}"')
         sep = ', \\\n  '
         return f'values( \\\n  {sep.join(value_groups)});'
@@ -297,15 +297,14 @@ class CombinationalHarness (Harness):
             figure.suptitle(f'Cell {cell_name} | Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew Rate: {str(slew * settings.units.time)}')
 
             # Set up plot parameters
-            ax_i.grid()
             ax_i.set_ylabel(f'Vin (pin {self.target_in_port}) [{str(settings.units.voltage.prefixed_unit)}]')
             ax_i.set_title('I/O Voltage vs. Time')
-            ax_o.grid()
             ax_o.set_ylabel(f'Vout (pin {self.target_out_port}) [{str(settings.units.voltage.prefixed_unit)}]')
             ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
 
             # Add dotted lines indicating logic levels, energy measurement bounds, and timing
             for ax in [ax_i, ax_o]:
+                ax.grid()
                 for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
                     ax.axhline(level, color='0.5', linestyle='--')
                 for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
@@ -420,6 +419,14 @@ class SequentialHarness (Harness):
             self.flop_states.append(test_vector.pop(0))
         super().__init__(target_cell, test_vector)
 
+    def short_str(self):
+        harness_str = f'{self.clock}={self.clock_state} {super().short_str()}'
+        if self.set:
+            harness_str += f' {self.set}={self.set_state}'
+        if self.reset:
+            harness_str += f' {self.reset}={self.reset_state}'
+        return harness_str
+
     @property
     def set_direction(self) -> str:
         if not self.set:
@@ -499,6 +506,62 @@ class SequentialHarness (Harness):
         else:
             return f'!{self.target_in_port}'
 
+    def plot_io(self, settings, slews, loads, title):
+        """Plot I/O voltages vs time for the given slew rates and output loads"""
+        # Group data by slew rate so that CLK and D are the same
+        for slew in slews:
+            # Create a figure with axes for CLK, S (if present), R (if present) D, and Q in that order
+            # Use an additive approach so that we have keys for indexing the axes
+            num_axes = 1
+            CLK = 0
+            if self.set:
+                S = num_axes
+                num_axes += 1
+            if self.reset:
+                R = num_axes
+                num_axes += 1
+            D = num_axes
+            num_axes += 1
+            Q = num_axes
+            num_axes += 1
+            figure, axes = plt.subplots(num_axes, sharex=True)
+            figure.suptitle(f'{title} | {self.short_str()} | Slew Rate: {str(slew*settings.units.time)}')
+
+            # Set up plots
+            for ax in axes:
+                for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
+                    ax.axhline(level, color='0.5', linestyle='--')
+                # TODO: Set up vlines for important timing events
+            axes[CLK].set_ylabel(f'CLK [{str(settings.units.voltage.prefixed_unit)}]')
+            if self.set:
+                axes[S].set_ylabel(f'S [{str(settings.units.voltage.prefixed_unit)}]')
+            if self.reset:
+                axes[R].set_ylabel(f'R [{str(settings.units.voltage.prefixed_unit)}]')
+            axes[D].set_ylabel(f'D [{str(settings.units.voltage.prefixed_unit)}]')
+            axes[Q].set_ylabel(f'Q [{str(settings.units.voltage.prefixed_unit)}]')
+            for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
+                axes[Q].axhline(level, color='g', linestyle=':')
+            axes[-1].set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
+
+            # Plot simulation data
+            for load in loads:
+                data = self.results[str(slew)][str(load)]
+                t = data.time / settings.units.time
+                axes[Q].plot(t, data['vout'], label=f'Fanout={load*settings.units.capacitance}')
+            axes[Q].legend()
+            axes[CLK].plot(t, data['vcin'])
+            if self.set:
+                axes[S].plot(t, data['vsin'])
+            if self.reset:
+                axes[R].plot(t, data['vrin'])
+            axes[D].plot(t, data['vin'])
+            axes[Q].plot(t, data['vout'])
+
+    def plot_delay(self, settings, slews, loads, cell_name):
+        pass
+
+    def plot_energy(self, settings, slews, loads, cell_name):
+        pass
 
 # Utilities for working with Harnesses
 def filter_harnesses_by_ports(harness_list: list, in_port, out_port) -> list:
