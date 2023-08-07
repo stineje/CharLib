@@ -1,5 +1,4 @@
 import threading
-from matplotlib import pyplot as plt
 from PySpice.Spice.Netlist import Circuit
 from PySpice import Unit
 from pathlib import Path
@@ -841,7 +840,7 @@ class SequentialCell(LogicCell):
     def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
         print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
 
-        t_setup = self._find_setup_time(settings, harness, slew, load, 10*max(self.in_slews)*settings.units.time)
+        t_setup = self._find_setup_time(settings, harness, slew, load, self.sim_hold_highest*settings.units.time)
         t_hold = self._find_hold_time(settings, harness, slew, load, t_setup)
         print(f'Setup, Hold time: {t_setup}, {t_hold}')
 
@@ -856,7 +855,7 @@ class SequentialCell(LogicCell):
             failed = False
             try:
                 harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
-            except Exception as e:
+            except NameError as e:
                 failed = True
 
             # Identify next setup time
@@ -870,6 +869,7 @@ class SequentialCell(LogicCell):
             if abs(t_setup - t_next) > (self.sim_setup_timestep * settings.units.time):
                 t_setup = t_next
             else:
+                # TODO: Check that the result is valid
                 break # We've achieved the desired accuracy
 
             # Save previous results for comparison with next iteration
@@ -890,7 +890,7 @@ class SequentialCell(LogicCell):
             # Delay simulation
             try:
                 harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
-            except Exception as e:
+            except NameError as e:
                 failed = True
 
             # Identify the next hold time
@@ -904,6 +904,7 @@ class SequentialCell(LogicCell):
             if abs(t_hold - t_next) > (self.sim_hold_timestep * settings.units.time):
                 t_hold = t_next
             else:
+                # TODO: Check that the result is valid
                 break # We've achieved the desired accuracy
 
             # Save previous results so we can compare with next iteration
@@ -940,8 +941,6 @@ class SequentialCell(LogicCell):
         circuit = Circuit(self.name)
         circuit.include(self.model)
         circuit.include(self.netlist)
-        circuit.V('high', 'vhigh', circuit.gnd, vdd)
-        circuit.V('low', 'vlow', circuit.gnd, vss)
         circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd)
         circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss)
         circuit.V('nw_dyn', 'vnw_dyn', circuit.gnd, vnw)
@@ -993,6 +992,7 @@ class SequentialCell(LogicCell):
                 circuit.V('sin', 'vsin', circuit.gnd, vdd if harness.set_state == '1' else vss)
 
         # Initialize device under test subcircuit and wire up ports
+        # TODO: Turn this into a function so that we use DRY code
         ports = self.definition.split()[1:]
         subcircuit_name = ports.pop(0)
         connections = []
@@ -1140,8 +1140,23 @@ class SequentialCell(LogicCell):
             cell_lib.append(f'    clear_preset_var1: L;') # Hard-coded value for when set and reset are both active
             cell_lib.append(f'    clear_preset_var2: L;')
         cell_lib.append(f'  }}') # end ff
-        # Clock and Input ports
-        for in_port in [self.clock, *self.in_ports]:
+        # Clock
+        cell_lib.extend([
+            f'  pin ({self.clock}) {{',
+            f'    direction : input;',
+            f'    capacitance : 0;', # TODO
+            f'    rise_capacitance : 0;', # TODO: Calculate this
+            f'    fall_capacitance : 0;', # TODO: Calculate this
+            f'    clock : true;',
+        ])
+        # TODO: Internal power
+        cell_lib.extend([
+            f'    min_pulse_width_high : 0;', # TODO
+            f'    min_pulse_width_low : 0;', # TODO
+            f'  }}' # end pin
+        ])
+        # Input ports
+        for in_port in self.in_ports:
             input_capacitance = self.get_input_capacitance(in_port, settings.vdd.voltage).convert(settings.units.capacitance.prefixed_unit)
             cell_lib.extend([
                 f'  pin ({in_port}) {{',
@@ -1151,75 +1166,64 @@ class SequentialCell(LogicCell):
                 f'    fall_capacitance : 0;', # TODO: Calculate this
             ])
             # Timing
-            if in_port is self.clock:
-                cell_lib.append(f'    clock : true;')
-            elif in_port in self.in_ports:
-                for out_port in self.out_ports:
-                    rise_harness = find_harness_by_arc(self.harnesses, in_port, out_port, 'rise')
-                    # TODO: fall_harness
-                    cell_lib.extend([
-                        f'    timing () {{',
-                        f'      related_pin : "{self.clock}";',
-                        f'      timing_type : "{rise_harness.timing_type_hold}";',
-                        f'      when : "TODO";', # TODO
-                        f'      sdf_cond : "TODO";', # TODO
-                        f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
-                        f'    }}',
-                        f'    timing() {{',
-                        f'      related_pin : "{self.clock}";',
-                        f'      timing_type : "{rise_harness.timing_type_setup}";',
-                        f'      when : "TODO";', # TODO
-                        f'      sdf_cond : "TODO";', # TODO
-                        f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
-                        f'    }}',
-                    ])
+            for out_port in self.out_ports:
+                rise_harness = find_harness_by_arc(self.harnesses, in_port, out_port, 'rise')
+                # TODO: fall_harness
+                cell_lib.extend([
+                    f'    timing () {{',
+                    f'      related_pin : "{self.clock}";',
+                    f'      timing_type : "{rise_harness.timing_type_hold}";',
+                    f'      when : "TODO";', # TODO
+                    f'      sdf_cond : "TODO";', # TODO
+                    f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
+                    f'    }}',
+                    f'    timing() {{',
+                    f'      related_pin : "{self.clock}";',
+                    f'      timing_type : "{rise_harness.timing_type_setup}";',
+                    f'      when : "TODO";', # TODO
+                    f'      sdf_cond : "TODO";', # TODO
+                    f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
+                    f'    }}',
+                ])
             # Internal power
             cell_lib.extend([
                 f'    internal_power () {{',
                 f'      /* TODO: add rise_power and fall_power LUTs */', # TODO
             ])
             cell_lib.append(f'    }}') # end internal_power
-            # Clock pulse widths
-            if in_port is self.clock:
-                cell_lib.extend([
-                    f'    min_pulse_width_high : 0;', # TODO
-                    f'    min_pulse_width_low : 0;', # TODO
-            ])
             cell_lib.append(f'  }}') # end pin
         # Output ports
         for out_port in self.out_ports:
             cell_lib.extend([
                 f'  pin ({out_port}) {{',
                 f'    direction : output;',
-                f'    capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
-                f'    rise_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
-                f'    fall_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
+                f'    capacitance : 0;', # Matches OSU350 reference, but may not be correct. TODO: Check
+                f'    rise_capacitance : 0;', # Matches OSU350 reference, but may not be correct. TODO: Check
+                f'    fall_capacitance : 0;', # Matches OSU350 reference, but may not be correct. TODO: Check
                 f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Check (or actually calculate this)
                 f'    function : "{self.functions[self.out_ports.index(out_port)]}";', # TODO: Use flops in place of functions
             ])
             # Timing and internal power
-            related_ports = [self.clock]
-            if self.reset: related_ports.append(self.reset)
-            if self.set: related_ports.append(self.set)
-            for related_port in related_ports:
-                # TODO: Figure out how to properly fetch the right harnesses for this
-                harnesses = filter_harnesses_by_ports(self.harnesses, related_port, out_port)
-                # Timing
-                cell_lib.extend([
-                    f'    timing () {{',
-                    f'      related_pin : "{related_port}";',
-                    f'      timing_sense : "{check_timing_sense(harnesses)}";',
-                    # TODO: f'      timing_type : "{harnesses[0].timing_type_}"'
-                ])
-                # TODO: add cell_rise, rise_transition, cell_fall, and fall_transition (as appropriate)
-                cell_lib.append(f'    }}') # end timing
-                # Internal power
-                cell_lib.extend([
-                    f'    internal_power () {{',
-                    f'      related_pin : "{related_port}";',
-                ])
-                # TODO: Add rise_power/fall_power/power (as appropriate)
-                cell_lib.append(f'    }}')
+            # related_ports = [self.clock]
+            # if self.reset: related_ports.append(self.reset)
+            # if self.set: related_ports.append(self.set)
+            # for related_port in related_ports:
+            #     # Timing
+            #     cell_lib.extend([
+            #         f'    timing () {{',
+            #         f'      related_pin : "{related_port}";',
+            #         f'      timing_sense : "non_unate";',
+            #         f'      timing_type : "{self.harnesses[0].timing_type_clock}"'
+            #     ])
+            #     # TODO: add cell_rise, rise_transition, cell_fall, and fall_transition (as appropriate)
+            #     cell_lib.append(f'    }}') # end timing
+            #     # Internal power
+            #     cell_lib.extend([
+            #         f'    internal_power () {{',
+            #         f'      related_pin : "{related_port}";',
+            #     ])
+            #     # TODO: Add rise_power/fall_power/power (as appropriate)
+            #     cell_lib.append(f'    }}')
             cell_lib.append(f'  }}') # end pin
         # Reset port
         if self.reset:
@@ -1266,3 +1270,4 @@ class SequentialCell(LogicCell):
                 cell_lib.append(f'    }}') # end timing
             cell_lib.append(f'  }}') # end pin
         cell_lib.append(f'}}') # end cell
+        return '\n'.join(cell_lib)

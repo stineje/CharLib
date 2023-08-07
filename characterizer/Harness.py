@@ -508,54 +508,56 @@ class SequentialHarness (Harness):
 
     def plot_io(self, settings, slews, loads, title):
         """Plot I/O voltages vs time for the given slew rates and output loads"""
-        # Group data by slew rate so that CLK and D are the same
+        # TODO: evaluate display options and try to find a better way of displaying these
         for slew in slews:
-            # Create a figure with axes for CLK, S (if present), R (if present) D, and Q in that order
-            # Use an additive approach so that we have keys for indexing the axes
-            num_axes = 1
-            CLK = 0
-            if self.set:
-                S = num_axes
-                num_axes += 1
-            if self.reset:
-                R = num_axes
-                num_axes += 1
-            D = num_axes
-            num_axes += 1
-            Q = num_axes
-            num_axes += 1
-            figure, axes = plt.subplots(num_axes, sharex=True)
-            figure.suptitle(f'{title} | {self.short_str()} | Slew Rate: {str(slew*settings.units.time)}')
-
-            # Set up plots
-            for ax in axes:
-                for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
-                    ax.axhline(level, color='0.5', linestyle='--')
-                # TODO: Set up vlines for important timing events
-            axes[CLK].set_ylabel(f'CLK [{str(settings.units.voltage.prefixed_unit)}]')
-            if self.set:
-                axes[S].set_ylabel(f'S [{str(settings.units.voltage.prefixed_unit)}]')
-            if self.reset:
-                axes[R].set_ylabel(f'R [{str(settings.units.voltage.prefixed_unit)}]')
-            axes[D].set_ylabel(f'D [{str(settings.units.voltage.prefixed_unit)}]')
-            axes[Q].set_ylabel(f'Q [{str(settings.units.voltage.prefixed_unit)}]')
-            for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
-                axes[Q].axhline(level, color='g', linestyle=':')
-            axes[-1].set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
-
-            # Plot simulation data
             for load in loads:
+                # Create a figure with axes for CLK, S (if present), R (if present) D, and Q in that order
+                # Use an additive approach so that we have keys for indexing the axes
+                num_axes = 1
+                CLK = 0
+                if self.set:
+                    S = num_axes
+                    num_axes += 1
+                if self.reset:
+                    R = num_axes
+                    num_axes += 1
+                D = num_axes
+                num_axes += 1
+                Q = num_axes
+                num_axes += 1
+                ratios=np.ones(num_axes).tolist()
+                ratios[-1] = num_axes
+                figure, axes = plt.subplots(num_axes, sharex=True, height_ratios=ratios)
+                figure.suptitle(f'{title} | {self.short_str()}')
+
+                # Set up plots
+                for ax in axes:
+                    for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
+                        ax.axhline(level, color='0.5', linestyle='--')
+                    # TODO: Set up vlines for important timing events
+                axes[CLK].set_title(f'Slew Rate: {str(slew*settings.units.time)} | Fanout: {str(load*settings.units.capacitance)}')
+                axes[CLK].set_ylabel(f'CLK [{str(settings.units.voltage.prefixed_unit)}]')
+                if self.set:
+                    axes[S].set_ylabel(f'S [{str(settings.units.voltage.prefixed_unit)}]')
+                if self.reset:
+                    axes[R].set_ylabel(f'R [{str(settings.units.voltage.prefixed_unit)}]')
+                axes[D].set_ylabel(f'D [{str(settings.units.voltage.prefixed_unit)}]')
+                axes[Q].set_ylabel(f'Q [{str(settings.units.voltage.prefixed_unit)}]')
+                for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
+                    axes[Q].axhline(level, color='g', linestyle=':')
+                axes[-1].set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
+
+                # Plot simulation data
                 data = self.results[str(slew)][str(load)]
                 t = data.time / settings.units.time
-                axes[Q].plot(t, data['vout'], label=f'Fanout={load*settings.units.capacitance}')
-            axes[Q].legend()
-            axes[CLK].plot(t, data['vcin'])
-            if self.set:
-                axes[S].plot(t, data['vsin'])
-            if self.reset:
-                axes[R].plot(t, data['vrin'])
-            axes[D].plot(t, data['vin'])
-            axes[Q].plot(t, data['vout'])
+                axes[Q].plot(t, data['vout'])
+                axes[CLK].plot(t, data['vcin'])
+                if self.set:
+                    axes[S].plot(t, data['vsin'])
+                if self.reset:
+                    axes[R].plot(t, data['vrin'])
+                axes[D].plot(t, data['vin'])
+                axes[Q].plot(t, data['vout'])
 
     def plot_delay(self, settings, slews, loads, cell_name):
         pass

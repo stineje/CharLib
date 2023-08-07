@@ -92,7 +92,7 @@ def exportLib(target_lib: LibrarySettings, target_cell: LogicCell):
         f'    variable_2 : total_output_net_capacitance;',
         f'    index_1 ("{", ".join([str(slope) for slope in target_cell.in_slews])}");',
         f'    index_2 ("{", ".join([str(load) for load in target_cell.out_loads])}");',
-        f'  }}',
+        f'  }}\n\n',
     ]
     
     with open(target_lib.dotlib_name, 'w') as f:
