@@ -383,9 +383,9 @@ class CombinationalCell(LogicCell):
 
     def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
         print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
-        harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load)
+        harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load)
 
-    def _run_trial(self, settings, harness: CombinationalHarness, slew, load):
+    def _run_delay_trial(self, settings, harness: CombinationalHarness, slew, load):
         """Run delay measurement for a single trial"""
         # Set up parameters
         data_slew = slew * settings.units.time
@@ -408,12 +408,6 @@ class CombinationalCell(LogicCell):
         circuit.V('low', 'vlow', circuit.gnd, vss)
         circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd)
         circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss)
-        circuit.V('nw_dyn', 'vnw_dyn', circuit.gnd, vnw)
-        circuit.V('pw_dyn', 'vpw_dyn', circuit.gnd, vpw)
-        circuit.V('dd_leak', 'vdd_leak', circuit.gnd, vdd)
-        circuit.V('ss_leak', 'vss_leak', circuit.gnd, vss)
-        circuit.V('nw_leak', 'vnw_leak', circuit.gnd, vnw)
-        circuit.V('pw_leak', 'vpw_leak', circuit.gnd, vpw)
         circuit.V('o_cap', 'vout', 'wout', circuit.gnd)
         circuit.C('0', 'wout', 'vss_dyn', load * settings.units.capacitance)
 
@@ -430,10 +424,6 @@ class CombinationalCell(LogicCell):
                 connections.append('vdd_dyn')
             elif port.lower() == settings.vss.name.lower():
                 connections.append('vss_dyn')
-            elif port.lower() == settings.nwell.name.lower():
-                connections.append('vnw_dyn')
-            elif port.lower() == settings.pwell.name.lower():
-                connections.append('vpw_dyn')
             elif port.lower() in harness.stable_in_ports:
                 for stable_port, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
                     if port.lower() == stable_port:
@@ -839,7 +829,6 @@ class SequentialCell(LogicCell):
 
     def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
         print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
-
         t_setup = self._find_setup_time(settings, harness, slew, load, self.sim_hold_highest*settings.units.time)
         t_hold = self._find_hold_time(settings, harness, slew, load, t_setup)
         print(f'Setup, Hold time: {t_setup}, {t_hold}')
@@ -848,13 +837,13 @@ class SequentialCell(LogicCell):
         """Perform a binary search to identify setup time"""
         t_max = self.sim_setup_highest * settings.units.time
         t_min = self.sim_setup_lowest * settings.units.time
-        t_setup = t_max # Start with the longest setup time
         prev_t_prop = 1.0 # Set a very large value
 
-        while t_setup > (self.sim_setup_lowest * settings.units.time):
-            failed = False
+        while t_min <= t_max:
+            t_setup = (t_max + t_min) / 2
             try:
-                harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
+                harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load, t_setup, t_hold)
+                failed = False
             except NameError as e:
                 failed = True
 
@@ -863,13 +852,9 @@ class SequentialCell(LogicCell):
                 t_min = t_setup
             else:
                 t_max = t_setup
-            t_next = (t_max + t_min) / 2
 
             # Check that the next t_setup is greater than 1 timestep difference from the previous t_setup
-            if abs(t_setup - t_next) > (self.sim_setup_timestep * settings.units.time):
-                t_setup = t_next
-            else:
-                # TODO: Check that the result is valid
+            if not abs(t_setup - (t_max + t_min)/2) > (self.sim_setup_timestep * settings.units.time):
                 break # We've achieved the desired accuracy
 
             # Save previous results for comparison with next iteration
@@ -881,15 +866,13 @@ class SequentialCell(LogicCell):
         """Perform a binary search to identify hold time"""
         t_max = self.sim_hold_highest * settings.units.time
         t_min = self.sim_hold_lowest * settings.units.time
-        t_hold = t_max # Start with the longest hold delay
         prev_t_prop = 1.0 # Set a very large value
 
-        while t_hold > (self.sim_hold_lowest * settings.units.time):
-            failed = False
-
-            # Delay simulation
+        while t_min <= t_max:
+            t_hold = (t_max + t_min) / 2
             try:
-                harness.results[str(slew)][str(load)] = self._run_trial(settings, harness, slew, load, t_setup, t_hold)
+                harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load, t_setup, t_hold)
+                failed = False
             except NameError as e:
                 failed = True
 
@@ -898,29 +881,63 @@ class SequentialCell(LogicCell):
                 t_min = t_hold
             else:
                 t_max = t_hold
-            t_next = (t_max + t_min) / 2
 
             # Check that the next t_hold is greater than 1 timestep difference from the previous t_hold
-            if abs(t_hold - t_next) > (self.sim_hold_timestep * settings.units.time):
-                t_hold = t_next
-            else:
-                # TODO: Check that the result is valid
+            if not abs(t_hold - (t_max + t_min)/2) > (self.sim_hold_timestep * settings.units.time):
                 break # We've achieved the desired accuracy
 
-            # Save previous results so we can compare with next iteration
+            # Save previous results for comparison with next iteration
             prev_t_prop = harness.results[str(slew)][str(load)]['prop_in_out']
 
         return t_hold
 
-    def _run_trial(self, settings, harness: SequentialHarness, slew, load, t_setup, t_hold, energy=False):
-        """Run delay measurement for a single trial"""
+    def _wire_subcircuit(self, settings, harness: SequentialHarness):
+        ports = self.definition.split()[1:]
+        connections = [ports.pop(0)]
+        for port in ports:
+            if port.lower() == harness.target_in_port.lower():
+                connections.append('vin')
+            elif port.lower() == harness.target_out_port.lower():
+                connections.append('vout')
+            elif port.lower() == settings.vdd.name.lower():
+                connections.append('vdd_dyn')
+            elif port.lower() == settings.vss.name.lower():
+                connections.append('vss_dyn')
+            elif port.lower() == harness.clock.lower():
+                connections.append('vcin')
+            elif self.reset and port.lower() == harness.reset.lower():
+                connections.append('vrin')
+            elif self.set and port.lower() == harness.set.lower():
+                connections.append('vsin')
+            elif port.lower() in harness.stable_in_ports:
+                for stable_port, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
+                    if port.lower() == stable_port.lower():
+                        if state == '1':
+                            connections.append('vhigh')
+                        elif state == '0':
+                            connections.append('vlow')
+                        else:
+                            raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
+            elif port.lower() in harness.nontarget_out_ports:
+                for nontarget_port, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
+                    if port.lower() == nontarget_port:
+                        connections.append(f'wfloat{str(state)}')
+        if len(connections) is not len(ports)+1:
+            raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
+        return connections
+
+    def _run_delay_trial(self, settings, harness: SequentialHarness, slew, load, t_setup, t_hold, energy=False):
+        """Run delay measurement for a single trial
+        
+        This test first zeroes out a stored value in the target
+        sequential cell, then measures the setup and hold delay. This
+        test also takes some power-related measurements."""
+
         # Set up parameters
         clk_slew = self.clock_slew * settings.units.time
         data_slew = slew * settings.units.time
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
-        vpw = settings.pwell.voltage * settings.units.voltage
-        vnw = settings.nwell.voltage * settings.units.voltage
 
         # Set up timing parameters for clock and data events
         t_stabilizing = 1 @ Unit.u_ns
@@ -941,14 +958,10 @@ class SequentialCell(LogicCell):
         circuit = Circuit(self.name)
         circuit.include(self.model)
         circuit.include(self.netlist)
+        circuit.V('high', 'vhigh', circuit.gnd, vdd)
+        circuit.V('low', 'vlow', circuit.gnd, vss)
         circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd)
         circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss)
-        circuit.V('nw_dyn', 'vnw_dyn', circuit.gnd, vnw)
-        circuit.V('pw_dyn', 'vpw_dyn', circuit.gnd, vpw)
-        circuit.V('dd_leak', 'vdd_leak', circuit.gnd, vdd)
-        circuit.V('ss_leak', 'vss_leak', circuit.gnd, vss)
-        circuit.V('nw_leak', 'vnw_leak', circuit.gnd, vnw)
-        circuit.V('pw_leak', 'vpw_leak', circuit.gnd, vpw)
         circuit.V('o_cap', 'vout', 'wout', 0)
         circuit.C('0', 'wout', 'vss_dyn', load * settings.units.capacitance)
 
@@ -960,77 +973,24 @@ class SequentialCell(LogicCell):
 
         # Set up data input node
         # TODO: Fix this to handle multiple data inputs
-        if harness.target_in_port.lower() in [port.lower() for port in self.in_ports]:
-            (v0, v1) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
-            target_node = circuit.PieceWiseLinearVoltageSource('in', 'vin', circuit.gnd, values=[
-                (0, v0), (t_data_edge_1_start, v0), (t_data_edge_1_end, v1), (t_data_edge_2_start, v1), (t_data_edge_2_end, v0), (t_sim_end, v0)
-            ])
-        else:
-            # FIXME: Only works with a single stable in port
-            circuit.V('in', 'vin', circuit.gnd, vdd if harness.stable_in_port_states[0] == '1' else vss)
+        (v0, v1) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
+        circuit.PieceWiseLinearVoltageSource('in', 'vin', circuit.gnd, values=[
+            (0, v0), (t_data_edge_1_start, v0), (t_data_edge_1_end, v1), (t_data_edge_2_start, v1), (t_data_edge_2_end, v0), (t_sim_end, v0)
+        ])
 
         # Set up reset node
         # Note: active low reset
         if harness.reset:
-            if harness.reset_direction:
-                (v0, v1) = (vdd, vss) if harness.reset_direction == 'rise' else (vss, vdd)
-                target_node = circuit.PieceWiseLinearVoltageSource('rin', 'vrin', circuit.gnd, values=[
-                    (0, v0), (t_data_edge_1_start, v0), (t_data_edge_1_end, v1), (t_data_edge_2_start, v1), (t_data_edge_2_end, v0), (t_sim_end, v0)
-                ])
-            else:
-                circuit.V('rin', 'vrin', circuit.gnd, vdd if harness.reset_state == '1' else vss)
+            circuit.V('rin', 'vrin', circuit.gnd, vdd if harness.reset_state == '1' else vss)
 
         # Set up set node
         # Note: active low set
         if harness.set:
-            if harness.set_direction:
-                (v0, v1) = (vdd, vss) if harness.set_direction == 'rise' else (vss, vdd)
-                target_node = circuit.PieceWiseLinearVoltageSource('sin', 'vsin', circuit.gnd, values=[
-                    (0, v0), (t_data_edge_1_start, v0), (t_data_edge_1_end, v1), (t_data_edge_2_start, v1), (t_data_edge_2_end, v0), (t_sim_end, v0)
-                ])
-            else:
-                circuit.V('sin', 'vsin', circuit.gnd, vdd if harness.set_state == '1' else vss)
+            circuit.V('sin', 'vsin', circuit.gnd, vdd if harness.set_state == '1' else vss)
 
         # Initialize device under test subcircuit and wire up ports
-        # TODO: Turn this into a function so that we use DRY code
-        ports = self.definition.split()[1:]
-        subcircuit_name = ports.pop(0)
-        connections = []
-        for port in ports:
-            if port.lower() == harness.target_in_port.lower():
-                connections.append('vin')
-            elif port.lower() == harness.target_out_port.lower():
-                connections.append('vout')
-            elif port.lower() == settings.vdd.name.lower():
-                connections.append('vdd_dyn')
-            elif port.lower() == settings.vss.name.lower():
-                connections.append('vss_dyn')
-            elif port.lower() == settings.nwell.name.lower():
-                connections.append('vnw_dyn')
-            elif port.lower() == settings.pwell.name.lower():
-                connections.append('vpw_dyn')
-            elif port.lower() == harness.clock.lower():
-                connections.append('vcin')
-            elif self.reset and port.lower() == harness.reset.lower():
-                connections.append('vrin')
-            elif self.set and port.lower() == harness.set.lower():
-                connections.append('vsin')
-            elif port.lower() in harness.stable_in_ports:
-                for stable_port, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
-                    if port.lower() == stable_port.lower():
-                        if state == '1':
-                            connections.append('vhigh')
-                        elif state == '0':
-                            connections.append('vlow')
-                        else:
-                            raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
-            elif port.lower() in harness.nontarget_out_ports:
-                for nontarget_port, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
-                    if port.lower() == nontarget_port:
-                        connections.append(f'wfloat{str(state)}')
-        if len(connections) is not len(ports):
-            raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
-        circuit.X('dut', subcircuit_name, *connections)
+        connections = self._wire_subcircuit(settings, harness)
+        circuit.X('dut', *connections)
 
         # Initialize simulator
         simulator = circuit.simulator(temperature=settings.temperature,
@@ -1068,7 +1028,7 @@ class SequentialCell(LogicCell):
 
         # Measure energy threshold timings
         simulator.measure('tran', 't_energy_start',
-                            f'when v({target_node.name})={v_prop_start} {harness.in_direction}=1')
+                            f'when v(vin)={v_prop_start} {harness.in_direction}=1')
         simulator.measure('tran', 't_energy_end',
                             f'when v(vout)={v_trans_end} {harness.out_direction}=1')
         simulator.measure('tran', 't_clk_energy_start',
@@ -1083,7 +1043,7 @@ class SequentialCell(LogicCell):
 
         # Measure propagation delay from first data edge to first output edge
         simulator.measure('tran', 'prop_in_out',
-                          f'trig v({target_node.name}) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
+                          f'trig v(vin) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
                           f'targ v(vout) val={v_prop_end} {harness.out_direction}=1')
         simulator.measure('tran', 'trans_out',
                           f'trig v(vout) val={v_trans_start} {harness.out_direction}=1',
@@ -1091,17 +1051,17 @@ class SequentialCell(LogicCell):
 
         # Measure setup delay from first data edge to last clock edge
         simulator.measure('tran', 't_setup',
-                          f'trig v({target_node.name}) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
+                          f'trig v(vin) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
                           f'targ v(vcin) val={v_clk_transition} {clk_direction}=1')
         
         # Measure hold delay from last clock edge to last data edge
         simulator.measure('tran', 't_hold',
                           f'trig v(vcin) val={v_clk_transition} td={float(t_removal)} {"fall" if clk_direction == "rise" else "rise"}=last',
-                          f'targ v({target_node.name}) val={v_prop_end} {"fall" if harness.in_direction == "rise" else "rise"}=1')
+                          f'targ v(vin) val={v_prop_end} {"fall" if harness.in_direction == "rise" else "rise"}=1')
 
         # Use energy timings to capture energy measurements
         simulator.measure('tran', 'q_in_dyn',
-                            f'integ i({target_node.name}) from={t_energy_start} to={t_energy_end}')
+                            f'integ i(vin) from={t_energy_start} to={t_energy_end}')
         simulator.measure('tran', 'q_out_dyn',
                             f'integ i(vo_cap) from={t_energy_start} to={t_energy_end*settings.energy_meas_time_extent}')
         simulator.measure('tran', 'q_clk_dyn',

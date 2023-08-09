@@ -16,7 +16,7 @@ def exportFiles(targetLib, targetCell):
         ## export seq. logic
         else:
             exportSequentialCell(targetLib, targetCell)
-            exportVerilogFlop(targetLib, targetCell)
+            # exportVerilogFlop(targetLib, targetCell) # Currently broken due to SequentialCell changes
 
 ## export library definition to .lib
 def exportLib(target_lib: LibrarySettings, target_cell: LogicCell):

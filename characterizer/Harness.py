@@ -220,9 +220,9 @@ class Harness:
         """Calculates the average leakage power over all trials"""
         leakage_power = 0.0 @ u_W
         n = 0
-        for slope in self.results.keys():
-            for load in self.results[slope].keys():
-                leakage_power += self._calc_leakage_power(slope, load, vdd)
+        for slew in self.results.keys():
+            for load in self.results[slew].keys(): 
+                leakage_power += self._calc_leakage_power(slew, load, vdd)
                 n += 1
         return leakage_power / n
 
@@ -535,6 +535,7 @@ class SequentialHarness (Harness):
                     for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
                         ax.axhline(level, color='0.5', linestyle='--')
                     # TODO: Set up vlines for important timing events
+                    ax.set_yticks([settings.vss.voltage, settings.vdd.voltage])
                 axes[CLK].set_title(f'Slew Rate: {str(slew*settings.units.time)} | Fanout: {str(load*settings.units.capacitance)}')
                 axes[CLK].set_ylabel(f'CLK [{str(settings.units.voltage.prefixed_unit)}]')
                 if self.set:
