@@ -249,19 +249,6 @@ class LogicCell:
             self._sim_timestep = float(value)
         else:
             raise TypeError(f'Invalid type for sim_timestep: {type(value)}')
-    
-    def _gen_graycode(self, n: int):
-        """Generate the list of Gray Codes for length n"""
-        if n <= 1:
-            return [[0],[1]]
-        inputs = []
-        for j in self._gen_graycode(n-1):
-            j.insert(0, 0)
-            inputs.append(j)
-        for j in reversed(self._gen_graycode(n-1)):
-            j.insert(0, 1)
-            inputs.append(j)
-        return inputs
 
     @property
     def test_vectors(self) -> list:
@@ -285,7 +272,7 @@ class LogicCell:
             return self.stored_test_vectors
         else:
             test_vectors = []
-            values = self._gen_graycode(len(self.in_ports))
+            values = _gen_graycode(len(self.in_ports))
             for out_index in range(len(self.out_ports)):
                 # Assemble a callable function corresponding to this output port's function
                 f = eval(f'lambda {",".join(self.in_ports)} : int({self.functions[out_index].replace("~", "not ")})')
@@ -566,17 +553,17 @@ class CombinationalCell(LogicCell):
         return '\n'.join(cell_lib)
 
 class SequentialCell(LogicCell):
-    def __init__(self, name: str, in_ports: list, out_ports: list, clock_pin: str, flops: str, function: str, **kwargs):
+    def __init__(self, name: str, in_ports: list, out_ports: list, clock: str, flops: str, function: str, **kwargs):
         super().__init__(name, in_ports, out_ports, function, **kwargs)
         # TODO: Use flops in place of functions for sequential cells
         self.set = kwargs.get('set_pin')        # set pin name
         self.reset = kwargs.get('reset_pin')    # reset pin name
-        self.clock = clock_pin                  # clock pin name
+        self.clock = clock                      # clock pin name
         self.flops = flops                      # registers
         
         self._clock_slew = 0
         if 'clock_slew' in kwargs.keys():
-            self.clock_slew = kwargs['clock_slew']
+            self.clock_slew = kwargs['clock_slew'] # FIXME: Should this if statement just be `kwargs.get('clock_slew', 'auto')` instead?
 
         self._sim_setup_highest = 0
         self._sim_setup_lowest = 0
@@ -612,49 +599,23 @@ class SequentialCell(LogicCell):
         return '\n'.join(lines)
 
     def __repr__(self):
-        return f'SequentialCell({self.name},{self.in_ports},{self.out_ports},{self.clock},{self.set},{self.reset},{self.flops},{self.functions},{self. area})'
+        return f'SequentialCell({self.name},{self.in_ports},{self.out_ports},{self.clock},{self.flops},{self.functions},set={self.set},reset={self.reset},area={self. area})'
 
     @property
     def clock(self) -> str:
-        return self._clock
+        return f'{self.clock_trigger} {self.clock_name}'
     
+    @property
+    def clock_name(self) -> str:
+        return self._clock_name
+    
+    @property
+    def clock_trigger(self) -> str:
+        return self._clock_trigger
+
     @clock.setter
-    def clock(self, value):
-        if not isinstance(value, str):
-            raise TypeError(f'Invalid type for cell clock pin: {type(value)}')
-        else:
-            self._clock = value
-
-    @property
-    def set(self) -> str:
-        return self._set
-
-    @set.setter
-    def set(self, value):
-        self._set = str(value) if value else None
-
-    @property
-    def reset(self) -> str:
-        return self._reset
-
-    @reset.setter
-    def reset(self, value):
-        self._reset = str(value) if value else None
-
-    @property
-    def flops(self) -> list:
-        # TODO: Use flops in place of functions for sequential cells
-        return self._flops
-
-    @flops.setter
-    def flops(self, value):
-        # TODO: Use flops in place of functions for sequential cells
-        if isinstance(value, str):
-            self._flops = value.split()
-        elif isinstance(value, list):
-            self._flops = value
-        else:
-            raise TypeError(f'Invalid type for sequential cell flop names: {type(value)}')
+    def clock(self, value: str):
+        (self._clock_trigger, self._clock_name) = _parse_triggered_pin(value)
 
     @property
     def clock_slew(self) -> float:
@@ -677,6 +638,65 @@ class SequentialCell(LogicCell):
                 self._clock_slew = min(self.in_slews)
         else:
             raise TypeError(f'Invalid type for clock slew rate: {type(value)}')
+
+    @property
+    def set(self) -> str:
+        if self.set_name:
+            return f'{self.set_trigger} {self.set_name}'
+        else:
+            return None
+    
+    @property
+    def set_trigger(self) -> str:
+        return self._set_trigger
+    
+    @property
+    def set_name(self) -> str:
+        return self._set_name
+
+    @set.setter
+    def set(self, value):
+        if value is None:
+            self._set_name = None
+        else:
+            (self._set_trigger, self._set_name) = _parse_triggered_pin(value)
+
+    @property
+    def reset(self) -> str:
+        if self.reset_name:
+            return f'{self._reset_trigger} {self._reset_name}'
+        else:
+            return None
+    
+    @property
+    def reset_trigger(self) -> str:
+        return self._reset_trigger
+    
+    @property
+    def reset_name(self) -> str:
+        return self._reset_name
+
+    @set.setter
+    def set(self, value):
+        if value is None:
+            self._reset_name = None
+        else:
+            (self._reset_trigger, self._reset_name) = _parse_triggered_pin(value)
+
+    @property
+    def flops(self) -> list:
+        # TODO: Use flops in place of functions for sequential cells
+        return self._flops
+
+    @flops.setter
+    def flops(self, value):
+        # TODO: Use flops in place of functions for sequential cells
+        if isinstance(value, str):
+            self._flops = value.split()
+        elif isinstance(value, list):
+            self._flops = value
+        else:
+            raise TypeError(f'Invalid type for sequential cell flop names: {type(value)}')
 
     @property
     def sim_setup_lowest(self) -> float:
@@ -926,7 +946,7 @@ class SequentialCell(LogicCell):
             raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
         return connections
 
-    def _run_delay_trial(self, settings, harness: SequentialHarness, slew, load, t_setup, t_hold, energy=False):
+    def _run_delay_trial(self, settings, harness: SequentialHarness, slew, load, t_setup, t_hold):
         """Run delay measurement for a single trial
         
         This test first zeroes out a stored value in the target
@@ -952,7 +972,7 @@ class SequentialCell(LogicCell):
         t_clk_edge_3_end = t_clk_edge_3_start + clk_slew
         t_data_edge_2_start = t_clk_edge_3_end + t_hold
         t_data_edge_2_end = t_data_edge_2_start + data_slew
-        t_sim_end = t_data_edge_2_end + 5*t_stabilizing
+        t_sim_end = t_data_edge_2_end + t_stabilizing
 
         # Initialize circuit
         circuit = Circuit(self.name)
@@ -1231,3 +1251,28 @@ class SequentialCell(LogicCell):
             cell_lib.append(f'  }}') # end pin
         cell_lib.append(f'}}') # end cell
         return '\n'.join(cell_lib)
+
+def _gen_graycode(self, n: int):
+    """Generate the list of Gray Codes for length n"""
+    if n <= 1:
+        return [[0],[1]]
+    inputs = []
+    for j in _gen_graycode(n-1):
+        j.insert(0, 0)
+        inputs.append(j)
+    for j in reversed(_gen_graycode(n-1)):
+        j.insert(0, 1)
+        inputs.append(j)
+    return inputs
+
+def _parse_triggered_pin(value: str) -> (str, str):
+    """Parses pin names with trigger types, e.g. 'posedge CLK'"""
+    if not isinstance(value, str):
+        raise TypeError(f'Invalid type for edge-triggered pin: {type(value)}')
+    try:
+        edge, name = value.split()
+    except ValueError:
+        raise ValueError(f'Invalid value for edge-triggered pin: {value}. Make sure you include both the trigger type and pin name (e.g. "posedge CLK")')
+    if not edge in ['posedge', 'negedge']:
+        raise ValueError(f'Invalid trigger type: {edge}. Trigger type must be one of "posedge" or "negedge"')
+    return (edge, name)

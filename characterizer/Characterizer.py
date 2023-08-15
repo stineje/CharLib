@@ -1,4 +1,4 @@
-import os, shutil
+import shutil
 
 from liberty.LibrarySettings import LibrarySettings
 from liberty.LogicCell import LogicCell, CombinationalCell, SequentialCell
@@ -30,9 +30,9 @@ class Characterizer:
         # Create a new logic cell
         self.cells.append(CombinationalCell(name, in_ports, out_ports, functions, **kwargs))
 
-    def add_flop(self, name, in_ports, out_ports, clock_pin, flops, functions, **kwargs):
+    def add_flop(self, name, in_ports, out_ports, clock, flops, functions, **kwargs):
         # Create a new sequential cell
-        self.cells.append(SequentialCell(name, in_ports, out_ports, clock_pin, flops, functions, **kwargs))
+        self.cells.append(SequentialCell(name, in_ports, out_ports, clock, flops, functions, **kwargs))
 
     def initialize_work_dir(self):
         if self.settings.run_sim:
