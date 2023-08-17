@@ -398,17 +398,17 @@ class SequentialHarness (Harness):
         self.reset = None
         self.flops = []
         self.flop_states = []
-        self.clock = target_cell.clock
+        self.clock = target_cell.clock_name
         self.clock_state = test_vector.pop(0)
         # Set up Reset
         if target_cell.reset:
-            self.reset = target_cell.reset
+            self.reset = target_cell.reset_name
             self.reset_state = test_vector.pop(0)
             if len(self.reset_state) > 1:
                 self._target_in_port = self.reset
         # Set up Set
         if target_cell.set:
-            self.set = target_cell.set
+            self.set = target_cell.set_name
             self.set_state = test_vector.pop(0)
             if len(self.set_state) > 1:
                 # Overwrite reset if already assigned

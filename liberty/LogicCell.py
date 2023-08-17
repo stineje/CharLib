@@ -556,8 +556,8 @@ class SequentialCell(LogicCell):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock: str, flops: str, function: str, **kwargs):
         super().__init__(name, in_ports, out_ports, function, **kwargs)
         # TODO: Use flops in place of functions for sequential cells
-        self.set = kwargs.get('set_pin')        # set pin name
-        self.reset = kwargs.get('reset_pin')    # reset pin name
+        self.set = kwargs.get('set')        # set pin name
+        self.reset = kwargs.get('reset')    # reset pin name
         self.clock = clock                      # clock pin name
         self.flops = flops                      # registers
         
@@ -676,8 +676,8 @@ class SequentialCell(LogicCell):
     def reset_name(self) -> str:
         return self._reset_name
 
-    @set.setter
-    def set(self, value):
+    @reset.setter
+    def reset(self, value):
         if value is None:
             self._reset_name = None
         else:
@@ -1252,7 +1252,7 @@ class SequentialCell(LogicCell):
         cell_lib.append(f'}}') # end cell
         return '\n'.join(cell_lib)
 
-def _gen_graycode(self, n: int):
+def _gen_graycode(n: int):
     """Generate the list of Gray Codes for length n"""
     if n <= 1:
         return [[0],[1]]
