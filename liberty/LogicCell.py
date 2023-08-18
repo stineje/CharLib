@@ -1,7 +1,7 @@
 import threading
+from pathlib import Path
 from PySpice.Spice.Netlist import Circuit
 from PySpice import Unit
-from pathlib import Path
 
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc, check_timing_sense
 from characterizer.LogicParser import parse_logic
@@ -960,7 +960,7 @@ class SequentialCell(LogicCell):
         vss = settings.vss.voltage * settings.units.voltage
 
         # Set up timing parameters for clock and data events
-        t_stabilizing = 1 @ Unit.u_ns
+        t_stabilizing = 10 @ Unit.u_ns
         t_clk_edge_1_start = data_slew + t_setup
         t_clk_edge_1_end = t_clk_edge_1_start + clk_slew
         t_clk_edge_2_start = t_clk_edge_1_end + t_hold
@@ -1021,20 +1021,20 @@ class SequentialCell(LogicCell):
         # Set up voltage bounds for measurements
         if harness.in_direction == 'rise':
             v_prop_start = settings.logic_low_to_high_threshold_voltage()
+            v_trans_start = settings.logic_threshold_low_voltage()
         elif harness.in_direction == 'fall':
             v_prop_start = settings.logic_high_to_low_threshold_voltage()
+            v_trans_start = settings.logic_threshold_high_voltage()
         else:
-            raise ValueError(f'Unable to configure simulation: no target input pin')
+            raise ValueError('Unable to configure simulation: no target input pin')
         if harness.out_direction == 'rise':
-            v_trans_start = settings.logic_threshold_low_voltage()
-            v_trans_end = settings.logic_threshold_high_voltage()
+            v_trans_end = settings.logic_threshold_low_voltage()
             v_prop_end = settings.logic_low_to_high_threshold_voltage()
         elif harness.out_direction == 'fall':
-            v_trans_start = settings.logic_threshold_high_voltage()
-            v_trans_end = settings.logic_threshold_low_voltage()
+            v_trans_end = settings.logic_threshold_high_voltage()
             v_prop_end = settings.logic_high_to_low_threshold_voltage()
         else:
-            raise ValueError(f'Unable to configure simulation: no target output pin')
+            raise ValueError('Unable to configure simulation: no target output pin')
         if harness.timing_type_clock == 'rising_edge':
             clk_direction = 'rise'
             v_clk_energy_start = settings.logic_threshold_low_voltage()
@@ -1061,13 +1061,15 @@ class SequentialCell(LogicCell):
         t_clk_energy_start = energy_timings['t_clk_energy_start']
         t_clk_energy_end = energy_timings['t_clk_energy_end']
 
-        # Measure propagation delay from first data edge to first output edge
+        # Measure propagation delay from first data edge to last output edge
         simulator.measure('tran', 'prop_in_out',
                           f'trig v(vin) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
-                          f'targ v(vout) val={v_prop_end} {harness.out_direction}=1')
+                          f'targ v(vout) val={v_prop_end} {harness.out_direction}=LAST')
+        
+        # Measure transport delay from first data edge to first output edge
         simulator.measure('tran', 'trans_out',
-                          f'trig v(vout) val={v_trans_start} {harness.out_direction}=1',
-                          f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
+                          f'trig v(vin) val={v_trans_start} cross=1',
+                          f'targ v(vout) val={v_trans_end} cross=1')
 
         # Measure setup delay from first data edge to last clock edge
         simulator.measure('tran', 't_setup',
