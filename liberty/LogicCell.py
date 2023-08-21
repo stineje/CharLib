@@ -308,9 +308,6 @@ class LogicCell:
                     if harness.target_in_port.lower() == in_port.lower()])
 
 class CombinationalCell(LogicCell):
-    def __init__(self, name: str, in_ports: list, out_ports: list, functions: str, **kwargs):
-        super().__init__(name, in_ports, out_ports, functions, **kwargs)
-
     def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
         # Run delay simulation for all test vectors
@@ -960,7 +957,7 @@ class SequentialCell(LogicCell):
         vss = settings.vss.voltage * settings.units.voltage
 
         # Set up timing parameters for clock and data events
-        t_stabilizing = 10 @ Unit.u_ns
+        t_stabilizing = min(10@Unit.u_ns, 100*data_slew)
         t_clk_edge_1_start = data_slew + t_setup
         t_clk_edge_1_end = t_clk_edge_1_start + clk_slew
         t_clk_edge_2_start = t_clk_edge_1_end + t_hold
@@ -1078,8 +1075,8 @@ class SequentialCell(LogicCell):
         
         # Measure hold delay from last clock edge to last data edge
         simulator.measure('tran', 't_hold',
-                          f'trig v(vcin) val={v_clk_transition} td={float(t_removal)} {"fall" if clk_direction == "rise" else "rise"}=last',
-                          f'targ v(vin) val={v_prop_end} {"fall" if harness.in_direction == "rise" else "rise"}=1')
+                          f'trig v(vcin) val={v_clk_transition} td={float(t_removal)} {_flip_direction(clk_direction)}=last',
+                          f'targ v(vin) val={v_prop_end} {_flip_direction(harness.in_direction)}=1')
 
         # Use energy timings to capture energy measurements
         simulator.measure('tran', 'q_in_dyn',
@@ -1254,15 +1251,18 @@ class SequentialCell(LogicCell):
         cell_lib.append(f'}}') # end cell
         return '\n'.join(cell_lib)
 
-def _gen_graycode(n: int):
-    """Generate the list of Gray Codes for length n"""
-    if n <= 1:
+def _flip_direction(direction: str) -> str:
+    return 'fall' if direction is 'rise' else 'rise'
+
+def _gen_graycode(length: int):
+    """Generate the list of Gray Codes of specified length"""
+    if length <= 1:
         return [[0],[1]]
     inputs = []
-    for j in _gen_graycode(n-1):
+    for j in _gen_graycode(length-1):
         j.insert(0, 0)
         inputs.append(j)
-    for j in reversed(_gen_graycode(n-1)):
+    for j in reversed(_gen_graycode(length-1)):
         j.insert(0, 1)
         inputs.append(j)
     return inputs
