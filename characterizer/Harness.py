@@ -2,6 +2,45 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PySpice.Unit import *
 
+class BaseHarness:
+    """A Harness encapsulates wiring configuration for testing a cell.
+
+    Harnesses capture information about how a standard cell should be
+    connected during testing. Think 'wiring harness'."""
+
+    def __init__(self, cell, *target_ports, **kwargs) -> None:
+        """Create a new Harness.
+
+        Harnesses can be initialized one of two ways:
+        - by specifying one or more target input(s) and zero or more
+        target output(s)
+        - OR by supplying a test vector using the `test_vector` kwarg
+        
+        If a test vector is supplied, provided target inputs and
+        outputs will be ignored."""
+
+        if 'test_vector' not in kwargs:
+            # Parse input ports
+            self._target_in_ports = []
+            self._nontarget_in_ports = []
+            for port in cell.in_ports:
+                if port.name in target_ports:
+                    self._target_in_ports.append(port)
+                else:
+                    self._nontarget_in_ports.append(port)
+            # Parse output ports
+            self._target_out_ports = []
+            self._nontarget_out_ports = []
+            for port in cell.out_ports:
+                if port.name in target_ports:
+                    self._target_out_ports.append(port)
+                else:
+                    self._nontarget_out_ports.append(port)
+            # Handle other ports
+            for port in {*target_ports}.difference(cell.in_ports, cell.out_ports):
+                print(port)
+
+
 class Harness:
     """Characterization parameters for one path through a cell
     

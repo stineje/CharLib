@@ -6,11 +6,19 @@ from PySpice import Unit
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc, check_timing_sense
 from characterizer.LogicParser import parse_logic
 
+from liberty.pin import Pin
+
 class LogicCell:
-    def __init__ (self, name: str, in_ports: list, out_ports: list, functions: str, **kwargs):
-        self.name = name            # cell name
-        self.in_ports = in_ports    # input pin names
-        self.out_ports = out_ports  # output pin names
+    def __init__ (self, name: str, in_ports: str|[str], out_ports: [str]|None, functions: str, **kwargs):
+        self.name = name # cell name
+
+        self._in_ports = []
+        for pin_name in in_ports:
+            self._in_ports.append(Pin(pin_name, 'input'))
+        self._out_ports = []
+        for pin_name in out_ports:
+            self._out_ports.append(Pin(pin_name, 'output'))
+
         self.functions = functions  # cell functions
 
         # Documentation
@@ -23,7 +31,7 @@ class LogicCell:
         self._in_slews = kwargs.get('slews', [])    # input pin slew rates
         self._out_loads = kwargs.get('loads', [])   # output pin capacitive loads
         self._sim_timestep = 0
-        if 'simulation_timestep' in kwargs.keys():
+        if 'simulation_timestep' in kwargs:
             self.sim_timestep = kwargs['simulation_timestep']
         self.stored_test_vectors = kwargs.get('test_vectors')
 
@@ -81,31 +89,9 @@ class LogicCell:
     def in_ports(self) -> list:
         return self._in_ports
 
-    @in_ports.setter
-    def in_ports(self, value):
-        if isinstance(value, str):
-            # Should be in the format "A B C"
-            # TODO: add parsing for comma separated as well
-            self._in_ports = value.split()
-        elif isinstance(value, list):
-            self._in_ports = value
-        else:
-            raise TypeError(f'Invalid type for in_ports: {type(value)}')
-
     @property
     def out_ports(self) -> list:
         return self._out_ports
-
-    @out_ports.setter
-    def out_ports(self, value):
-        if isinstance(value, str):
-            # Should be in the format "Y Z"
-            # TODO: add parsing for comma separated as well
-            self._out_ports = value.split()
-        elif isinstance(value, list):
-            self._out_ports = value
-        else:
-            raise TypeError(f'Invalid type for out_ports: {type(value)}')
 
     @property
     def functions(self) -> list:
@@ -300,12 +286,14 @@ class LogicCell:
                         test_vectors.append(test_vector)
             return test_vectors
 
-    def get_input_capacitance(self, in_port, vdd_voltage):
-        """Minimum input capacitance measured by all harnesses that target this input port"""
-        if in_port.lower() not in [port.lower() for port in self.in_ports]:
-            raise ValueError(f'Unrecognized input port {in_port}')
-        return min([harness.minimum_input_capacitance(vdd_voltage) for harness in self.harnesses
-                    if harness.target_in_port.lower() == in_port.lower()])
+    def get_input_capacitance(self, settings, in_port):
+        """Fetch input capacitance of a single pin"""
+        
+
+    def run_input_capacitance_trial(self, settings, harness: CombinationalHarness) -> None:
+        """Measure input capacitance for a single pin"""
+        pass
+
 
 class CombinationalCell(LogicCell):
     def characterize(self, settings):
@@ -346,11 +334,11 @@ class CombinationalCell(LogicCell):
         # - For each input-output path:
         #   - 1 harness for the critical path rising case
         #   - 1 harness for the critical path falling case
-        for output in self.out_ports:
-            for input in self.in_ports:
+        for out_port in self.out_ports:
+            for in_port in self.in_ports:
                 for direction in ['rise', 'fall']:
                     # Iterate over harnesses that match output, input, and direction
-                    harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, input, output) if harness.out_direction == direction]
+                    harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, in_port, out_port) if harness.out_direction == direction]
                     worst_case_harness = harnesses[0]
                     for harness in harnesses:
                         if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
@@ -555,8 +543,8 @@ class SequentialCell(LogicCell):
         # TODO: Use flops in place of functions for sequential cells
         self.set = kwargs.get('set')        # set pin name
         self.reset = kwargs.get('reset')    # reset pin name
-        self.clock = clock                      # clock pin name
-        self.flops = flops                      # registers
+        self.clock = clock                  # clock pin name
+        self.flops = flops                  # registers
         
         self._clock_slew = 0
         if 'clock_slew' in kwargs.keys():
