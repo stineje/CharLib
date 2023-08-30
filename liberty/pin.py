@@ -6,10 +6,10 @@ class Pin:
     """A single pin from a standard cell"""
     def __init__(self, name: str, direction: str|None=None, role: str='io') -> None:
         """Create a new Pin.
-        
+
         :param name: pin name
         :param direction: pin direction (must be 'input' or 'output' if specified)
-        :param role: pin role (must be 'set', 'reset', 'clock', or 'io')
+        :param role: (optional) pin role (must be 'set', 'reset', 'clock', or 'io')
         """
         self.capacitance = 0
         self.rise_capacitance = 0
@@ -19,7 +19,7 @@ class Pin:
         self._internal_power = {}
         self.min_pulse_width_high = 0
         self.min_pulse_width_low = 0
-        self._timing = {}
+        self.timing = {}
 
         self._name = name
         if direction in ['input', 'output', None]:
@@ -34,7 +34,13 @@ class Pin:
     class InternalPowerData:
         """Container for pin power tables"""
         def __init__(self, related_pin: str='') -> None:
-            """Create a new InternalPowerData"""
+            """Create a new InternalPowerData.
+            
+            Initialize a new blank InternalPowerData. fall_power and rise_power must be
+            initialized using their corresponding set functions, set_fall_power_table and
+            set_rise_power_table.
+            
+            :param related_pin: (optional) the related pin for the power data (if relevant)"""
             self._related_pin = related_pin
             self._rise_power = None
             self._fall_power = None
@@ -91,7 +97,13 @@ class Pin:
             return self._related_pin
 
         def add_table(self, name, template, values, index_1, index_2=None) -> None:
-            """Add a new table to the timing data"""
+            """Add a new table to the timing data
+
+            :param name: the table's name as it will appear in liberty syntax
+            :param template: the table template to use
+            :param values: a list of table values
+            :param index_1: a list of table indexes for dimension 1
+            :param index_2: (optional) a list of table indexes for dimension 2"""
             self._tables[name] = Table(name, template, values, index_1, index_2)
 
         def __getitem__(self, key):
@@ -150,20 +162,18 @@ class Pin:
         return self.role == 'io'
 
     def __eq__(self, other) -> bool:
-        """Return `True` if name, role, and direction match."""
+        """Return `True` if name, role, and direction match.
+        
+        :param other: A pin to compare against self"""
         return self.name == other.name \
             and self.role == other.role \
                 and self.direction == other.direction
 
     def __str__(self) -> str:
         """Return str(self)"""
-        return f'Pin {self.name} ({self.role})'
-
-    def to_liberty_str(self) -> str:
-        """Return a string representation in liberty-file format"""
         # Pin properties
         lib_str = [
-            f'pin({self.name}) {{',
+            f'pin ({self.name}) {{',
             f'  direction : {self.direction};',
             f'  capacitance : {self.capacitance};',
             f'  rise_capacitance : {self.rise_capacitance};',
@@ -177,10 +187,10 @@ class Pin:
             lib_str.append(f'  function : "{self.function};"')
         # Internal power
         try:
-            for data in self.internal_power:
+            for data in self.internal_power.values():
                 for line in str(data).split('\n'):
                     lib_str.append(f'  {line}')
-        except TypeError:
+        except AttributeError: # There's only one internal_power entry, not a dict
             for line in str(self.internal_power).split('\n'):
                 lib_str.append(f'  {line}')
         # min_pulse_width
@@ -190,7 +200,7 @@ class Pin:
             if self.min_pulse_width_low:
                 lib_str.append(f'  min_pulse_width_low : {self.min_pulse_width_low};')
         # Timing
-        for data in self.timing:
+        for data in self.timing.values():
             for line in str(data).split('\n'):
                 lib_str.append(f'  {line}')
         lib_str.append('}')
@@ -198,11 +208,17 @@ class Pin:
 
     @property
     def internal_power(self) -> list|InternalPowerData:
-        """Return list of internal_power entries, or a single InternalPowerData if related_pin was not used"""
+        """Return internal_power entries"""
         return self._internal_power
 
     def add_internal_power(self, related_pin=None):
-        """Add a new internal power entry"""
+        """Add a new internal power entry
+
+        Add an empty internal power entry to the Pin's list of internal power data. Internal power
+        entries are indexed by related pin name. If there is no related pin name, instead set the
+        internal power to a single InternalPowerData with no related pin.
+
+        :param related_pin: (optional) related pin name for power information"""
         if not related_pin:
             if not self.internal_power:
                 self._internal_power = Pin.InternalPowerData()
@@ -211,14 +227,14 @@ class Pin:
         else:
             self._internal_power[related_pin] = Pin.InternalPowerData(related_pin)
 
-    @property
-    def timing(self) -> list:
-        """Return a list of timing entries"""
-        return self._timing
-
-    def add_timing(self, related_pin):
-        """Add a new timing entry"""
-        self._timing[related_pin] = Pin.TimingData(related_pin)
+    def add_timing(self, related_pin: str):
+        """Add a new timing entry
+        
+        Add an empty timing entry to the Pin's list of timings. Timing entries are indexed by
+        related pin name, e.g. `my_pin.timing['other_pin']`.
+        
+        :param related_pin: related pin name for the timing information"""
+        self.timing[related_pin] = Pin.TimingData(related_pin)
 
 class Table:
     """A Table contains tabular data as would be displayed in a liberty file."""
