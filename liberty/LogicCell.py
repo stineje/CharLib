@@ -9,42 +9,77 @@ from characterizer.LogicParser import parse_logic
 from liberty.pin import Pin
 
 class LogicCell:
-    def __init__ (self, name: str, in_ports: str|[str], out_ports: [str]|None, functions: str, **kwargs):
-        self.name = name # cell name
+    """A single logic-focused standard cell"""
+    def __init__ (self, name: str, in_ports: str|list, out_ports: list|None, functions: str|list, **kwargs):
+        """Create a new LogicCell.
+        
+        :param name: cell name
+        :param in_ports: a list of input pin names
+        :param out_ports: a list of output pin names
+        :param functions: a list of functions implemented by this cell (in verilog syntax)
+        :param **kwargs: a dict of configuration information for this cell, including
+            - netlist: path to the cell's spice netlist
+            - model: path to transistor spice models for this cell
+            - slews: input slew rates to test
+            - loads: output capacitave loads to test
+            - simulation_timestep: the time increment to use during simulation
+            - test_vedctors: a list of test vectors to run against this cell"""
+        self._name = name
 
+        # Set up input and output pins
         self._in_ports = []
         for pin_name in in_ports:
-            self._in_ports.append(Pin(pin_name, 'input'))
+            self._in_ports.append(Pin(pin_name.upper(), 'input'))
         self._out_ports = []
         for pin_name in out_ports:
-            self._out_ports.append(Pin(pin_name, 'output'))
+            self._out_ports.append(Pin(pin_name.upper(), 'output'))
 
-        self.functions = functions  # cell functions
+        # Parse functions and add to pins
+        if isinstance(functions, str):
+            functions = functions.split() # Split on space, then proceed
+        if isinstance(functions, list):
+            # Should be in the format ['Y=expr1', 'Z=expr2']
+            for func in functions:
+                if '=' in func:
+                    func_pin, expr = func.split('=')
+                    # Check for nonblocking assign in LHS of equation
+                    if '<' in func_pin:
+                        func_pin = func_pin.replace('<','').strip().upper()
+                    for out_pin in self.out_ports:
+                        if out_pin.name == func_pin:
+                            if parse_logic(expr):
+                                out_pin.function = expr
+                            else:
+                                raise ValueError(f'Invalid function "{expr}"')
+                        else:
+                            raise ValueError(f'Unknown output pin "{func_pin}" specified in cell function "{func}"')
+                else:
+                    raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{func}"')
 
         # Documentation
-        self.area = kwargs.get('area', 0) # cell area
+        self.area = kwargs.get('area', 0)
 
         # Characterization settings
-        self.harnesses = [] # list of lists of harnesses indexed by in_slews and out_loads
-        self._netlist = kwargs.get('netlist')       # Cell spice netlist file
-        self._model = kwargs.get('model')           # Cell transistor model file
-        self._in_slews = kwargs.get('slews', [])    # input pin slew rates
-        self._out_loads = kwargs.get('loads', [])   # output pin capacitive loads
+        self.harnesses = []
+        self._netlist = kwargs.get('netlist')
+        self._model = kwargs.get('model')
+        self._in_slews = kwargs.get('slews', [])
+        self._out_loads = kwargs.get('loads', [])
         self._sim_timestep = 0
         if 'simulation_timestep' in kwargs:
             self.sim_timestep = kwargs['simulation_timestep']
         self.stored_test_vectors = kwargs.get('test_vectors')
 
-        # Behavioral settings
-        self.plots = kwargs.get('plots', [])    # Which plots to generate for this cell
-        self._is_exported = False               # whether the cell has been exported
+        # Behavioral/internal-use settings
+        self.plots = kwargs.get('plots', [])
+        self._is_exported = False
 
     def __str__(self) -> str:
         lines = []
         lines.append(self.name)
-        lines.append(f'    Inputs:              {", ".join(self.in_ports)}')
-        lines.append(f'    Outputs:             {", ".join(self.out_ports)}')
-        lines.append(f'    Functions:')
+        lines.append(f'    Inputs:              {", ".join([p.name for p in self.in_ports])}')
+        lines.append(f'    Outputs:             {", ".join([p.name for p in self.out_ports])}')
+        lines.append('    Functions:')
         for p,f in zip(self.out_ports,self.functions):
             lines.append(f'        {p}={f}')
         if self.area:
@@ -54,18 +89,19 @@ class LogicCell:
             lines.append(f'    Definition:          {self.definition.rstrip()}')
             lines.append(f'    Instance:            {self.instance}')
         if self.in_slews:
-            lines.append(f'    Input pin simulation slew rates:')
+            lines.append('    Input pin simulation slew rates:')
             for slope in self.in_slews:
                 lines.append(f'        {str(slope)}')
         if self.out_loads:
-            lines.append(f'    Output pin simulation fanouts:')
+            lines.append('    Output pin simulation fanouts:')
             for load in self.out_loads:
                 lines.append(f'        {str(load)}')
         lines.append(f'    Simulation timestep: {str(self.sim_timestep)}')
         if self.harnesses:
-            lines.append(f'    Harnesses:')
+            lines.append('    Harnesses:')
             for harness in self.harnesses:
-                [lines.append(f'        {h}') for h in str(harness).split('\n')]
+                for h in str(harness).split('\n'):
+                    lines.append(f'        {h}')
         return '\n'.join(lines)
 
     def __repr__(self):
@@ -73,65 +109,42 @@ class LogicCell:
 
     @property
     def name(self) -> str:
+        """Return cell name."""
         return self._name
-
-    @name.setter
-    def name(self, value: str):
-        if isinstance(value, str):
-            if len(value) > 0:
-                self._name = str(value)
-            else:
-                raise ValueError(f'Empty string not allowed for cell name')
-        else:
-            raise TypeError(f'Invalid type for cell name: {type(value)}')
 
     @property
     def in_ports(self) -> list:
+        """Return cell input pins."""
         return self._in_ports
 
     @property
     def out_ports(self) -> list:
+        """Return cell output pins."""
         return self._out_ports
 
     @property
     def functions(self) -> list:
-        return self._functions
-
-    @functions.setter
-    def functions(self, value):
-        if isinstance(value, list):
-            # Should be in the format ['Y=expr1', 'Z=expr2']
-            expressions = []
-            for f in value:
-                if '=' in f:
-                    expr = f.split('=')[1:] # Discard LHS of equation
-                    if parse_logic(''.join(expr)): # Make sure the expression is verilog
-                        expressions.extend(expr)
-                else:
-                    raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{value}"')
-            self._functions = expressions
-        elif isinstance(value, str) and '=' in value:
-            self.functions = value.split() # Split on space and recurse to use the list setter
-        else:
-            raise TypeError(f'Invalid type for cell functions: {type(value)}')
+        """Return a list of functions on this cell's output pins."""
+        return [pin.function for pin in self.out_ports]
 
     @property
     def area(self) -> float:
+        """Return cell area"""
         return self._area
 
     @area.setter
     def area(self, value: float):
-        if value is not None:
-            self._area = float(value)
-        else:
-            raise TypeError(f'Invalid type for cell area: {type}')
+        """Set cell area"""
+        self._area = float(value)
 
     @property
     def model(self):
+        """Return cell model"""
         return self._model
-    
+
     @model.setter
     def model(self, value):
+        """Set path to cell transistor models"""
         if isinstance(value, Path):
             if not value.is_file():
                 raise ValueError(f'Invalid value for model: {value} is not a file')
@@ -147,10 +160,12 @@ class LogicCell:
 
     @property
     def netlist(self) -> str:
+        """Return path to cell netlist."""
         return self._netlist
 
     @netlist.setter
     def netlist(self, value):
+        """Set path to cell netlist."""
         if isinstance(value, Path):
             if not value.is_file():
                 raise ValueError(f'Invalid value for netlist: {value} is not a file')
@@ -164,45 +179,57 @@ class LogicCell:
 
     @property
     def definition(self) -> str:
+        """Return the cell's spice definition"""
         # Search the netlist file for the circuit definition
-        with open(self.netlist, 'r') as f:
-            for line in f:
+        with open(self.netlist, 'r') as file:
+            for line in file:
                 if self.name.lower() in line.lower() and 'subckt' in line.lower():
-                    f.close()
+                    file.close()
                     return line
             # If we reach this line before returning, the netlist file doesn't contain a circuit definition
-            f.close()
+            file.close()
             raise ValueError(f'No cell definition found in netlist {self.netlist}')
 
     @property
-    def instance(self) -> str:
+    def instance(self, name='XDUT') -> str:
+        """Return a subcircuit instantiation for this cell.
+        
+        :param name: (optional) subcircuit name"""
         # Reorganize the definition into an instantiation with instance name XDUT
         # TODO: Instance name should probably be configurable from library settings
         instance = self.definition.split()[1:]  # Delete .subckt
         instance.append(instance.pop(0))        # Move circuit name to last element
-        instance.insert(0, 'XDUT')              # Insert instance name
+        instance.insert(0, name)                # Insert instance name
         return ' '.join(instance)
 
     @property
     def in_slews(self) -> list:
+        """Return slew rates to use during testing."""
         return self._in_slews
 
     def add_in_slew(self, value: float):
+        """Add a slew rate to the list of slew rates."""
         self._in_slews.append(float(value))
 
     @property
     def out_loads(self) -> list:
+        """Return output capacitive loads to use during testing."""
         return self._out_loads
 
     def add_out_load(self, value: float):
+        """Add a load to the list of output loads."""
         self._out_loads.append(float(value))
 
     @property
     def plots(self) -> list:
+        """Return plotting configuration."""
         return self._plots
     
     @plots.setter
     def plots(self, value):
+        """Set plot configuration
+
+        :param value: a str or list specifying which plot types to generate."""
         if value == 'all':
             self._plots = ['io', 'delay', 'power']
         elif value == 'none':
@@ -221,10 +248,14 @@ class LogicCell:
 
     @property
     def sim_timestep(self):
+        """Return simulation timestep."""
         return self._sim_timestep
 
     @sim_timestep.setter
     def sim_timestep(self, value):
+        """Set simulation timestep.
+        
+        :param value: The timestep to use during simulation. If `'auto'`, use 1/10 of smalleset slew rate."""
         if value == 'auto':
             if self.in_slews:
                 # Use 1/10th of minimum slew rate
@@ -239,21 +270,23 @@ class LogicCell:
     @property
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
-        # TODO: Determine whether this will actually work for sequential cells, or only combinational cells
-        # 
         # Note that this uses "brute force" methods to determine test vectors. It also tests far
         # more vectors than necessary, lengthening simulation times.
         # A smarter approach would be to parse the function for each output, determine potential
         # critical paths, and then test only those paths to determine worst-case delays.
-        # 
+        #
         # Revisiting this: we actually can't know critical path just from the function, as the
         # given function may not match up with hardware implementation in terms of operation order.
         # We have to evaluate all potential masking conditions and determine critical paths
         # afterwards.
-        # 
+        #
         # Revisiting this again: While we can't know critical paths from the information given, we
         # could provide tools to let users tell us which conditions reveal the critical path.
         # Consider adding an option to let users provide critical path nonmasking conditions.
+        #
+        # Revisiting yet again: This should probably be replaced with lctime-style cell inspection
+        # to more cleverly determine cell functions. That might allow us to remove the need to
+        # manually specify cell functions as well.
         if self.stored_test_vectors:
             return self.stored_test_vectors
         else:
@@ -261,8 +294,9 @@ class LogicCell:
             values = _gen_graycode(len(self.in_ports))
             for out_index in range(len(self.out_ports)):
                 # Assemble a callable function corresponding to this output port's function
-                f = eval(f'lambda {",".join(self.in_ports)} : int({self.functions[out_index].replace("~", "not ")})')
+                f = eval(f'lambda {",".join([pin.name for pin in self.in_ports])} : int({self.functions[out_index].replace("~", "not ")})')
                 for j in range(len(values)):
+                    # TODO: consider changing to enumerate() instead of range(len())
                     # Evaluate f at the last two values and see if the output changes
                     x0 = values[j-1]
                     x1 = values[j]

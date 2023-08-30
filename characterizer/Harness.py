@@ -97,19 +97,19 @@ class Harness:
         # Get inputs from test vector
         for in_port, state in zip(target_cell.in_ports, input_test_vector):
             if len(state) > 1:
-                self._target_in_port = in_port.lower()
+                self._target_in_port = in_port.name.upper()
                 self._target_in_port_state = state
             else:
-                self._stable_in_ports.append(in_port.lower())
+                self._stable_in_ports.append(in_port.name.upper())
                 self._stable_in_port_states.append(state)
 
         # Get outputs from test vector
         for out_port, state in zip(target_cell.out_ports, output_test_vector):
             if len(state) > 1:
-                self._target_out_port = out_port.lower()
+                self._target_out_port = out_port.name.upper()
                 self._target_out_port_state = state
             else:
-                self._nontarget_out_ports.append(out_port.lower())
+                self._nontarget_out_ports.append(out_port.name.upper())
                 self._nontarget_out_port_states.append(state)
         if not self._target_out_port:
             raise ValueError(f'Unable to parse target output port from test vector {test_vector}')
@@ -609,8 +609,8 @@ class SequentialHarness (Harness):
 def filter_harnesses_by_ports(harness_list: list, in_port, out_port) -> list:
     """Finds harnesses in harness_list which target in_port and out_port"""
     return [harness for harness in harness_list 
-            if harness.target_in_port.lower() == in_port.lower()
-            and harness.target_out_port.lower() == out_port.lower()]
+            if harness.target_in_port.upper() == in_port.name.upper()
+            and harness.target_out_port.upper() == out_port.name.upper()]
 
 def find_harness_by_arc(harness_list: list, in_port, out_port, out_direction) -> Harness:
     harnesses = [harness for harness in filter_harnesses_by_ports(harness_list, in_port, out_port) if harness.out_direction == out_direction]
