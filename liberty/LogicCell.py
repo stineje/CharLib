@@ -3,10 +3,10 @@ from pathlib import Path
 from PySpice.Spice.Netlist import Circuit
 from PySpice import Unit
 
-from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc, check_timing_sense
+from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports
 from characterizer.LogicParser import parse_logic
 
-from liberty.pin import Pin
+from liberty.export import Pin
 
 class LogicCell:
     """A single logic-focused standard cell"""
@@ -320,16 +320,9 @@ class LogicCell:
                         test_vectors.append(test_vector)
             return test_vectors
 
-    def get_input_capacitance(self, settings, in_port):
-        """Fetch input capacitance of a single pin"""
-        
-
-    def run_input_capacitance_trial(self, settings, harness: CombinationalHarness) -> None:
-        """Measure input capacitance for a single pin"""
-        pass
-
 
 class CombinationalCell(LogicCell):
+    """A combinational standard cell"""
     def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
         # Run delay simulation for all test vectors
@@ -502,76 +495,11 @@ class CombinationalCell(LogicCell):
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
 
     def export(self, settings):
-        leakage_power = self.harnesses[0].get_leakage_power(settings.vdd.voltage).convert(settings.units.power.prefixed_unit) # TODO: Check whether we should use the 1st
-        cell_lib = [
-            f'cell ({self.name}) {{',
-            f'  area : {self.area};',
-            f'  cell_leakage_power : {float(leakage_power.value):.7f};',
-        ]
-        # Input ports
-        for in_port in self.in_ports:
-            input_capacitance = self.get_input_capacitance(in_port, settings.vdd.voltage).convert(settings.units.capacitance.prefixed_unit)
-            cell_lib.extend([
-                f'  pin ({in_port}) {{',
-                f'    direction : input;',
-                f'    capacitance : {float(abs(input_capacitance.value)):.7f};',
-                f'    rise_capacitance : 0;', # TODO: calculate this (average over harnesses?)
-                f'    fall_capacitance : 0;', # TODO: calculate this (average over harnesses?)
-                f'  }}', # end pin
-            ])
-        # Output ports and functions
-        for out_port in self.out_ports:
-            cell_lib.extend([
-                f'  pin ({out_port}) {{',
-                f'    direction : output;',
-                f'    capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
-                f'    rise_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
-                f'    fall_capacitance : 0;', # Matches OSU350_reference, but may not be correct. TODO: Check
-                f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Calculate (average?)
-                f'    function : "{self.functions[self.out_ports.index(out_port)]}";'
-            ])
-            # Timing
-            for in_port in self.in_ports:
-                # Fetch harnesses which target this in_port/out_port combination
-                harnesses = filter_harnesses_by_ports(self.harnesses, in_port, out_port)
-                cell_lib.extend([
-                    f'    timing () {{',
-                    f'      related_pin : {in_port}',
-                    f'      timing_sense : {check_timing_sense(harnesses)}',
-                ])
-                for direction in ['rise', 'fall']:
-                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
-                    # Propagation delay
-                    cell_lib.append(f'      {harness.direction_prop} (delay_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
-                    for line in harness.get_propagation_delay_lut(self.in_slews, self.out_loads, settings.units.time.prefixed_unit):
-                        cell_lib.append(f'        {line}')
-                    cell_lib.append(f'      }}') # end cell_rise/fall LUT
-                    # Transition delay
-                    cell_lib.append(f'      {harness.direction_tran} (delay_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
-                    for line in harness.get_transport_delay_lut(self.in_slews, self.out_loads, settings.units.time.prefixed_unit):
-                        cell_lib.append(f'        {line}')
-                    cell_lib.append(f'      }}') # end rise/fall_transition LUT
-                cell_lib.append(f'    }}') # end timing
-            # Internal power
-            for in_port in self.in_ports:
-                # Fetch harnesses which target this in_port/out_port combination
-                harnesses = filter_harnesses_by_ports(self.harnesses, in_port, out_port)
-                cell_lib.extend([
-                    f'    internal_power () {{',
-                    f'      related_pin : "{in_port}"',
-                ])
-                for direction in ['rise', 'fall']:
-                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
-                    cell_lib.append(f'      {harness.direction_power} (energy_template_{len(self.in_slews)}x{len(self.out_loads)}) {{')
-                    for line in harness.get_internal_energy_lut(self.in_slews, self.out_loads, settings.energy_meas_high_threshold_voltage(), settings.units.energy.prefixed_unit):
-                        cell_lib.append(f'        {line}')
-                    cell_lib.append(f'      }}') # end rise/fall_power LUT
-                cell_lib.append(f'    }}') # end internal power
-            cell_lib.append(f'  }}') # end pin
-        cell_lib.append(f'}}') # end cell
-        return '\n'.join(cell_lib)
+        return 'TODO' # TODO: Use liberty.export
+
 
 class SequentialCell(LogicCell):
+    """A sequential standard cell"""
     def __init__(self, name: str, in_ports: list, out_ports: list, clock: str, flops: str, function: str, **kwargs):
         super().__init__(name, in_ports, out_ports, function, **kwargs)
         # TODO: Use flops in place of functions for sequential cells
@@ -622,22 +550,22 @@ class SequentialCell(LogicCell):
 
     @property
     def clock(self) -> str:
-        return f'{self.clock_trigger} {self.clock_name}'
-    
-    @property
-    def clock_name(self) -> str:
-        return self._clock_name
+        """Return clock pin"""
+        return self._clock
     
     @property
     def clock_trigger(self) -> str:
+        """Return clock trigger type."""
         return self._clock_trigger
 
     @clock.setter
     def clock(self, value: str):
-        (self._clock_trigger, self._clock_name) = _parse_triggered_pin(value)
+        (self._clock_trigger, name) = _parse_triggered_pin(value)
+        self._clock = Pin(name, 'input', 'clock')
 
     @property
     def clock_slew(self) -> float:
+        """Return clock slew rate"""
         if self.in_slews and not self._clock_slew:
             return min(self.in_slews)
         return self._clock_slew
@@ -660,25 +588,20 @@ class SequentialCell(LogicCell):
 
     @property
     def set(self) -> str:
-        if self.set_name:
-            return f'{self.set_trigger} {self.set_name}'
-        else:
-            return None
-    
+        return self._set
+
     @property
     def set_trigger(self) -> str:
+        "Return set pin trigger type"
         return self._set_trigger
-    
-    @property
-    def set_name(self) -> str:
-        return self._set_name
 
     @set.setter
     def set(self, value):
         if value is None:
-            self._set_name = None
+            self._set = None
         else:
-            (self._set_trigger, self._set_name) = _parse_triggered_pin(value)
+            (self._set_trigger, name) = _parse_triggered_pin(value)
+            self._set = Pin(name, 'input', 'set')
 
     @property
     def reset(self) -> str:
@@ -1121,157 +1044,8 @@ class SequentialCell(LogicCell):
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
 
     def export(self, settings):
-        leakage_power = self.harnesses[0].get_leakage_power(settings.vdd.voltage).convert(settings.units.power.prefixed_unit) # TODO: Check whether we should use the 1st
-        cell_lib = [
-            f'cell ({self.name}) {{',
-            f'  area : {self.area};',
-            f'  cell_leakage_power : {float(leakage_power.value):.7f};',
-        ]
-        # Flops
-        # TODO: use flops in place of functions
-        cell_lib.append(f'  ff ({",".join(self.flops)}) {{')
-        for in_port in self.in_ports:
-            cell_lib.append(f'    next_state : "{in_port}";')
-        cell_lib.append(f'    clocked_on : "{self.clock}";')
-        if self.reset:
-            cell_lib.append(f'    clear : "{self.reset}";')
-        if self.set:
-            cell_lib.append(f'    preset : "{self.set}";')
-        if self.reset:
-            cell_lib.append(f'    clear_preset_var1: L;') # Hard-coded value for when set and reset are both active
-            cell_lib.append(f'    clear_preset_var2: L;')
-        cell_lib.append(f'  }}') # end ff
-        # Clock
-        cell_lib.extend([
-            f'  pin ({self.clock}) {{',
-            f'    direction : input;',
-            f'    capacitance : 0;', # TODO
-            f'    rise_capacitance : 0;', # TODO: Calculate this
-            f'    fall_capacitance : 0;', # TODO: Calculate this
-            f'    clock : true;',
-        ])
-        # TODO: Internal power
-        cell_lib.extend([
-            f'    min_pulse_width_high : 0;', # TODO
-            f'    min_pulse_width_low : 0;', # TODO
-            f'  }}' # end pin
-        ])
-        # Input ports
-        for in_port in self.in_ports:
-            input_capacitance = self.get_input_capacitance(in_port, settings.vdd.voltage).convert(settings.units.capacitance.prefixed_unit)
-            cell_lib.extend([
-                f'  pin ({in_port}) {{',
-                f'    direction : input;',
-                f'    capacitance : {float(input_capacitance.value):.7f};',
-                f'    rise_capacitance : 0;', # TODO: Calculate this
-                f'    fall_capacitance : 0;', # TODO: Calculate this
-            ])
-            # Timing
-            for out_port in self.out_ports:
-                rise_harness = find_harness_by_arc(self.harnesses, in_port, out_port, 'rise')
-                # TODO: fall_harness
-                cell_lib.extend([
-                    f'    timing () {{',
-                    f'      related_pin : "{self.clock}";',
-                    f'      timing_type : "{rise_harness.timing_type_hold}";',
-                    f'      when : "TODO";', # TODO
-                    f'      sdf_cond : "TODO";', # TODO
-                    f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
-                    f'    }}',
-                    f'    timing() {{',
-                    f'      related_pin : "{self.clock}";',
-                    f'      timing_type : "{rise_harness.timing_type_setup}";',
-                    f'      when : "TODO";', # TODO
-                    f'      sdf_cond : "TODO";', # TODO
-                    f'      /* TODO: add rise_constraint and fall_constraint LUTs */', # TODO
-                    f'    }}',
-                ])
-            # Internal power
-            cell_lib.extend([
-                f'    internal_power () {{',
-                f'      /* TODO: add rise_power and fall_power LUTs */', # TODO
-            ])
-            cell_lib.append(f'    }}') # end internal_power
-            cell_lib.append(f'  }}') # end pin
-        # Output ports
-        for out_port in self.out_ports:
-            cell_lib.extend([
-                f'  pin ({out_port}) {{',
-                f'    direction : output;',
-                f'    capacitance : 0;', # Matches OSU350 reference, but may not be correct. TODO: Check
-                f'    rise_capacitance : 0;', # Matches OSU350 reference, but may not be correct. TODO: Check
-                f'    fall_capacitance : 0;', # Matches OSU350 reference, but may not be correct. TODO: Check
-                f'    max_capacitance : {max(self.out_loads):.7f};', # TODO: Check (or actually calculate this)
-                f'    function : "{self.functions[self.out_ports.index(out_port)]}";', # TODO: Use flops in place of functions
-            ])
-            # Timing and internal power
-            # related_ports = [self.clock]
-            # if self.reset: related_ports.append(self.reset)
-            # if self.set: related_ports.append(self.set)
-            # for related_port in related_ports:
-            #     # Timing
-            #     cell_lib.extend([
-            #         f'    timing () {{',
-            #         f'      related_pin : "{related_port}";',
-            #         f'      timing_sense : "non_unate";',
-            #         f'      timing_type : "{self.harnesses[0].timing_type_clock}"'
-            #     ])
-            #     # TODO: add cell_rise, rise_transition, cell_fall, and fall_transition (as appropriate)
-            #     cell_lib.append(f'    }}') # end timing
-            #     # Internal power
-            #     cell_lib.extend([
-            #         f'    internal_power () {{',
-            #         f'      related_pin : "{related_port}";',
-            #     ])
-            #     # TODO: Add rise_power/fall_power/power (as appropriate)
-            #     cell_lib.append(f'    }}')
-            cell_lib.append(f'  }}') # end pin
-        # Reset port
-        if self.reset:
-            cell_lib.extend([
-                f'  pin ({self.reset}) {{',
-                f'    direction : input;',
-                f'    capacitance : 0;', # TODO: Calculate this
-                f'    rise_capacitance : 0;', # TODO: Calculate this
-                f'    fall_capacitance : 0;', # TODO: Calculate this
-                f'    min_pulse_width_low : 0;' # TODO
-            ])
-            # TODO: Filter harnesses to get recovery for CLK and S, and removal for CLK
-            for harness in self.harnesses: # TODO: Change from self.harnesses (as indicated above)
-                cell_lib.extend([
-                    f'    timing () {{',
-                    f'      related_pin : "{harness.target_in_port}";',
-                    # TODO: f'      timing_type : {harness.timing_type};',
-                    f'      when : "TODO";', # TODO
-                    f'      sdf_cond : "TODO";', # TODO
-                    f'      /* TODO: add rise_constraint LUT */'
-                ])
-                cell_lib.append(f'    }}') # end timing
-            cell_lib.append(f'  }}') # end pin
-        # Set port
-        if self.set:
-            cell_lib.extend([
-                f'  pin ({self.reset}) {{',
-                f'    direction : input;',
-                f'    capacitance : 0;', # TODO: Calculate this
-                f'    rise_capacitance : 0;', # TODO: Calculate this
-                f'    fall_capacitance : 0;', # TODO: Calculate this
-                f'    min_pulse_width_low : 0;' # TODO
-            ])
-            # TODO: Filter harnesses to get recovery for CLK and R, and removal for CLK
-            for harness in self.harnesses: # TODO: Change from self.harnesses (as indicated above)
-                cell_lib.extend([
-                    f'    timing () {{',
-                    f'      related_pin : "{harness.target_in_port}";',
-                    # TODO: f'      timing_type : {harness.timing_type};',
-                    f'      when : "TODO";', # TODO
-                    f'      sdf_cond : "TODO";', # TODO
-                    f'      /* TODO: add rise_constraint LUT */'
-                ])
-                cell_lib.append(f'    }}') # end timing
-            cell_lib.append(f'  }}') # end pin
-        cell_lib.append(f'}}') # end cell
-        return '\n'.join(cell_lib)
+        return 'TODO' # TODO: Use liberty.exports
+
 
 def _flip_direction(direction: str) -> str:
     return 'fall' if direction is 'rise' else 'rise'
@@ -1290,7 +1064,7 @@ def _gen_graycode(length: int):
     return inputs
 
 def _parse_triggered_pin(value: str) -> (str, str):
-    """Parses pin names with trigger types, e.g. 'posedge CLK'"""
+    """Parses input pin names with trigger types, e.g. 'posedge CLK'"""
     if not isinstance(value, str):
         raise TypeError(f'Invalid type for edge-triggered pin: {type(value)}')
     try:

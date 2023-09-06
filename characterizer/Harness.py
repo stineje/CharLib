@@ -1,44 +1,24 @@
+from dataclasses import dataclass
+
 import matplotlib.pyplot as plt
 import numpy as np
 from PySpice.Unit import *
 
-class BaseHarness:
-    """A Harness encapsulates wiring configuration for testing a cell.
+from liberty.export import Pin
 
-    Harnesses capture information about how a standard cell should be
-    connected during testing. Think 'wiring harness'."""
+@dataclass
+class PinTestBinding:
+    """Associates a pin to test data, such as state"""
+    pin: Pin
+    state: str = '0'
 
-    def __init__(self, cell, *target_ports, **kwargs) -> None:
-        """Create a new Harness.
-
-        Harnesses can be initialized one of two ways:
-        - by specifying one or more target input(s) and zero or more
-        target output(s)
-        - OR by supplying a test vector using the `test_vector` kwarg
-        
-        If a test vector is supplied, provided target inputs and
-        outputs will be ignored."""
-
-        if 'test_vector' not in kwargs:
-            # Parse input ports
-            self._target_in_ports = []
-            self._nontarget_in_ports = []
-            for port in cell.in_ports:
-                if port.name in target_ports:
-                    self._target_in_ports.append(port)
-                else:
-                    self._nontarget_in_ports.append(port)
-            # Parse output ports
-            self._target_out_ports = []
-            self._nontarget_out_ports = []
-            for port in cell.out_ports:
-                if port.name in target_ports:
-                    self._target_out_ports.append(port)
-                else:
-                    self._nontarget_out_ports.append(port)
-            # Handle other ports
-            for port in {*target_ports}.difference(cell.in_ports, cell.out_ports):
-                print(port)
+    @property
+    def direction(self) -> str:
+        """Return pin direction (if applicable)"""
+        if self.state.startswith(('01', 'z1')):
+            return 'rise'
+        elif self.state.startswith(('10', 'z0')):
+            return 'fall'
 
 
 class Harness:
@@ -81,11 +61,9 @@ class Harness:
         changes to target_cell. If target_cell is altered after the Harness
         was generated, a new Harness should be generated."""
 
-        self._stable_in_ports = []              # input pins to hold stable
-        self._stable_in_port_states = []        # states for stable pins
-        self._nontarget_out_ports = []          # output pins that we aren't specifically evaluating
-        self._nontarget_out_port_states = []    # states for nontarget outputs
-        self.results =  {}                      # nested dictionary of characterization results grouped by in_slew and out_load
+        self._stable_in_ports = [] # input pins to hold stable
+        self._nontarget_out_ports = [] # output pins that we aren't specifically evaluating
+        self.results =  {} # nested dictionary of characterization results
 
         # Parse inputs from test vector
         # Test vector should be formatted like [in1, ..., inN, out1, ..., outM]
@@ -97,20 +75,16 @@ class Harness:
         # Get inputs from test vector
         for in_port, state in zip(target_cell.in_ports, input_test_vector):
             if len(state) > 1:
-                self._target_in_port = in_port.name.upper()
-                self._target_in_port_state = state
+                self._target_in_port = PinTestBinding(in_port, state)
             else:
-                self._stable_in_ports.append(in_port.name.upper())
-                self._stable_in_port_states.append(state)
+                self._stable_in_ports.append(PinTestBinding(in_port, state))
 
         # Get outputs from test vector
         for out_port, state in zip(target_cell.out_ports, output_test_vector):
             if len(state) > 1:
-                self._target_out_port = out_port.name.upper()
-                self._target_out_port_state = state
+                self._target_out_port = PinTestBinding(out_port, state)
             else:
-                self._nontarget_out_ports.append(out_port.name.upper())
-                self._nontarget_out_port_states.append(state)
+                self._nontarget_out_ports.append(PinTestBinding(out_port, state))
         if not self._target_out_port:
             raise ValueError(f'Unable to parse target output port from test vector {test_vector}')
 
@@ -121,122 +95,60 @@ class Harness:
                 self.results[str(in_slew)][str(out_load)] = {}
 
     def __str__(self) -> str:
-        lines = []
-        lines.append(f'Arc Under Test: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
+        """Return str(self)"""
+        lines = [f'Arc Under Test: {self.target_in_port.pin.name} ({self.in_direction}) -> {self.target_out_port.pin.name} ({self.out_direction})']
         if self.stable_in_ports:
-            lines.append(f'    Stable Input Ports:')
-            for port, state in zip(self.stable_in_ports, self.stable_in_port_states):
-                lines.append(f'        {port}: {state}')
+            lines.append('    Stable Input Ports:')
+            for in_port in self.stable_in_ports:
+                lines.append(f'        {in_port.pin.name}: {in_port.state}')
         if self.nontarget_out_ports:
-            lines.append(f'    Nontarget Output Ports:')
-            for port, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
-                lines.append(f'        {port}: {state}')
+            lines.append('    Nontarget Output Ports:')
+            for out_port in self.nontarget_out_ports:
+                lines.append(f'        {out_port.pin.name}: {out_port.state}')
         # TODO: Display results if available
         return '\n'.join(lines)
-    
-    def short_str(self):
-        # Create an abbreviated string for the test vector represented by this harness
-        # TODO: Replace this with a method that generates the test vector string (if possible)
-        harness_str = f'{self.target_in_port}={"01" if self.in_direction == "rise" else "10"}'
-        for input, state in zip(self.stable_in_ports, self.stable_in_port_states):
-            harness_str += f' {input}={state}'
-        harness_str += f' {self.target_out_port}={"01" if self.out_direction == "rise" else "10"}'
-        for output, state in zip(self.nontarget_out_ports, self.nontarget_out_port_states):
-            harness_str += f' {output}={state}'
-        return harness_str
 
-    def _state_to_direction(self, state) -> str:
-        return 'rise' if state == '01' else 'fall' if state == '10' else None
+    def short_str(self):
+        """Create an abbreviated string for the test vector represented by this harness"""
+        # TODO: Replace this with a method that generates the test vector string (if possible)
+        harness_str = f'{self.target_in_port.pin.name}={self.target_in_port.state}'
+        for in_port in self.stable_in_ports:
+            harness_str += f' {in_port.pin.name}={in_port.state}'
+        harness_str += f' {self.target_out_port.pin.name}={self.target_out_port.state}'
+        for out_port in self.nontarget_out_ports:
+            harness_str += f' {out_port.pin.name}={out_port.state}'
+        return harness_str
 
     @property
     def target_in_port(self) -> str:
+        """Return target input port"""
         return self._target_in_port
 
     @property
-    def target_in_port_state(self) -> str:
-        return self._target_in_port_state
-
-    @property
     def stable_in_ports(self) -> list:
+        """Return list of stable input ports"""
         return self._stable_in_ports
 
     @property
-    def stable_in_port_states(self) -> list:
-        return self._stable_in_port_states
-
-    @property
     def target_out_port(self) -> str:
+        """Return target output ports"""
         return self._target_out_port
 
     @property
-    def target_out_port_state(self) -> str:
-        return self._target_out_port_state
-
-    @property
     def nontarget_out_ports(self) -> list:
+        """Return list of nontarget output ports"""
         return self._nontarget_out_ports
 
     @property
-    def nontarget_out_port_states(self) -> list:
-        return self._nontarget_out_port_states
-
-    @property
     def in_direction(self) -> str:
-        return self._state_to_direction(self.target_in_port_state)
+        """Return target_in_port.direction"""
+        return self.target_in_port.direction
 
     @property
     def out_direction(self) -> str:
-        return self._state_to_direction(self.target_out_port_state)
+        """Return target_out_port.direction"""
+        return self.target_out_port.direction
 
-    @property
-    def direction_prop(self) -> str:
-        return f'cell_{self.out_direction}'
-
-    @property
-    def direction_tran(self) -> str:
-        return f'{self.out_direction}_transition'
-
-    @property
-    def direction_power(self) -> str:
-        return f'{self.out_direction}_power'
-
-    @property
-    def timing_sense(self) -> str:
-        # Determine timing_sense from target i/o directions
-        if self.in_direction == self.out_direction:
-            return 'positive_unate'
-        else:
-            return 'negative_unate'
-
-    def average_input_capacitance(self, vdd: float):
-        """Calculates the average input capacitance over all trials"""
-        total_capacitance = 0.0 @ u_F
-        n = 0
-        for slope in self.results.keys():
-            for load in self.results[slope].keys():
-                # TODO: Correct for cases where q is negative
-                q = self.results[slope][load]['q_in_dyn'] @ u_C
-                total_capacitance += q / (vdd @ u_V)
-                n += 1
-        return total_capacitance / n
-    
-    def minimum_input_capacitance(self, vdd: float):
-        """Finds the minimum measured input capacitance"""
-        # Find minimum q
-        q = min([self.results[slope][load]['q_in_dyn'] for slope in self.results.keys() for load in self.results[slope].keys()]) @ u_C
-        return q / (vdd @ u_V)
-
-    def average_transition_delay(self):
-        """Calculates the average transition delay over all trials"""
-        # TODO: Usually we want longest transport delay instead of average
-        total_delay = 0.0 @ u_s
-        n = 0
-        for slope in self.results.keys():
-            for load in self.results[slope].keys():
-                total_delay += self.results[slope][load]['trans_out'] @ u_s
-                n += 1
-        return total_delay / n
-    
     def average_propagation_delay(self):
         """Calculates the average propagation delay over all trials"""
         # TODO: Usually we want longest prop delay instead of average
@@ -247,45 +159,6 @@ class Harness:
                 total_delay += self.results[slope][load]['prop_in_out'] @ u_s
                 n += 1
         return total_delay / n
-
-    def _calc_leakage_power(self, slew, load, vdd: float):
-        # Calculate leakage power, using units to validate calculation
-        i_vdd_leak = abs(self.results[slew][load]['i_vdd_leak']) @ u_A
-        i_vss_leak = abs(self.results[slew][load]['i_vss_leak']) @ u_A
-        i_avg = (i_vdd_leak + i_vss_leak) / 2
-        return i_avg * (vdd @ u_V)
-    
-    def get_leakage_power(self, vdd: float):
-        """Calculates the average leakage power over all trials"""
-        leakage_power = 0.0 @ u_W
-        n = 0
-        for slew in self.results.keys():
-            for load in self.results[slew].keys(): 
-                leakage_power += self._calc_leakage_power(slew, load, vdd)
-                n += 1
-        return leakage_power / n
-
-    def _get_lut_value_groups_by_key(self, slews, loads, key: str, base_unit, output_unit):
-        value_groups = []
-        for slew in slews:
-            values = [(self.results[str(slew)][str(load)][key]@base_unit).convert(output_unit).value for load in loads]
-            value_groups.append(f'"{", ".join([f"{value:f}" for value in values])}"')
-        sep = ', \\\n  '
-        return f'values( \\\n  {sep.join(value_groups)});'
-
-    def get_propagation_delay_lut(self, in_slews, out_loads, time_unit) -> list:
-        lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
-        lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'prop_in_out', u_s, time_unit)
-        [lines.append(value_line) for value_line in values.split('\n')]
-        return lines
-
-    def get_transport_delay_lut(self, in_slews, out_loads, time_unit):
-        lines = [f'index_1("{", ".join([str(slew) for slew in in_slews])}");']
-        lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        values = self._get_lut_value_groups_by_key(in_slews, out_loads, 'trans_out', u_s, time_unit)
-        [lines.append(value_line) for value_line in values.split('\n')]
-        return lines
 
     def _calc_internal_energy(self, slew: str, load: str, energy_meas_high_threshold_voltage: float):
         """Calculates internal energy for a particular slope/load combination"""
@@ -304,27 +177,15 @@ class Harness:
         internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - time_delta * avg_current
         return internal_charge * (energy_meas_high_threshold_voltage @ u_V)
 
-    def get_internal_energy_lut(self, in_slews, out_loads, v_eth: float, energy_unit):
-        lines = [f'index_1("{", ".join([str(slope) for slope in in_slews])}");']
-        lines.append(f'index_2("{", ".join([str(load) for load in out_loads])}");')
-        energy_groups = []
-        for slew in in_slews:
-            energies = [self._calc_internal_energy(str(slew), str(out_load), v_eth) for out_load in out_loads]
-            energy_groups.append(f'"{", ".join(["{:f}".format(float(energy.convert(energy_unit).value)) for energy in energies])}"')
-        sep = ', \\\n  '
-        [lines.append(value_line) for value_line in f'values( \\\n  {sep.join(energy_groups)});'.split('\n')]
-        return lines
 
 class CombinationalHarness (Harness):
+    """A CombinationalHarness captures configuration for testing a CombinationalCell."""
     def __init__(self, target_cell, test_vector) -> None:
+        """Create a new CombinationalHarness."""
         super().__init__(target_cell, test_vector)
         # Error if we don't have a target input port
         if not self._target_in_port:
             raise ValueError(f'Unable to parse target input port from test vector {test_vector}')
-
-    @property
-    def timing_type(self) -> str:
-        return "combinational"
 
     def plot_io(self, settings, slews, loads, cell_name):
         """Plot I/O voltages vs time for the given slew rates and output loads"""
@@ -425,6 +286,7 @@ class CombinationalHarness (Harness):
                ylabel=f'Fanout [{str(settings.units.capacitance.prefixed_unit)}]',
                zlabel=f'Energy [{str(settings.units.energy.prefixed_unit)}]',
                title='Energy vs. Slew Rate vs. Fanout')
+
 
 class SequentialHarness (Harness):
     def __init__(self, target_cell, test_vector: list) -> None:
