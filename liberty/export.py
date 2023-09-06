@@ -1,6 +1,64 @@
-"""This module contains tools for dealing with individual pins for a LogicCell"""
+"""This module contains data structures used to read and write liberty files"""
 
 import numpy as np
+
+class Cell:
+    """A single standard cell"""
+    def __init__(self, name: str, area: int=0, **attrs) -> None:
+        """Create a new cell
+
+        :param name: cell name
+        :param area: cell area
+        :param **attrs: additional liberty attributes, specified as key-value pairs"""
+
+        self._name = name.upper()
+        self.area = area
+        self._attrs = attrs
+        self.pins = []
+
+    @property
+    def name(self) -> str:
+        """Return cell name"""
+        return self._name
+
+    def __getitem__(self, key: str):
+        """Return self[key]. Searches pins by name."""
+        return self.pins[key.upper()]
+
+    def add_pin(self, name: str, direction=None, role='io'):
+        """Add a new pin to this cell's list of pins"""
+        name = name.upper()
+        self.pins[name] = Pin(name, direction, role)
+
+    @property
+    def attributes(self) -> dict:
+        """Return extra liberty attributes for this cell"""
+        return self._attrs
+
+    def add_attribute(self, key: str, value: str):
+        """Add a new liberty attribute to this cell"""
+        self._attrs[key] = str(value)
+
+    def is_pad_cell(self):
+        """Return `True` if this cell contains any pad pins."""
+        return 'pad' in [pin.role for pin in self.pins]
+
+    def __str__(self) -> str:
+        """Return str(self)"""
+        lib_str = [
+            f'cell ({self.name}) {{',
+            f'  area : {self.area};',
+        ]
+        if self.is_pad_cell():
+            lib_str.append('  pad_cell : true;')
+        for key, value in self.attributes:
+            lib_str.append(f'  {key} : {value};')
+        for pin in self.pins:
+            for line in str(pin).split('\n'):
+                lib_str.append(f'  {line}')
+        lib_str.append('}')
+        return '\n'.join(lib_str)
+
 
 class Pin:
     """A single pin from a standard cell"""
@@ -8,14 +66,16 @@ class Pin:
         """Create a new Pin.
 
         :param name: pin name
-        :param direction: pin direction (must be 'input' or 'output' if specified)
-        :param role: (optional) pin role (must be 'set', 'reset', 'clock', or 'io')
+        :param direction: (optional) pin direction
+        :param role: (optional) pin role
         """
         self.capacitance = 0
+        self.drive_current = 0
         self.rise_capacitance = 0
         self.fall_capacitance = 0
         self.max_capacitance = 0
         self.function = ''
+        self.three_state = ''
         self._internal_power = {}
         self.min_pulse_width_high = 0
         self.min_pulse_width_low = 0
@@ -26,10 +86,10 @@ class Pin:
             self._direction = direction
         else:
             raise ValueError('Pin direction must be one of ["input", "output", None]')
-        if role in ['set', 'reset', 'clock', 'io']:
+        if role in ['set', 'reset', 'clock', 'io', 'pad']:
             self._role = role
         else:
-            raise ValueError('Pin role must be one of ["set", "reset", "clock", "io"]')
+            raise ValueError('Pin role must be one of ["set", "reset", "clock", "io", "pad"]')
 
     class InternalPowerData:
         """Container for pin power tables"""
@@ -161,6 +221,10 @@ class Pin:
         """Return `True` if the pin's role is `'io'`"""
         return self.role == 'io'
 
+    def is_pad(self) -> bool:
+        """Return `True` if the pin's role is `'pad'`"""
+        return self.role == 'pad'
+
     def __eq__(self, other) -> bool:
         """Return `True` if name, role, and direction match.
         
@@ -172,19 +236,25 @@ class Pin:
     def __str__(self) -> str:
         """Return str(self)"""
         # Pin properties
-        lib_str = [
-            f'pin ({self.name}) {{',
-            f'  direction : {self.direction};',
+        lib_str = [f'pin ({self.name}) {{']
+        if self.is_pad():
+            lib_str.append('  is_pad : true;')
+        lib_str.append(f'  direction : {self.direction};')
+        if self.is_pad() and self.drive_current:
+            lib_str.append(f'  drive_current : {self.drive_current};')
+        lib_str.extend([
             f'  capacitance : {self.capacitance};',
             f'  rise_capacitance : {self.rise_capacitance};',
             f'  fall_capacitance : {self.fall_capacitance};',
-        ]
+        ])
         if self.is_clk():
             lib_str.append('  clock : true;')
         if self.max_capacitance:
             lib_str.append(f'  max_capacitance : {self.max_capacitance};')
         if self.function:
-            lib_str.append(f'  function : "{self.function};"')
+            lib_str.append(f'  function : "{self.function}";')
+        if self.three_state:
+            lib_str.append(f'  three_state : "{self.three_state}";')
         # Internal power
         try:
             for data in self.internal_power.values():
@@ -205,6 +275,10 @@ class Pin:
                 lib_str.append(f'  {line}')
         lib_str.append('}')
         return '\n'.join(lib_str)
+
+    def __repr__(self) -> str:
+        """Return repr(self)."""
+        return f'Pin(name="{self.name}", direction="{self.direction}", role="{self.role}")'
 
     @property
     def internal_power(self) -> list|InternalPowerData:
@@ -235,6 +309,7 @@ class Pin:
         
         :param related_pin: related pin name for the timing information"""
         self.timing[related_pin] = Pin.TimingData(related_pin)
+
 
 class Table:
     """A Table contains tabular data as would be displayed in a liberty file."""
