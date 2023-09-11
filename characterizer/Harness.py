@@ -203,7 +203,7 @@ class CombinationalHarness (Harness):
             # Set up plot parameters
             ax_i.set_ylabel(f'Vin (pin {self.target_in_port.pin.name}) [{str(settings.units.voltage.prefixed_unit)}]')
             ax_i.set_title('I/O Voltage vs. Time')
-            ax_o.set_ylabel(f'Vout (pin {self.target_out_port}) [{str(settings.units.voltage.prefixed_unit)}]')
+            ax_o.set_ylabel(f'Vout (pin {self.target_out_port.pin.name}) [{str(settings.units.voltage.prefixed_unit)}]')
             ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
 
             # Add dotted lines indicating logic levels, energy measurement bounds, and timing

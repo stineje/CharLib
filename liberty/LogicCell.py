@@ -1002,6 +1002,7 @@ class SequentialCell(LogicCell):
         simulator.measure('tran', 't_clk_energy_end',
             f'when v(vcin)={v_clk_energy_end} {clk_direction}=1')
         print(str(simulator))
+        input("Press any key to continue...")
         energy_timings = simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
         t_energy_start = energy_timings['t_energy_start']
         t_energy_end = energy_timings['t_energy_end']
