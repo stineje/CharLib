@@ -19,6 +19,8 @@ class PinTestBinding:
             return 'rise'
         elif self.state.startswith(('10', 'z0')):
             return 'fall'
+        else:
+            return None
 
 
 class Harness:
@@ -332,13 +334,13 @@ class SequentialHarness (Harness):
     def set_direction(self) -> str:
         if not self.set:
             return None
-        return self.set.pin.direction
+        return self.set.direction
 
     @property
     def reset_direction(self) -> str:
         if not self.reset:
             return None
-        return self.reset.pin.direction
+        return self.reset.direction
     
     def invert_set_reset(self):
         self.set.state = self.set.state[::-1] if self.set.state else None
@@ -365,10 +367,10 @@ class SequentialHarness (Harness):
                     return f'{mode}_rising'
             else:
                 return None
-        elif not self.target_in_port in [*self.flops]:
+        elif not self.target_in_port.pin.name in [*self.flops]:
             # We're targeting an input port
             if mode == 'clock':
-                if self.clock_state == '0101':
+                if self.clock.state == '0101':
                     return 'falling_edge'
                 else:
                     return 'rising_edge'
