@@ -1,3 +1,4 @@
+
 import threading
 from pathlib import Path
 from PySpice.Spice.Netlist import Circuit
@@ -23,7 +24,7 @@ class LogicCell:
             - slews: input slew rates to test
             - loads: output capacitave loads to test
             - simulation_timestep: the time increment to use during simulation
-            - test_vedctors: a list of test vectors to run against this cell"""
+            - test_vectors: a list of test vectors to run against this cell"""
         self._name = name
 
         # Set up input and output pins
@@ -40,19 +41,18 @@ class LogicCell:
         if isinstance(functions, list):
             # Should be in the format ['Y=expr1', 'Z=expr2']
             for func in functions:
+                func = func.upper()
                 if '=' in func:
                     func_pin, expr = func.split('=')
                     # Check for nonblocking assign in LHS of equation
                     if '<' in func_pin:
-                        func_pin = func_pin.replace('<','').strip().upper()
+                        func_pin = func_pin.replace('<','').strip()
                     for out_pin in self.out_ports:
                         if out_pin.name == func_pin:
                             if parse_logic(expr):
                                 out_pin.function = expr
                             else:
                                 raise ValueError(f'Invalid function "{expr}"')
-                        else:
-                            raise ValueError(f'Unknown output pin "{func_pin}" specified in cell function "{func}"')
                 else:
                     raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{func}"')
 
@@ -411,31 +411,31 @@ class CombinationalCell(LogicCell):
         circuit.C('0', 'wout', 'vss_dyn', load * settings.units.capacitance)
 
         # Initialize device under test subcircuit and wire up ports
-        ports = self.definition.split()[1:]
+        ports = self.definition.upper().split()[1:]
         subcircuit_name = ports.pop(0)
         connections = []
         for port in ports:
-            if port.lower() == harness.target_in_port.lower():
+            if port == harness.target_in_port.pin.name:
                 connections.append('vin')
-            elif port.lower() == harness.target_out_port.lower():
+            elif port == harness.target_out_port.pin.name:
                 connections.append('vout')
-            elif port.lower() == settings.vdd.name.lower():
+            elif port == settings.vdd.name.upper():
                 connections.append('vdd_dyn')
-            elif port.lower() == settings.vss.name.lower():
+            elif port == settings.vss.name.upper():
                 connections.append('vss_dyn')
-            elif port.lower() in harness.stable_in_ports:
-                for stable_port, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
-                    if port.lower() == stable_port:
-                        if state == '1':
+            elif port in [pin.pin.name for pin in harness.stable_in_ports]:
+                for stable_port in harness.stable_in_ports:
+                    if port == stable_port.pin.name:
+                        if stable_port.state == '1':
                             connections.append('vhigh')
-                        elif state == '0':
+                        elif stable_port.state == '0':
                             connections.append('vlow')
                         else:
                             raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
-            elif port.lower() in harness.nontarget_out_ports:
-                for nontarget_port, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
-                    if port.lower() == nontarget_port:
-                        connections.append(f'wfloat{str(state)}')
+            elif port in [pin.pin.name for pin in harness.nontarget_out_ports]:
+                for nontarget_port in harness.nontarget_out_ports:
+                    if port == nontarget_port.pin.name:
+                        connections.append(f'wfloat{str(nontarget_port.state)}')
         if len(connections) is not len(ports):
             raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
         circuit.X('dut', subcircuit_name, *connections)
@@ -605,25 +605,19 @@ class SequentialCell(LogicCell):
 
     @property
     def reset(self) -> str:
-        if self.reset_name:
-            return f'{self._reset_trigger} {self._reset_name}'
-        else:
-            return None
+        return self._reset
     
     @property
     def reset_trigger(self) -> str:
         return self._reset_trigger
-    
-    @property
-    def reset_name(self) -> str:
-        return self._reset_name
 
     @reset.setter
     def reset(self, value):
         if value is None:
-            self._reset_name = None
+            self._reset = None
         else:
-            (self._reset_trigger, self._reset_name) = _parse_triggered_pin(value)
+            (self._reset_trigger, name) = _parse_triggered_pin(value)
+            self._reset = Pin(name, 'input', 'reset')
 
     @property
     def flops(self) -> list:
@@ -797,8 +791,9 @@ class SequentialCell(LogicCell):
 
     def _find_setup_time(self, settings, harness: SequentialHarness, slew, load, t_hold):
         """Perform a binary search to identify setup time"""
-        t_max = self.sim_setup_highest * settings.units.time
-        t_min = self.sim_setup_lowest * settings.units.time
+        # Get max and min allowable time, correcting for timestep
+        t_max = (self.sim_setup_highest + self.sim_setup_timestep) * settings.units.time
+        t_min = (self.sim_setup_lowest - self.sim_setup_timestep) * settings.units.time
         prev_t_prop = 1.0 # Set a very large value
 
         while t_min <= t_max:
@@ -807,6 +802,7 @@ class SequentialCell(LogicCell):
                 harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load, t_setup, t_hold)
                 failed = False
             except NameError as e:
+                print(str(e))
                 failed = True
 
             # Identify next setup time
@@ -820,14 +816,18 @@ class SequentialCell(LogicCell):
                 break # We've achieved the desired accuracy
 
             # Save previous results for comparison with next iteration
-            prev_t_prop = harness.results[str(slew)][str(load)]['prop_in_out']
+            try:
+                prev_t_prop = harness.results[str(slew)][str(load)]['prop_in_out']
+            except KeyError:
+                pass # If we fail the first test, keep running
 
         return t_setup
 
     def _find_hold_time(self, settings, harness: SequentialHarness, slew, load, t_setup):
         """Perform a binary search to identify hold time"""
-        t_max = self.sim_hold_highest * settings.units.time
-        t_min = self.sim_hold_lowest * settings.units.time
+        # Get max and min allowable time, correcting for timestep
+        t_max = (self.sim_hold_highest + self.sim_hold_timestep) * settings.units.time
+        t_min = (self.sim_hold_lowest - self.sim_hold_timestep) * settings.units.time
         prev_t_prop = 1.0 # Set a very large value
 
         while t_min <= t_max:
@@ -836,6 +836,7 @@ class SequentialCell(LogicCell):
                 harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load, t_setup, t_hold)
                 failed = False
             except NameError as e:
+                print(str(e))
                 failed = True
 
             # Identify the next hold time
@@ -849,41 +850,44 @@ class SequentialCell(LogicCell):
                 break # We've achieved the desired accuracy
 
             # Save previous results for comparison with next iteration
-            prev_t_prop = harness.results[str(slew)][str(load)]['prop_in_out']
+            try:
+                prev_t_prop = harness.results[str(slew)][str(load)]['prop_in_out']
+            except KeyError:
+                pass # If we fail the first test, keep running
 
         return t_hold
 
     def _wire_subcircuit(self, settings, harness: SequentialHarness):
-        ports = self.definition.split()[1:]
+        ports = self.definition.upper().split()[1:]
         connections = [ports.pop(0)]
         for port in ports:
-            if port.lower() == harness.target_in_port.lower():
+            if port == harness.target_in_port.pin.name:
                 connections.append('vin')
-            elif port.lower() == harness.target_out_port.lower():
+            elif port == harness.target_out_port.pin.name:
                 connections.append('vout')
-            elif port.lower() == settings.vdd.name.lower():
+            elif port == settings.vdd.name.upper():
                 connections.append('vdd_dyn')
-            elif port.lower() == settings.vss.name.lower():
+            elif port == settings.vss.name.upper():
                 connections.append('vss_dyn')
-            elif port.lower() == harness.clock.lower():
+            elif port == harness.clock.pin.name:
                 connections.append('vcin')
-            elif self.reset and port.lower() == harness.reset.lower():
+            elif self.reset and port == harness.reset.pin.name:
                 connections.append('vrin')
-            elif self.set and port.lower() == harness.set.lower():
+            elif self.set and port == harness.set.pin.name:
                 connections.append('vsin')
-            elif port.lower() in harness.stable_in_ports:
-                for stable_port, state in zip(harness.stable_in_ports, harness.stable_in_port_states):
-                    if port.lower() == stable_port.lower():
-                        if state == '1':
+            elif port in [pin.pin.name for pin in harness.stable_in_ports]:
+                for stable_port in harness.stable_in_ports:
+                    if port == stable_port.pin.name:
+                        if stable_port.state == '1':
                             connections.append('vhigh')
-                        elif state == '0':
+                        elif stable_port.state == '0':
                             connections.append('vlow')
                         else:
                             raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
-            elif port.lower() in harness.nontarget_out_ports:
-                for nontarget_port, state in zip(harness.nontarget_out_ports, harness.nontarget_out_port_states):
-                    if port.lower() == nontarget_port:
-                        connections.append(f'wfloat{str(state)}')
+            elif port in [pin.pin.name for pin in harness.nontarget_out_ports]:
+                for nontarget_port in harness.nontarget_out_ports:
+                    if port == nontarget_port.pin.name:
+                        connections.append(f'wfloat{str(nontarget_port.state)}')
         if len(connections) is not len(ports)+1:
             raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
         return connections
@@ -943,12 +947,12 @@ class SequentialCell(LogicCell):
         # Set up reset node
         # Note: active low reset
         if harness.reset:
-            circuit.V('rin', 'vrin', circuit.gnd, vdd if harness.reset_state == '1' else vss)
+            circuit.V('rin', 'vrin', circuit.gnd, vdd if harness.reset.state == '1' else vss)
 
         # Set up set node
         # Note: active low set
         if harness.set:
-            circuit.V('sin', 'vsin', circuit.gnd, vdd if harness.set_state == '1' else vss)
+            circuit.V('sin', 'vsin', circuit.gnd, vdd if harness.set.state == '1' else vss)
 
         # Initialize device under test subcircuit and wire up ports
         connections = self._wire_subcircuit(settings, harness)
@@ -990,13 +994,14 @@ class SequentialCell(LogicCell):
 
         # Measure energy threshold timings
         simulator.measure('tran', 't_energy_start',
-                            f'when v(vin)={v_prop_start} {harness.in_direction}=1')
+            f'when v(vin)={v_prop_start} {harness.in_direction}=1')
         simulator.measure('tran', 't_energy_end',
-                            f'when v(vout)={v_trans_end} {harness.out_direction}=1')
+            f'when v(vout)={v_trans_end} {harness.out_direction}=1')
         simulator.measure('tran', 't_clk_energy_start',
-                            f'when v(vcin)={v_clk_energy_start} {clk_direction}=1')
+            f'when v(vcin)={v_clk_energy_start} {clk_direction}=1')
         simulator.measure('tran', 't_clk_energy_end',
-                            f'when v(vcin)={v_clk_energy_end} {clk_direction}=1')
+            f'when v(vcin)={v_clk_energy_end} {clk_direction}=1')
+        print(str(simulator))
         energy_timings = simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
         t_energy_start = energy_timings['t_energy_start']
         t_energy_end = energy_timings['t_energy_end']
@@ -1048,7 +1053,7 @@ class SequentialCell(LogicCell):
 
 
 def _flip_direction(direction: str) -> str:
-    return 'fall' if direction is 'rise' else 'rise'
+    return 'fall' if direction == 'rise' else 'rise'
 
 def _gen_graycode(length: int):
     """Generate the list of Gray Codes of specified length"""

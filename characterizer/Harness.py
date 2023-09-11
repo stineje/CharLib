@@ -96,7 +96,7 @@ class Harness:
 
     def __str__(self) -> str:
         """Return str(self)"""
-        lines = [f'Arc Under Test: {self.target_in_port.pin.name} ({self.in_direction}) -> {self.target_out_port.pin.name} ({self.out_direction})']
+        lines = [f'Arc Under Test: {self.arc_str()}']
         if self.stable_in_ports:
             lines.append('    Stable Input Ports:')
             for in_port in self.stable_in_ports:
@@ -118,6 +118,10 @@ class Harness:
         for out_port in self.nontarget_out_ports:
             harness_str += f' {out_port.pin.name}={out_port.state}'
         return harness_str
+
+    def arc_str(self):
+        """Return a string representing the test arc"""
+        return f'{self.target_in_port.pin.name} ({self.in_direction}) -> {self.target_out_port.pin.name} ({self.out_direction})'
 
     @property
     def target_in_port(self) -> str:
@@ -194,10 +198,10 @@ class CombinationalHarness (Harness):
         for slew in slews:
             # Generate plots for Vin and Vout
             figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
-            figure.suptitle(f'Cell {cell_name} | Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction}) | Slew Rate: {str(slew * settings.units.time)}')
+            figure.suptitle(f'Cell {cell_name} | Arc: {self.arc_str()} | Slew Rate: {str(slew * settings.units.time)}')
 
             # Set up plot parameters
-            ax_i.set_ylabel(f'Vin (pin {self.target_in_port}) [{str(settings.units.voltage.prefixed_unit)}]')
+            ax_i.set_ylabel(f'Vin (pin {self.target_in_port.pin.name}) [{str(settings.units.voltage.prefixed_unit)}]')
             ax_i.set_title('I/O Voltage vs. Time')
             ax_o.set_ylabel(f'Vout (pin {self.target_out_port}) [{str(settings.units.voltage.prefixed_unit)}]')
             ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
@@ -224,7 +228,7 @@ class CombinationalHarness (Harness):
     def plot_delay(self, settings, slews, loads, cell_name):
         """Plot propagation delay and transport delay vs slew rate vs fanout"""
         figure = plt.figure()
-        figure.suptitle(f'Cell {cell_name} | Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
+        figure.suptitle(f'Cell {cell_name} | Arc: {self.arc_str()}')
 
         ax = figure.add_subplot(projection='3d')
         ax.set_proj_type('ortho')
@@ -263,7 +267,7 @@ class CombinationalHarness (Harness):
     def plot_energy(self, settings, slews, loads, cell_name):
         """Plot energy vs slew rate vs fanout"""
         figure = plt.figure()
-        figure.suptitle(f'Cell {cell_name} | Arc: {self.target_in_port} ({self.in_direction}) -> {self.target_out_port} ({self.out_direction})')
+        figure.suptitle(f'Cell {cell_name} | Arc: {self.arc_str()}')
 
         ax = figure.add_subplot(projection='3d')
         ax.set_proj_type('ortho')
@@ -299,20 +303,16 @@ class SequentialHarness (Harness):
         self.reset = None
         self.flops = []
         self.flop_states = []
-        self.clock = target_cell.clock_name
-        self.clock_state = test_vector.pop(0)
+        self.clock = PinTestBinding(target_cell.clock, test_vector.pop(0))
         # Set up Reset
         if target_cell.reset:
-            self.reset = target_cell.reset_name
-            self.reset_state = test_vector.pop(0)
-            if len(self.reset_state) > 1:
+            self.reset = PinTestBinding(target_cell.reset, test_vector.pop(0))
+            if len(self.reset.state) > 1:
                 self._target_in_port = self.reset
         # Set up Set
         if target_cell.set:
-            self.set = target_cell.set_name
-            self.set_state = test_vector.pop(0)
-            if len(self.set_state) > 1:
-                # Overwrite reset if already assigned
+            self.set = PinTestBinding(target_cell.set, test_vector.pop(0))
+            if len(self.set.state) > 1:
                 self._target_in_port = self.set
         # Set up flop internal states
         for flop in target_cell.flops:
@@ -321,28 +321,28 @@ class SequentialHarness (Harness):
         super().__init__(target_cell, test_vector)
 
     def short_str(self):
-        harness_str = f'{self.clock}={self.clock_state} {super().short_str()}'
+        harness_str = f'{self.clock.pin.name}={self.clock.state} {super().short_str()}'
         if self.set:
-            harness_str += f' {self.set}={self.set_state}'
+            harness_str += f' {self.set.pin.name}={self.set.state}'
         if self.reset:
-            harness_str += f' {self.reset}={self.reset_state}'
+            harness_str += f' {self.reset.pin.name}={self.reset.state}'
         return harness_str
 
     @property
     def set_direction(self) -> str:
         if not self.set:
             return None
-        return self._state_to_direction(self.set_state)
+        return self.set.pin.direction
 
     @property
     def reset_direction(self) -> str:
         if not self.reset:
             return None
-        return self._state_to_direction(self.reset_state)
+        return self.reset.pin.direction
     
     def invert_set_reset(self):
-        self.set_state = self.set_state[::-1] if self.set_state else None
-        self.reset_state = self.reset_state[::-1] if self.reset_state else None
+        self.set.state = self.set.state[::-1] if self.set.state else None
+        self.reset.state = self.reset.state[::-1] if self.reset.state else None
 
     @property
     def timing_sense_constraint(self) -> str:
@@ -471,8 +471,8 @@ class SequentialHarness (Harness):
 def filter_harnesses_by_ports(harness_list: list, in_port, out_port) -> list:
     """Finds harnesses in harness_list which target in_port and out_port"""
     return [harness for harness in harness_list 
-            if harness.target_in_port.upper() == in_port.name.upper()
-            and harness.target_out_port.upper() == out_port.name.upper()]
+            if harness.target_in_port.pin == in_port
+            and harness.target_out_port.pin == out_port]
 
 def find_harness_by_arc(harness_list: list, in_port, out_port, out_direction) -> Harness:
     harnesses = [harness for harness in filter_harnesses_by_ports(harness_list, in_port, out_port) if harness.out_direction == out_direction]
