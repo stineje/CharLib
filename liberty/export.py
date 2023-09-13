@@ -16,6 +16,11 @@ class Cell:
         self._attrs = attrs
         self.pins = []
 
+    @classmethod
+    def from_str(value: str):
+        """Parse a cell from a liberty string"""
+        pass # TODO
+
     @property
     def name(self) -> str:
         """Return cell name"""
@@ -81,7 +86,7 @@ class Pin:
         self.min_pulse_width_low = 0
         self.timing = {}
 
-        self._name = name
+        self._name = name.upper()
         if direction in ['input', 'output', None]:
             self._direction = direction
         else:
@@ -90,6 +95,11 @@ class Pin:
             self._role = role
         else:
             raise ValueError('Pin role must be one of ["set", "reset", "clock", "io", "pad"]')
+
+    @classmethod
+    def from_str(value: str):
+        """Parse a pin from a liberty string"""
+        pass # TODO
 
     class InternalPowerData:
         """Container for pin power tables"""
