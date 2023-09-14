@@ -1,3 +1,4 @@
+"""This module contains test managers for various types of standard cells"""
 
 import threading
 from pathlib import Path
@@ -9,55 +10,48 @@ from characterizer.LogicParser import parse_logic
 
 from liberty.export import Cell, Pin
 
-class LogicCell:
-    """A single logic-focused standard cell"""
+class TestManager:
+    """A test manager for a standard cell"""
     def __init__ (self, name: str, in_ports: str|list, out_ports: list|None, functions: str|list, **kwargs):
-        """Create a new LogicCell.
+        """Create a new TestManager for a standard cell.
         
         :param name: cell name
         :param in_ports: a list of input pin names
         :param out_ports: a list of output pin names
-        :param functions: a list of functions implemented by this cell (in verilog syntax)
-        :param **kwargs: a dict of configuration information for this cell, including
+        :param functions: a list of functions implemented by the cell (in verilog syntax)
+        :param **kwargs: a dict of configuration and test parameters for the cell, including
             - netlist: path to the cell's spice netlist
-            - model: path to transistor spice models for this cell
+            - model: path to transistor spice models
             - slews: input slew rates to test
             - loads: output capacitave loads to test
             - simulation_timestep: the time increment to use during simulation
             - test_vectors: a list of test vectors to run against this cell"""
-        self._name = name
-
-        # Set up input and output pins
-        self._in_ports = []
+        # Initialize the cell under test
+        self._cell = Cell(name, kwargs.get('area', 0))
         for pin_name in in_ports:
-            self._in_ports.append(Pin(pin_name.upper(), 'input'))
-        self._out_ports = []
+            self.cell.add_pin(pin_name, 'input')
         for pin_name in out_ports:
-            self._out_ports.append(Pin(pin_name.upper(), 'output'))
+            self.cell.add_pin(pin_name, 'output')
 
         # Parse functions and add to pins
         if isinstance(functions, str):
-            functions = functions.split() # Split on space, then proceed
+            functions = functions.upper().split() # Capitalize and split on space, then proceed
         if isinstance(functions, list):
             # Should be in the format ['Y=expr1', 'Z=expr2']
             for func in functions:
-                func = func.upper()
                 if '=' in func:
                     func_pin, expr = func.split('=')
                     # Check for nonblocking assign in LHS of equation
                     if '<' in func_pin:
                         func_pin = func_pin.replace('<','').strip()
-                    for out_pin in self.out_ports:
-                        if out_pin.name == func_pin:
+                    for pin_name in out_ports:
+                        if pin_name == func_pin:
                             if parse_logic(expr):
-                                out_pin.function = expr
+                                self.cell[pin_name].function = expr
                             else:
                                 raise ValueError(f'Invalid function "{expr}"')
                 else:
                     raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{func}"')
-
-        # Documentation
-        self.area = kwargs.get('area', 0)
 
         # Characterization settings
         self.harnesses = []
@@ -76,24 +70,22 @@ class LogicCell:
 
     def __str__(self) -> str:
         lines = []
-        lines.append(self.name)
+        lines.append(f'Test Manager for cell {self.cell.name}')
         lines.append(f'    Inputs:              {", ".join([p.name for p in self.in_ports])}')
         lines.append(f'    Outputs:             {", ".join([p.name for p in self.out_ports])}')
         lines.append('    Functions:')
-        for p,f in zip(self.out_ports,self.functions):
+        for p,f in zip(self.out_ports, self.functions):
             lines.append(f'        {p}={f}')
-        if self.area:
-            lines.append(f'    Area:                {str(self.area)}')
         if self.netlist:
             lines.append(f'    Netlist:             {str(self.netlist)}')
             lines.append(f'    Definition:          {self.definition.rstrip()}')
             lines.append(f'    Instance:            {self.instance}')
         if self.in_slews:
-            lines.append('    Input pin simulation slew rates:')
+            lines.append('    Simulation slew rates:')
             for slope in self.in_slews:
                 lines.append(f'        {str(slope)}')
         if self.out_loads:
-            lines.append('    Output pin simulation fanouts:')
+            lines.append('    Simulation load capacitances:')
             for load in self.out_loads:
                 lines.append(f'        {str(load)}')
         lines.append(f'    Simulation timestep: {str(self.sim_timestep)}')
@@ -104,38 +96,25 @@ class LogicCell:
                     lines.append(f'        {h}')
         return '\n'.join(lines)
 
-    def __repr__(self):
-        return f'LogicCell({self.name},{self.in_ports},{self.out_ports},{self.functions},{self.area})'
-
     @property
-    def name(self) -> str:
-        """Return cell name."""
-        return self._name
+    def cell(self) -> Cell:
+        """Return the cell under test"""
+        return self._cell
 
     @property
     def in_ports(self) -> list:
-        """Return cell input pins."""
-        return self._in_ports
+        """Return cell input io pins."""
+        return [pin for pin in self.cell.pins.values() if pin.direction == 'input' and pin.is_io()]
 
     @property
     def out_ports(self) -> list:
-        """Return cell output pins."""
-        return self._out_ports
+        """Return cell output io pins."""
+        return [pin for pin in self.cell.pins.values() if pin.direction == 'output' and pin.is_io()]
 
     @property
     def functions(self) -> list:
         """Return a list of functions on this cell's output pins."""
         return [pin.function for pin in self.out_ports]
-
-    @property
-    def area(self) -> float:
-        """Return cell area"""
-        return self._area
-
-    @area.setter
-    def area(self, value: float):
-        """Set cell area"""
-        self._area = float(value)
 
     @property
     def model(self):
@@ -183,7 +162,7 @@ class LogicCell:
         # Search the netlist file for the circuit definition
         with open(self.netlist, 'r') as file:
             for line in file:
-                if self.name.lower() in line.lower() and 'subckt' in line.lower():
+                if self.cell.name in line.upper() and 'SUBCKT' in line.upper():
                     file.close()
                     return line
             # If we reach this line before returning, the netlist file doesn't contain a circuit definition
@@ -241,9 +220,11 @@ class LogicCell:
 
     @property
     def is_exported(self) -> bool:
+        """Return whether the results have been exported"""
         return self._is_exported
 
     def set_exported(self):
+        """Set a flag that this test manager's results have been exported"""
         self._is_exported = True
 
     @property
@@ -321,8 +302,9 @@ class LogicCell:
             return test_vectors
 
 
-class CombinationalCell(LogicCell):
-    """A combinational standard cell"""
+class CombinationalTestManager(TestManager):
+    """A combinational cell test manager"""
+    
     def characterize(self, settings):
         """Run delay characterization for an N-input M-output combinational cell"""
         # Run delay simulation for all test vectors
@@ -331,7 +313,7 @@ class CombinationalCell(LogicCell):
             # Generate harness
             harness = CombinationalHarness(self, test_vector)
             # Determine spice filename prefix
-            trial_name = f'delay {self.name} {harness.short_str()}'
+            trial_name = f'delay {self.cell.name} {harness.short_str()}'
             # Run delay characterization
             # Note: ngspice-shared doesn't work with multithreaded as the shared interface must be a singleton
             if settings.use_multithreaded and not settings.simulator == 'ngspice-shared':
@@ -354,7 +336,6 @@ class CombinationalCell(LogicCell):
                         self._run_delay(settings, harness, slew, load, trial_name)
             # Save harness to the cell
             unsorted_harnesses.append(harness)
-            #unsorted_harnesses.append(harness)
 
         # Filter and sort harnesses
         # The result should be:
@@ -374,9 +355,9 @@ class CombinationalCell(LogicCell):
 
         # Display plots
         if 'io' in self.plots:
-            [harness.plot_io(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+            [harness.plot_io(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
         if 'delay' in self.plots:
-            [harness.plot_delay(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+            [harness.plot_delay(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
         if 'energy' in self.plots:
             print("Energy plotting not yet supported") # TODO: Add correct energy measurement procedure
             # [harness.plot_energy(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
@@ -384,6 +365,7 @@ class CombinationalCell(LogicCell):
     def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
         print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
         harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load)
+        # TODO: Store results in cell and pin tables
 
     def _run_delay_trial(self, settings, harness: CombinationalHarness, slew, load):
         """Run delay measurement for a single trial"""
@@ -398,7 +380,7 @@ class CombinationalCell(LogicCell):
         vnw = settings.nwell.voltage * settings.units.voltage
 
         # Initialize circuit
-        circuit = Circuit(self.name)
+        circuit = Circuit(self.cell.name)
         circuit.include(self.model)
         circuit.include(self.netlist)
         (v_start, v_end) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
@@ -469,18 +451,11 @@ class CombinationalCell(LogicCell):
 
         # Run transient analysis
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
-
-    def export(self, settings, **attrs):
-        """Export test results to a Cell object"""
-        cell = Cell(self.name, self.area, **attrs)
-        # Copy pins
-        for pin in [*self.in_ports, *self.out_ports]:
-            cell.pins[pin.name] = pin
-        return cell
         
 
-class SequentialCell(LogicCell):
-    """A sequential standard cell"""
+class SequentialTestManager(TestManager):
+    """A sequential cell test manager"""
+
     def __init__(self, name: str, in_ports: list, out_ports: list, clock: str, flops: str, function: str, **kwargs):
         super().__init__(name, in_ports, out_ports, function, **kwargs)
         # TODO: Use flops in place of functions for sequential cells
@@ -526,9 +501,6 @@ class SequentialCell(LogicCell):
             lines.insert(function_line_index(), f'    Registers:           {", ".join(self.flops)}')
         return '\n'.join(lines)
 
-    def __repr__(self):
-        return f'SequentialCell({self.name},{self.in_ports},{self.out_ports},{self.clock},{self.flops},{self.functions},set={self.set},reset={self.reset},area={self. area})'
-
     @property
     def clock(self) -> str:
         """Return clock pin"""
@@ -541,8 +513,8 @@ class SequentialCell(LogicCell):
 
     @clock.setter
     def clock(self, value: str):
-        (self._clock_trigger, name) = _parse_triggered_pin(value)
-        self._clock = Pin(name, 'input', 'clock')
+        """Assign clock trigger and pin"""
+        (self._clock_trigger, self._clock) = _parse_triggered_pin(value, 'clock')
 
     @property
     def clock_slew(self) -> float:
@@ -553,6 +525,7 @@ class SequentialCell(LogicCell):
 
     @clock_slew.setter
     def clock_slew(self, value):
+        """Assign clock slew rate"""
         if isinstance(value, (int, float)):
             if value > 0:
                 self._clock_slew = float(value)
@@ -569,6 +542,7 @@ class SequentialCell(LogicCell):
 
     @property
     def set(self) -> str:
+        """Return set pin"""
         return self._set
 
     @property
@@ -578,27 +552,29 @@ class SequentialCell(LogicCell):
 
     @set.setter
     def set(self, value):
+        """Assign set pin and trigger"""
         if value is None:
             self._set = None
         else:
-            (self._set_trigger, name) = _parse_triggered_pin(value)
-            self._set = Pin(name, 'input', 'set')
+            (self._set_trigger, self._set) = _parse_triggered_pin(value, 'set')
 
     @property
     def reset(self) -> str:
+        """Return reset pin"""
         return self._reset
     
     @property
     def reset_trigger(self) -> str:
+        """Return reset trigger type"""
         return self._reset_trigger
 
     @reset.setter
     def reset(self, value):
+        """Assign reset pin and trigger"""
         if value is None:
             self._reset = None
         else:
-            (self._reset_trigger, name) = _parse_triggered_pin(value)
-            self._reset = Pin(name, 'input', 'reset')
+            (self._reset_trigger, self._reset) = _parse_triggered_pin(value, 'reset')
 
     @property
     def flops(self) -> list:
@@ -743,7 +719,7 @@ class SequentialCell(LogicCell):
         for test_vector in self.test_vectors:
             # Generate harness
             harness = SequentialHarness(self, test_vector)
-            trial_name = f'delay {self.name} {harness.short_str()}'
+            trial_name = f'delay {self.cell.name} {harness.short_str()}'
             # Run characterization
             # TODO: Figure out how to thread this
             for slew in self.in_slews:
@@ -758,11 +734,11 @@ class SequentialCell(LogicCell):
 
         # Display plots
         if 'io' in self.plots:
-            [harness.plot_io(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+            [harness.plot_io(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
         if 'delay' in self.plots:
-            [harness.plot_delay(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+            [harness.plot_delay(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
         if 'energy' in self.plots:
-            [harness.plot_energy(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
+            [harness.plot_energy(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
 
     def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
         print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
@@ -902,7 +878,7 @@ class SequentialCell(LogicCell):
         t_sim_end = t_data_edge_2_end + t_stabilizing
 
         # Initialize circuit
-        circuit = Circuit(self.name)
+        circuit = Circuit(self.cell.name)
         circuit.include(self.model)
         circuit.include(self.netlist)
         circuit.V('high', 'vhigh', circuit.gnd, vdd)
@@ -1013,7 +989,7 @@ def _gen_graycode(length: int):
         inputs.append(j)
     return inputs
 
-def _parse_triggered_pin(value: str) -> (str, str):
+def _parse_triggered_pin(value: str, role: str) -> (str, Pin):
     """Parses input pin names with trigger types, e.g. 'posedge CLK'"""
     if not isinstance(value, str):
         raise TypeError(f'Invalid type for edge-triggered pin: {type(value)}')
@@ -1023,4 +999,4 @@ def _parse_triggered_pin(value: str) -> (str, str):
         raise ValueError(f'Invalid value for edge-triggered pin: {value}. Make sure you include both the trigger type and pin name (e.g. "posedge CLK")')
     if not edge in ['posedge', 'negedge']:
         raise ValueError(f'Invalid trigger type: {edge}. Trigger type must be one of "posedge" or "negedge"')
-    return (edge, name)
+    return (edge, Pin(name, 'input', role))

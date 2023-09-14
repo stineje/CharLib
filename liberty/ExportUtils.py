@@ -2,24 +2,16 @@
 import re, sys
 
 from liberty.LibrarySettings import LibrarySettings
-from liberty.LogicCell import LogicCell, CombinationalCell, SequentialCell
 from characterizer.Harness import CombinationalHarness
 
 def exportFiles(targetLib, targetCell):
     if not targetLib.is_exported:
         exportLib(targetLib, targetCell)
     if targetLib.is_exported and not targetCell.is_exported:
-        ## export comb. logic
-        if not isinstance(targetCell, SequentialCell):
-            exportCombinationalCell(targetLib, targetCell)
-            exportVerilog(targetLib, targetCell)
-        ## export seq. logic
-        else:
-            exportSequentialCell(targetLib, targetCell)
-            # exportVerilogFlop(targetLib, targetCell) # Currently broken due to SequentialCell changes
+        exportCell(targetLib, targetCell)
 
 ## export library definition to .lib
-def exportLib(target_lib: LibrarySettings, target_cell: LogicCell):
+def exportLib(target_lib: LibrarySettings, target_cell):
     """Export library definition to liberty file"""
     outlines = []
     ## general settings
@@ -109,27 +101,15 @@ def exportLib(target_lib: LibrarySettings, target_cell: LogicCell):
         f.close()
 
 ## export harness data to .lib
-def exportCombinationalCell(target_lib: LibrarySettings, target_cell: CombinationalCell):
+def exportCell(target_lib: LibrarySettings, target_cell):
     outlines = []
-    for line in target_cell.export(target_lib).split('\n'):
+    for line in str(target_cell.cell).split('\n'):
         outlines.append(f'  {line}\n')
 
     with open(target_lib.dotlib_name, 'a') as f:
         f.writelines(outlines)
         f.close()
     target_cell.set_exported()
-
-
-## export harness data to .lib
-def exportSequentialCell(targetLib: LibrarySettings, targetCell: SequentialCell):
-    outlines = []
-    for line in targetCell.export(targetLib).split('\n'):
-        outlines.append(f'  {line}\n')
-
-    with open(targetLib.dotlib_name, 'a') as f:
-        f.writelines(outlines)
-        f.close()
-    targetCell.set_exported()
 
 
 ## export library definition to .lib
@@ -149,7 +129,7 @@ def exportVerilog(targetLib, targetCell):
         numport += 1
     portlist += ");"
 
-    outlines.append(f'module {targetCell.name + portlist}\n')
+    outlines.append(f'module {targetCell.cell.name + portlist}\n')
 
     ## input/output statement
     for target_outport in targetCell.out_ports:
@@ -198,7 +178,7 @@ def exportVerilogFlop(targetLib, targetCell):
         numport += 1
     portlist += ");"
 
-    outlines.append(f'module {targetCell.name + portlist}\n')
+    outlines.append(f'module {targetCell.cell.name + portlist}\n')
 
     ## input/output statement
     for target_outport in targetCell.out_ports:

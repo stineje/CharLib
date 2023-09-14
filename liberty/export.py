@@ -14,7 +14,7 @@ class Cell:
         self._name = name.upper()
         self.area = area
         self._attrs = attrs
-        self.pins = []
+        self.pins = {}
 
     @classmethod
     def from_str(value: str):
@@ -46,7 +46,7 @@ class Cell:
 
     def is_pad_cell(self):
         """Return `True` if this cell contains any pad pins."""
-        return 'pad' in [pin.role for pin in self.pins]
+        return 'pad' in [pin.role for pin in self.pins.values()]
 
     def __str__(self) -> str:
         """Return str(self)"""
@@ -58,7 +58,7 @@ class Cell:
             lib_str.append('  pad_cell : true;')
         for key, value in self.attributes:
             lib_str.append(f'  {key} : {value};')
-        for pin in self.pins:
+        for pin in self.pins.values():
             for line in str(pin).split('\n'):
                 lib_str.append(f'  {line}')
         lib_str.append('}')
