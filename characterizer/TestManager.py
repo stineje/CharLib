@@ -5,7 +5,7 @@ from pathlib import Path
 from PySpice.Spice.Netlist import Circuit
 from PySpice import Unit
 
-from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports
+from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
 from characterizer.LogicParser import parse_logic
 
 from liberty.export import Cell, Pin
@@ -337,11 +337,8 @@ class CombinationalTestManager(TestManager):
             # Save harness to the cell
             unsorted_harnesses.append(harness)
 
-        # Filter and sort harnesses
-        # The result should be:
-        # - For each input-output path:
-        #   - 1 harness for the critical path rising case
-        #   - 1 harness for the critical path falling case
+        # Filter out harnesses that aren't worst-case conditions
+        # We should be left with the critical path rise and fall harnesses for each i/o path
         for out_port in self.out_ports:
             for in_port in self.in_ports:
                 for direction in ['rise', 'fall']:
@@ -349,9 +346,34 @@ class CombinationalTestManager(TestManager):
                     harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, in_port, out_port) if harness.out_direction == direction]
                     worst_case_harness = harnesses[0]
                     for harness in harnesses:
+                        # FIXME: Currently we compare by average prop delay. Consider alternative strategies
                         if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
                             worst_case_harness = harness # This harness is worse
                     self.harnesses.append(worst_case_harness)
+
+        # Store propagation and transport delay in pin timing tables
+        for out_port in self.out_ports:
+            for in_port in self.in_ports:
+                self.cell[out_port.name].add_timing(in_port.name)
+                for direction in ['rise', 'fall']:
+                    # Identify the correct harness
+                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
+
+                    # Construct the table
+                    index_1 = [str(slew) for slew in self.in_slews]
+                    index_2 = [str(load) for load in self.out_loads]
+                    prop_values = []
+                    tran_values = []
+                    for slew in index_1:
+                        for load in index_2:
+                            result = harness.results[slew][load]
+                            prop_value = (result['prop_in_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            prop_values.append(f'{prop_value:7f}')
+                            tran_value = (result['trans_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            tran_values.append(f'{tran_value:7f}')
+                    template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should probably be in LibrarySettings
+                    self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
+                    self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
 
         # Display plots
         if 'io' in self.plots:
@@ -365,7 +387,6 @@ class CombinationalTestManager(TestManager):
     def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
         print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
         harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load)
-        # TODO: Store results in cell and pin tables
 
     def _run_delay_trial(self, settings, harness: CombinationalHarness, slew, load):
         """Run delay measurement for a single trial"""

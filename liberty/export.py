@@ -194,7 +194,7 @@ class Pin:
                 timing_str.append(f'  when : "{self.when}";')
             if self.sdf_cond:
                 timing_str.append(f'  sdf_cond : "{self.sdf_cond}";')
-            for table in self._tables:
+            for table in self._tables.values():
                 for line in str(table).split('\n'):
                     timing_str.append(f'  {line}')
             timing_str.append('}')
@@ -384,7 +384,6 @@ class Table:
         if self.index_2:
             table_str.append(f'  index_2 ("{", ".join(self.index_2)}");')
         values = np.reshape(self.values, self.shape).tolist()
-        print(values)
         if self.is_2d():
             table_str.append('  values ( \\')
             rows = ', \\\n'.join([f'"{", ".join(group)}"' for group in values]).split('\n')

@@ -229,6 +229,7 @@ class CombinationalHarness (Harness):
 
     def plot_delay(self, settings, slews, loads, cell_name):
         """Plot propagation delay and transport delay vs slew rate vs fanout"""
+        # TODO: Consider moving this to Pin, as all this data is eventually stored there anyways
         figure = plt.figure()
         figure.suptitle(f'Cell {cell_name} | Arc: {self.arc_str()}')
 
@@ -268,6 +269,7 @@ class CombinationalHarness (Harness):
 
     def plot_energy(self, settings, slews, loads, cell_name):
         """Plot energy vs slew rate vs fanout"""
+        # TODO: Consider moving this to Pin, as all the data is eventually stored there anyways
         figure = plt.figure()
         figure.suptitle(f'Cell {cell_name} | Arc: {self.arc_str()}')
 
