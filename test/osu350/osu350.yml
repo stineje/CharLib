@@ -30,36 +30,43 @@ settings:
             voltage:    3.3
     cell_defaults:
         model: test/osu350/model.sp
-        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
-        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        # slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        # loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        slews: [0.015, 0.08, 0.4]
+        loads: [0.06, 1.2]
         simulation_timestep: auto
-        plots:
-            - io
-            - delay
-            - energy
+        simulation:
+            setup:
+                highest:    1
+                lowest:     0.01
+                timestep:   0.005
+            hold:
+                highest:    1
+                lowest:     0.01
+                timestep:   0.005
 cells:
-    # INVX1:
-        # netlist:    osu350_spice_temp/INVX1.sp
-        # area:       128
-        # inputs:     [A]
-        # outputs:    ['Y']
-        # functions:
-            # - Y=~A
-    # AND2X1:
-        # netlist:    osu350_spice_temp/AND2X1.sp
-        # area:       128
-        # inputs:     [A,B]
-        # outputs:    ['Y']
-        # functions:
-            # - Y=A&B
-    # FAX1:
-        # netlist:    osu350_spice_temp/FAX1.sp
-        # area:       480
-        # inputs:     [A, B, C]
-        # outputs:    [YC, YS]
-        # functions:
-            # - YC=(A&B)|(C&(A^B))
-            # - YS=A^B^C
+    INVX1:
+        netlist:    osu350_spice_temp/INVX1.sp
+        area:       128
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:
+            - Y=~A
+    AND2X1:
+        netlist:    osu350_spice_temp/AND2X1.sp
+        area:       128
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:
+            - Y=A&B
+    FAX1:
+        netlist:    osu350_spice_temp/FAX1.sp
+        area:       480
+        inputs:     [A, B, C]
+        outputs:    [YC, YS]
+        functions:
+            - YC=(A&B)|(C&(A^B))
+            - YS=A^B^C
     # HAX1:
         # netlist:    osu350_spice_temp/HAX1.sp
         # area:       320
@@ -77,18 +84,6 @@ cells:
         # flops:      [P0002,P0003]
         # functions:
             # - Q=P0002
-        # simulation:
-            # setup:
-                # highest:    1
-                # lowest:     0.01
-                # timestep:   0.01
-            # hold:
-                # highest:    1
-                # lowest:     0.01
-                # timestep:   0.01
-        # test_vectors:
-            # - ['0101', '1', '0', '10', '10']
-            # - ['0101', '0', '0', '01', '01']
     DFFSR:
         netlist:    osu350_spice_temp/DFFSR.sp
         area:       704
@@ -100,17 +95,3 @@ cells:
         flops:      [P0002,P0003]
         functions:
             - Q=D
-        simulation:
-            setup:
-                highest:    1
-                lowest:     0.01
-                timestep:   0.005
-            hold:
-                highest:    1
-                lowest:     0.01
-                timestep:   0.005
-        test_vectors:
-            # - ['0101', '1', '1', '0', '0', '01', '01']
-            - ['0101', '1', '1', '0', '0', '10', '10']
-        plots:
-            - io

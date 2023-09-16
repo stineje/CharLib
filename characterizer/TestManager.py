@@ -734,6 +734,31 @@ class SequentialTestManager(TestManager):
         else:
             raise TypeError(f'Invalid type for sim_setup_timestamp: {type(value)}')
 
+    @property
+    def test_vectors(self) -> list:
+        """Generate a rise and fall test vector for each D->Q path"""
+        if self.stored_test_vectors:
+            return self.stored_test_vectors
+        test_vectors = []
+        for q_target in self.out_ports:
+            for d_target in self.in_ports:
+                for direction in ['01', '10']:
+                    test_vector = []
+                    test_vector.append('0101'if self.clock_trigger == 'posedge' else '1010')
+                    if self.set:
+                        test_vector.append('0' if self.set_trigger == 'posedge' else '1')
+                    if self.reset:
+                        test_vector.append('0' if self.reset_trigger == 'posedge' else '1')
+                    for _ in self.flops:
+                        test_vector.append('0') # FIXME Pretty sure flops are nonfunctional at the moment
+                    for d in self.in_ports:
+                        test_vector.append(direction if d is d_target else '0')
+                    for q in self.out_ports:
+                        test_vector.append(direction if q is q_target else '0')
+                    test_vectors.append(test_vector)
+        return test_vectors
+
+
     def characterize(self, settings):
         """Run Delay, Recovery & Removal characterization for a sequential cell"""
         unsorted_harnesses = []
@@ -748,10 +773,30 @@ class SequentialTestManager(TestManager):
                     self._run_delay(settings, harness, slew, load, trial_name)
 
             # Add harness to collection after characterization
-            unsorted_harnesses.append(harness)
+            self.harnesses.append(harness)
 
-        # TODO: Filter and sort harnesses
-        [self.harnesses.append(h) for h in unsorted_harnesses]
+        for out_port in self.out_ports:
+            for in_port in self.in_ports:
+                self.cell[out_port.name].add_timing(in_port.name)
+                for direction in ['rise', 'fall']:
+                    # Identify the correct harness
+                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
+
+                    # Construct the table
+                    index_1 = [str(slew) for slew in self.in_slews]
+                    index_2 = [str(load) for load in self.out_loads]
+                    prop_values = []
+                    tran_values = []
+                    for slew in index_1:
+                        for load in index_2:
+                            result = harness.results[slew][load]
+                            prop_value = (result['prop_in_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            prop_values.append(f'{prop_value:7f}')
+                            tran_value = (result['trans_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            tran_values.append(f'{tran_value:7f}')
+                    template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should be in LibrarySettings
+                    self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
+                    self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
 
         # Display plots
         if 'io' in self.plots:

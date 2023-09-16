@@ -14,7 +14,7 @@ class PinTestBinding:
 
     @property
     def direction(self) -> str:
-        """Return pin direction (if applicable)"""
+        """Return pin state change direction (if applicable)"""
         if self.state.startswith(('01', 'z1')):
             return 'rise'
         elif self.state.startswith(('10', 'z0')):
