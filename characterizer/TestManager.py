@@ -2,12 +2,16 @@
 
 import threading
 from pathlib import Path
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+from PySpice.Plot.BodeDiagram import bode_diagram
 from PySpice.Spice.Netlist import Circuit
-from PySpice import Unit
+from PySpice.Unit import *
 
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
 from characterizer.LogicParser import parse_logic
-
 from liberty.export import Cell, Pin
 
 class TestManager:
@@ -306,7 +310,12 @@ class CombinationalTestManager(TestManager):
     """A combinational cell test manager"""
     
     def characterize(self, settings):
-        """Run delay characterization for an N-input M-output combinational cell"""
+        """Characterize a combinational cell"""
+        # Measure input capacitance for all input pins
+        for pin in self.in_ports:
+            result = self._run_input_capacitance(settings, pin.name)
+            
+        
         # Run delay simulation for all test vectors
         unsorted_harnesses = []
         for test_vector in self.test_vectors:
@@ -367,9 +376,9 @@ class CombinationalTestManager(TestManager):
                     for slew in index_1:
                         for load in index_2:
                             result = harness.results[slew][load]
-                            prop_value = (result['prop_in_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            prop_value = (result['prop_in_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
                             prop_values.append(f'{prop_value:7f}')
-                            tran_value = (result['trans_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            tran_value = (result['trans_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
                             tran_values.append(f'{tran_value:7f}')
                     template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should probably be in LibrarySettings
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
@@ -397,11 +406,10 @@ class CombinationalTestManager(TestManager):
         t_simend = 1000 * data_slew
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
-        vpw = settings.pwell.voltage * settings.units.voltage
-        vnw = settings.nwell.voltage * settings.units.voltage
 
         # Initialize circuit
-        circuit = Circuit(self.cell.name)
+        # TODO: Consider adding a driving cell (such as an inverter) to improve accuracy
+        circuit = Circuit(f'{self.cell.name}_delay')
         circuit.include(self.model)
         circuit.include(self.netlist)
         (v_start, v_end) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
@@ -472,6 +480,65 @@ class CombinationalTestManager(TestManager):
 
         # Run transient analysis
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
+
+    def _run_input_capacitance(self, settings, target_pin):
+        """Measure the input capacitance of target_pin.
+
+        Assuming a black-box model, treat the cell as a grounded capacitor with fixed capacitance.
+        Feed in a known input current, then measure the time required for the cell to reach some
+        specified voltage."""
+        vdd = settings.vdd.voltage * settings.units.voltage
+        vss = settings.vss.voltage * settings.units.voltage
+        f_start = 10 @ u_kHz
+        f_stop = 10 @ u_GHz
+
+        # Initialize circuit
+        circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
+        circuit.include(self.model)
+        circuit.include(self.netlist)
+        circuit.V('dd', 'vdd', circuit.gnd, vdd)
+        circuit.V('ss', 'vss', circuit.gnd, vss)
+        circuit.SinusoidalCurrentSource('s', circuit.gnd, 'vin', amplitude=1@u_A)
+        circuit.R('s', circuit.gnd, 'vin', 1 @ u_GOhm)
+
+        # Initialize device under test and wire up ports
+        ports = self.definition.upper().split()[1:]
+        subcircuit_name = ports.pop(0)
+        connections = []
+        for port in ports:
+            if port == target_pin:
+                connections.append('vin')
+            elif port == settings.vdd.name.upper():
+                connections.append('vdd')
+            elif port == settings.vss.name.upper():
+                connections.append('vss')
+            else:
+                # Add a large capacitor to each output
+                circuit.C(port, f'v{port}', circuit.gnd, 1 @ u_pF)
+                connections.append(f'v{port}')
+        circuit.X('dut', subcircuit_name, *connections)
+
+        # Initialize simulator
+        simulator = circuit.simulator(temperature=settings.temperature,
+                                      nominal_temperature=settings.temperature,
+                                      simulator=settings.simulator)
+        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
+        simulator.initial_condition(vin=0)
+
+        # Measure capacitance
+        analysis = simulator.ac(start_frequency=1@u_Hz, stop_frequency=10@u_GHz, number_of_points=101, variation='lin')
+        capacitance_values = np.reciprocal(np.absolute(2*np.pi*analysis.vin*analysis.frequency))
+
+        # Plot input impedance (just for kicks)
+        figure, ax = plt.subplots()
+        figure.suptitle(f'{self.cell.name} Input Impedance vs Frequency')
+        ax.plot(analysis.frequency, np.absolute(analysis.vin))
+        ax.set(xlabel='Frequency [Hz]', ylabel='Impedance [Ohm]')
+        ax.grid()
+        plt.tight_layout()
+        plt.show()
+
+        print(capacitance)
         
 
 class SequentialTestManager(TestManager):
@@ -944,6 +1011,7 @@ class SequentialTestManager(TestManager):
         t_sim_end = t_data_edge_2_end + t_stabilizing
 
         # Initialize circuit
+        # TODO: Consider adding a driving cell to improve accuracy
         circuit = Circuit(self.cell.name)
         circuit.include(self.model)
         circuit.include(self.netlist)

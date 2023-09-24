@@ -371,7 +371,7 @@ class Table:
         return bool(self.index_2)
 
     @property
-    def shape(self) -> str:
+    def shape(self):
         """Return the table shape (not including indices)."""
         return len(self.index_1) if not self.is_2d() else (len(self.index_1), len(self.index_2))
 
@@ -394,3 +394,7 @@ class Table:
             table_str.append(f'  values ("{", ".join(values)}");')
         table_str.append('}')
         return '\n'.join(table_str)
+
+    def data(self):
+        """Return the table values reshaped according to the index lengths"""
+        return np.reshape(self.values, self.shape)
