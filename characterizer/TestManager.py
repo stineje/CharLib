@@ -489,8 +489,10 @@ class CombinationalTestManager(TestManager):
         specified voltage."""
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
-        f_start = 10 @ u_kHz
+        f_start = 1 @ u_Hz
         f_stop = 10 @ u_GHz
+        r_s = 1 @ u_GOhm
+        i_s = 1 @ u_A
 
         # Initialize circuit
         circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
@@ -498,8 +500,8 @@ class CombinationalTestManager(TestManager):
         circuit.include(self.netlist)
         circuit.V('dd', 'vdd', circuit.gnd, vdd)
         circuit.V('ss', 'vss', circuit.gnd, vss)
-        circuit.SinusoidalCurrentSource('s', circuit.gnd, 'vin', amplitude=1@u_A)
-        circuit.R('s', circuit.gnd, 'vin', 1 @ u_GOhm)
+        circuit.SinusoidalCurrentSource('s', circuit.gnd, 'vin', amplitude=i_s)
+        circuit.R('s', circuit.gnd, 'vin', r_s)
 
         # Initialize device under test and wire up ports
         ports = self.definition.upper().split()[1:]
@@ -522,12 +524,11 @@ class CombinationalTestManager(TestManager):
         simulator = circuit.simulator(temperature=settings.temperature,
                                       nominal_temperature=settings.temperature,
                                       simulator=settings.simulator)
-        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
         simulator.initial_condition(vin=0)
 
         # Measure capacitance
-        analysis = simulator.ac(start_frequency=1@u_Hz, stop_frequency=10@u_GHz, number_of_points=101, variation='lin')
-        capacitance_values = np.reciprocal(np.absolute(2*np.pi*analysis.vin*analysis.frequency))
+        analysis = simulator.ac(start_frequency=f_start, stop_frequency=f_stop, number_of_points=101, variation='lin')
+        capacitance = np.polyfit(2*np.pi*analysis.frequency, i_s*np.reciprocal(np.absolute(analysis.vin)), 1)
 
         # Plot input impedance (just for kicks)
         figure, ax = plt.subplots()
@@ -537,8 +538,8 @@ class CombinationalTestManager(TestManager):
         ax.grid()
         plt.tight_layout()
         plt.show()
-
-        print(capacitance)
+        
+        input(f'C: {capacitance}')
         
 
 class SequentialTestManager(TestManager):
