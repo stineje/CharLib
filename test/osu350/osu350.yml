@@ -52,13 +52,13 @@ cells:
         outputs:    ['Y']
         functions:
             - Y=~A
-    # AND2X1:
-        # netlist:    osu350_spice_temp/AND2X1.sp
-        # area:       128
-        # inputs:     [A,B]
-        # outputs:    ['Y']
-        # functions:
-            # - Y=A&B
+    AND2X1:
+        netlist:    osu350_spice_temp/AND2X1.sp
+        area:       128
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:
+            - Y=A&B
     # FAX1:
         # netlist:    osu350_spice_temp/FAX1.sp
         # area:       480

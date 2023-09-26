@@ -313,8 +313,9 @@ class CombinationalTestManager(TestManager):
         """Characterize a combinational cell"""
         # Measure input capacitance for all input pins
         for pin in self.in_ports:
-            result = self._run_input_capacitance(settings, pin.name)
-            
+            input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
+            self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
+
         
         # Run delay simulation for all test vectors
         unsorted_harnesses = []
@@ -485,14 +486,14 @@ class CombinationalTestManager(TestManager):
         """Measure the input capacitance of target_pin.
 
         Assuming a black-box model, treat the cell as a grounded capacitor with fixed capacitance.
-        Feed in a known input current, then measure the time required for the cell to reach some
-        specified voltage."""
+        Perform an AC sweep on the circuit and evaluate the capacitance as d/ds(i(s)/v(s))."""
+        # TODO: buffer the input pin with an inverter to improve results
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
-        f_start = 1 @ u_Hz
+        f_start = 10 @ u_Hz
         f_stop = 10 @ u_GHz
-        r_s = 1 @ u_GOhm
-        i_s = 1 @ u_A
+        r_s = 10 @ u_GOhm
+        i_s = 1 @ u_uA
 
         # Initialize circuit
         circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
@@ -500,7 +501,7 @@ class CombinationalTestManager(TestManager):
         circuit.include(self.netlist)
         circuit.V('dd', 'vdd', circuit.gnd, vdd)
         circuit.V('ss', 'vss', circuit.gnd, vss)
-        circuit.SinusoidalCurrentSource('s', circuit.gnd, 'vin', amplitude=i_s)
+        circuit.I('s', circuit.gnd, 'vin', f'DC 0 AC 1uA')
         circuit.R('s', circuit.gnd, 'vin', r_s)
 
         # Initialize device under test and wire up ports
@@ -515,8 +516,8 @@ class CombinationalTestManager(TestManager):
             elif port == settings.vss.name.upper():
                 connections.append('vss')
             else:
-                # Add a large capacitor to each output
-                circuit.C(port, f'v{port}', circuit.gnd, 1 @ u_pF)
+                # Add a large resistor to each output
+                circuit.R(port, f'v{port}', circuit.gnd, r_s)
                 connections.append(f'v{port}')
         circuit.X('dut', subcircuit_name, *connections)
 
@@ -524,23 +525,13 @@ class CombinationalTestManager(TestManager):
         simulator = circuit.simulator(temperature=settings.temperature,
                                       nominal_temperature=settings.temperature,
                                       simulator=settings.simulator)
-        simulator.initial_condition(vin=0)
 
-        # Measure capacitance
-        analysis = simulator.ac(start_frequency=f_start, stop_frequency=f_stop, number_of_points=101, variation='lin')
-        capacitance = np.polyfit(2*np.pi*analysis.frequency, i_s*np.reciprocal(np.absolute(analysis.vin)), 1)
-
-        # Plot input impedance (just for kicks)
-        figure, ax = plt.subplots()
-        figure.suptitle(f'{self.cell.name} Input Impedance vs Frequency')
-        ax.plot(analysis.frequency, np.absolute(analysis.vin))
-        ax.set(xlabel='Frequency [Hz]', ylabel='Impedance [Ohm]')
-        ax.grid()
-        plt.tight_layout()
-        plt.show()
+        # Measure capacitance as the slope of the conductance
+        analysis = simulator.ac('dec', 100, f_start, f_stop)
+        impedance = np.abs(analysis.vin)/i_s
+        [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
         
-        input(f'C: {capacitance}')
-        
+        return capacitance        
 
 class SequentialTestManager(TestManager):
     """A sequential cell test manager"""

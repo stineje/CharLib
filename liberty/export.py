@@ -50,10 +50,12 @@ class Cell:
 
     def __str__(self) -> str:
         """Return str(self)"""
-        lib_str = [
-            f'cell ({self.name}) {{',
-            f'  area : {self.area};',
-        ]
+        lib_str = [f'cell ({self.name}) {{']
+        if 'BUF' in self.name:
+            lib_str.append('  cell_footprint : buf;')
+        elif 'INV' in self.name:
+            lib_str.append('  cell_footprint : inv;')
+        lib_str.append(f'  area : {self.area};')
         if self.is_pad_cell():
             lib_str.append('  pad_cell : true;')
         for key, value in self.attributes:
@@ -251,16 +253,16 @@ class Pin:
             lib_str.append('  is_pad : true;')
         lib_str.append(f'  direction : {self.direction};')
         if self.is_pad() and self.drive_current:
-            lib_str.append(f'  drive_current : {self.drive_current};')
+            lib_str.append(f'  drive_current : {self.drive_current:7f};')
         lib_str.extend([
-            f'  capacitance : {self.capacitance};',
-            f'  rise_capacitance : {self.rise_capacitance};',
-            f'  fall_capacitance : {self.fall_capacitance};',
+            f'  capacitance : {self.capacitance:7f};',
+            f'  rise_capacitance : {self.rise_capacitance:7f};',
+            f'  fall_capacitance : {self.fall_capacitance:7f};',
         ])
         if self.is_clk():
             lib_str.append('  clock : true;')
         if self.max_capacitance:
-            lib_str.append(f'  max_capacitance : {self.max_capacitance};')
+            lib_str.append(f'  max_capacitance : {self.max_capacitance:7f};')
         if self.function:
             lib_str.append(f'  function : "{self.function}";')
         if self.three_state:
