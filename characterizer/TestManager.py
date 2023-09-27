@@ -387,7 +387,7 @@ class CombinationalTestManager(TestManager):
 
         # Display plots
         if 'io' in self.plots:
-            [harness.plot_io(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
+            [self.plot_io(settings, harness) for harness in self.harnesses]
         if 'delay' in self.plots:
             [harness.plot_delay(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
         if 'energy' in self.plots:
@@ -490,10 +490,13 @@ class CombinationalTestManager(TestManager):
         # TODO: buffer the input pin with an inverter to improve results
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
+        # TODO: Make these values configurable from settings
         f_start = 10 @ u_Hz
         f_stop = 10 @ u_GHz
         r_s = 10 @ u_GOhm
         i_s = 1 @ u_uA
+        r_out = 10 @ u_GOhm
+        c_out = 1 @ u_pF
 
         # Initialize circuit
         circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
@@ -516,8 +519,9 @@ class CombinationalTestManager(TestManager):
             elif port == settings.vss.name.upper():
                 connections.append('vss')
             else:
-                # Add a large resistor to each output
-                circuit.R(port, f'v{port}', circuit.gnd, r_s)
+                # Add a resistor and capacitor to each output
+                circuit.C(port, f'v{port}', circuit.gnd, c_out)
+                circuit.R(port, f'v{port}', circuit.gnd, r_out)
                 connections.append(f'v{port}')
         circuit.X('dut', subcircuit_name, *connections)
 
@@ -531,7 +535,42 @@ class CombinationalTestManager(TestManager):
         impedance = np.abs(analysis.vin)/i_s
         [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
         
-        return capacitance        
+        return capacitance
+
+    def plot_io(self, settings, harness):
+        """Plot I/O voltages vs time"""
+        # TODO: Look for ways to generate fewer plots here - maybe a creative 3D plot
+        # Group data by slew rate so that inputs are the same
+        for slew in self.in_slews:
+            # Generate plots for Vin and Vout
+            figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
+            figure.suptitle(f'Cell {self.cell.name} | Arc: {harness.arc_str()} | Slew: {str(slew*settings.units.time)}')
+            volt_units = str(settings.units.voltage.prefixed_unit)
+            time_units = str(settings.units.time.prefixed_unit)
+            ax_i.set(
+                ylabel=f'Vin (pin {harness.target_in_port.pin.name}) [{volt_units}]',
+                title='I/O Voltages vs. Time'
+            )
+            ax_o.set(
+                ylabel=f'Vout (pin {harness.target_out_port.pin.name}) [{volt_units}]',
+                xlabel=f'Time [{time_units}]'
+            )
+            for load in self.out_loads:
+                analysis = harness.results[str(slew)][str(load)]
+                ax_o.plot(analysis.time / settings.units.time, analysis.vout, label=f'Fanout={load*settings.units.capacitance}')
+            ax_o.legend()
+            ax_i.plot(analysis.time / settings.units.time, analysis.vin)
+
+            # Add lines indicating logic levels and timing
+            for ax in [ax_i, ax_o]:
+                ax.grid()
+                for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
+                    ax.axhline(level, color='0.5', linestyle='--')
+                for t in [slew, 2*slew]:
+                    ax.axvline(float(t), color='r', linestyle=':')
+
+        return figure
+        
 
 class SequentialTestManager(TestManager):
     """A sequential cell test manager"""
@@ -988,7 +1027,7 @@ class SequentialTestManager(TestManager):
         vss = settings.vss.voltage * settings.units.voltage
 
         # Set up timing parameters for clock and data events
-        t_stabilizing = min(10@Unit.u_ns, 100*data_slew)
+        t_stabilizing = 100*data_slew
         t_clk_edge_1_start = data_slew + t_setup
         t_clk_edge_1_end = t_clk_edge_1_start + clk_slew
         t_clk_edge_2_start = t_clk_edge_1_end + t_hold

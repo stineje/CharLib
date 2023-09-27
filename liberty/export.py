@@ -385,7 +385,7 @@ class Table:
         ]
         if self.index_2:
             table_str.append(f'  index_2 ("{", ".join(self.index_2)}");')
-        values = np.reshape(self.values, self.shape).tolist()
+        values = self.data().tolist()
         if self.is_2d():
             table_str.append('  values ( \\')
             rows = ', \\\n'.join([f'"{", ".join(group)}"' for group in values]).split('\n')

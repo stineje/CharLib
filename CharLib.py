@@ -113,6 +113,7 @@ def execute_lib(characterizer: Characterizer, library_dir):
 
     # Initialize workspace, characterize, and export
     characterizer.characterize()
+    plt.tight_layout()
     plt.show()
     for cell in characterizer.cells:
         exportFiles(characterizer.settings, cell)

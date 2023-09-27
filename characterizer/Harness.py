@@ -193,40 +193,6 @@ class CombinationalHarness (Harness):
         if not self._target_in_port:
             raise ValueError(f'Unable to parse target input port from test vector {test_vector}')
 
-    def plot_io(self, settings, slews, loads, cell_name):
-        """Plot I/O voltages vs time for the given slew rates and output loads"""
-        # TODO: Evaluate whether a 3d plot might be apt here instead of creating a huge number of 2d plots
-        # Group data by slew rate so that Vin is the same
-        for slew in slews:
-            # Generate plots for Vin and Vout
-            figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
-            figure.suptitle(f'Cell {cell_name} | Arc: {self.arc_str()} | Slew Rate: {str(slew * settings.units.time)}')
-
-            # Set up plot parameters
-            ax_i.set_ylabel(f'Vin (pin {self.target_in_port.pin.name}) [{str(settings.units.voltage.prefixed_unit)}]')
-            ax_i.set_title('I/O Voltage vs. Time')
-            ax_o.set_ylabel(f'Vout (pin {self.target_out_port.pin.name}) [{str(settings.units.voltage.prefixed_unit)}]')
-            ax_o.set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
-
-            # Add dotted lines indicating logic levels, energy measurement bounds, and timing
-            for ax in [ax_i, ax_o]:
-                ax.grid()
-                for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
-                    ax.axhline(level, color='0.5', linestyle='--')
-                for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
-                    ax.axhline(level, color='g', linestyle=':')
-                for t in [slew, 2*slew]:
-                    ax.axvline(float(t), color='r', linestyle=':')
-
-            # Plot simulation data
-            # Input is plotted once per slew rate group
-            # Output is plotted by fanout (aka output capacitive load)
-            for load in loads:
-                data = self.results[str(slew)][str(load)]
-                ax_o.plot(data.time / settings.units.time, data['vout'], label=f'Fanout={load*settings.units.capacitance}')
-            ax_i.plot(data.time / settings.units.time, data['vin'])
-            ax_o.legend()
-
     def plot_delay(self, settings, slews, loads, cell_name):
         """Plot propagation delay and transport delay vs slew rate vs fanout"""
         # TODO: Consider moving this to Pin, as all this data is eventually stored there anyways
