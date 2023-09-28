@@ -305,10 +305,66 @@ class TestManager:
                         test_vectors.append(test_vector)
             return test_vectors
 
+    def _run_input_capacitance(self, settings, target_pin):
+        """Measure the input capacitance of target_pin.
+
+        Assuming a black-box model, treat the cell as a grounded capacitor with fixed capacitance.
+        Perform an AC sweep on the circuit and evaluate the capacitance as d/ds(i(s)/v(s))."""
+        print(f'Running input_capacitance for pin {target_pin} of cell {self.cell.name}')
+        # TODO: buffer the input pin with an inverter to improve results
+        vdd = settings.vdd.voltage * settings.units.voltage
+        vss = settings.vss.voltage * settings.units.voltage
+        # TODO: Make these values configurable from settings
+        f_start = 10 @ u_Hz
+        f_stop = 10 @ u_GHz
+        r_in = 10 @ u_GOhm
+        i_in = 1 @ u_uA
+        r_out = 10 @ u_GOhm
+        c_out = 1 @ u_pF
+
+        # Initialize circuit
+        circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
+        circuit.include(self.model)
+        circuit.include(self.netlist)
+        circuit.V('dd', 'vdd', circuit.gnd, vdd)
+        circuit.V('ss', 'vss', circuit.gnd, vss)
+        circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC 1uA')
+        circuit.R('in', circuit.gnd, 'vin', r_in)
+
+        # Initialize device under test and wire up ports
+        ports = self.definition.upper().split()[1:]
+        subcircuit_name = ports.pop(0)
+        connections = []
+        for port in ports:
+            if port == target_pin:
+                connections.append('vin')
+            elif port == settings.vdd.name.upper():
+                connections.append('vdd')
+            elif port == settings.vss.name.upper():
+                connections.append('vss')
+            else:
+                # Add a resistor and capacitor to each output
+                circuit.C(port, f'v{port}', circuit.gnd, c_out)
+                circuit.R(port, f'v{port}', circuit.gnd, r_out)
+                connections.append(f'v{port}')
+        circuit.X('dut', subcircuit_name, *connections)
+
+        # Initialize simulator
+        simulator = circuit.simulator(temperature=settings.temperature,
+                                      nominal_temperature=settings.temperature,
+                                      simulator=settings.simulator)
+
+        # Measure capacitance as the slope of the conductance
+        analysis = simulator.ac('dec', 100, f_start, f_stop)
+        impedance = np.abs(analysis.vin)/i_in
+        [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
+
+        return capacitance
+
 
 class CombinationalTestManager(TestManager):
     """A combinational cell test manager"""
-    
+
     def characterize(self, settings):
         """Characterize a combinational cell"""
         # Measure input capacitance for all input pins
@@ -316,7 +372,6 @@ class CombinationalTestManager(TestManager):
             input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
-        
         # Run delay simulation for all test vectors
         unsorted_harnesses = []
         for test_vector in self.test_vectors:
@@ -389,7 +444,7 @@ class CombinationalTestManager(TestManager):
         if 'io' in self.plots:
             [self.plot_io(settings, harness) for harness in self.harnesses]
         if 'delay' in self.plots:
-            [harness.plot_delay(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
+            [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
         if 'energy' in self.plots:
             print("Energy plotting not yet supported") # TODO: Add correct energy measurement procedure
             # [harness.plot_energy(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
@@ -482,64 +537,10 @@ class CombinationalTestManager(TestManager):
         # Run transient analysis
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
 
-    def _run_input_capacitance(self, settings, target_pin):
-        """Measure the input capacitance of target_pin.
-
-        Assuming a black-box model, treat the cell as a grounded capacitor with fixed capacitance.
-        Perform an AC sweep on the circuit and evaluate the capacitance as d/ds(i(s)/v(s))."""
-        # TODO: buffer the input pin with an inverter to improve results
-        vdd = settings.vdd.voltage * settings.units.voltage
-        vss = settings.vss.voltage * settings.units.voltage
-        # TODO: Make these values configurable from settings
-        f_start = 10 @ u_Hz
-        f_stop = 10 @ u_GHz
-        r_s = 10 @ u_GOhm
-        i_s = 1 @ u_uA
-        r_out = 10 @ u_GOhm
-        c_out = 1 @ u_pF
-
-        # Initialize circuit
-        circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
-        circuit.include(self.model)
-        circuit.include(self.netlist)
-        circuit.V('dd', 'vdd', circuit.gnd, vdd)
-        circuit.V('ss', 'vss', circuit.gnd, vss)
-        circuit.I('s', circuit.gnd, 'vin', f'DC 0 AC 1uA')
-        circuit.R('s', circuit.gnd, 'vin', r_s)
-
-        # Initialize device under test and wire up ports
-        ports = self.definition.upper().split()[1:]
-        subcircuit_name = ports.pop(0)
-        connections = []
-        for port in ports:
-            if port == target_pin:
-                connections.append('vin')
-            elif port == settings.vdd.name.upper():
-                connections.append('vdd')
-            elif port == settings.vss.name.upper():
-                connections.append('vss')
-            else:
-                # Add a resistor and capacitor to each output
-                circuit.C(port, f'v{port}', circuit.gnd, c_out)
-                circuit.R(port, f'v{port}', circuit.gnd, r_out)
-                connections.append(f'v{port}')
-        circuit.X('dut', subcircuit_name, *connections)
-
-        # Initialize simulator
-        simulator = circuit.simulator(temperature=settings.temperature,
-                                      nominal_temperature=settings.temperature,
-                                      simulator=settings.simulator)
-
-        # Measure capacitance as the slope of the conductance
-        analysis = simulator.ac('dec', 100, f_start, f_stop)
-        impedance = np.abs(analysis.vin)/i_s
-        [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
-        
-        return capacitance
-
     def plot_io(self, settings, harness):
         """Plot I/O voltages vs time"""
         # TODO: Look for ways to generate fewer plots here - maybe a creative 3D plot
+        figures = []
         # Group data by slew rate so that inputs are the same
         for slew in self.in_slews:
             # Generate plots for Vin and Vout
@@ -569,7 +570,8 @@ class CombinationalTestManager(TestManager):
                 for t in [slew, 2*slew]:
                     ax.axvline(float(t), color='r', linestyle=':')
 
-        return figure
+            figures.append(figure)
+        return figures
         
 
 class SequentialTestManager(TestManager):
@@ -859,6 +861,11 @@ class SequentialTestManager(TestManager):
 
     def characterize(self, settings):
         """Run Delay, Recovery & Removal characterization for a sequential cell"""
+        # Measure input capacitance for all input pins
+        for pin in self.in_ports:
+            input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
+            self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
+
         unsorted_harnesses = []
         for test_vector in self.test_vectors:
             # Generate harness
@@ -888,9 +895,9 @@ class SequentialTestManager(TestManager):
                     for slew in index_1:
                         for load in index_2:
                             result = harness.results[slew][load]
-                            prop_value = (result['prop_in_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            prop_value = (result['prop_in_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
                             prop_values.append(f'{prop_value:7f}')
-                            tran_value = (result['trans_out'] @ Unit.u_s).convert(settings.units.time.prefixed_unit).value
+                            tran_value = (result['trans_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
                             tran_values.append(f'{tran_value:7f}')
                     template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should be in LibrarySettings
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
@@ -898,9 +905,9 @@ class SequentialTestManager(TestManager):
 
         # Display plots
         if 'io' in self.plots:
-            [harness.plot_io(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
+            [self.plot_io(settings, harness) for harness in self.harnesses]
         if 'delay' in self.plots:
-            [harness.plot_delay(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
+            [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
         if 'energy' in self.plots:
             [harness.plot_energy(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
 
@@ -1027,7 +1034,7 @@ class SequentialTestManager(TestManager):
         vss = settings.vss.voltage * settings.units.voltage
 
         # Set up timing parameters for clock and data events
-        t_stabilizing = 100*data_slew
+        t_stabilizing = 100*data_slew # TODO: Figure out how to tune this so that the test works
         t_clk_edge_1_start = data_slew + t_setup
         t_clk_edge_1_end = t_clk_edge_1_start + clk_slew
         t_clk_edge_2_start = t_clk_edge_1_end + t_hold
@@ -1134,9 +1141,63 @@ class SequentialTestManager(TestManager):
 
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
 
-    def export(self, settings):
-        return 'TODO' # TODO: Use liberty.exports
+    def plot_io(self, settings, harness):
+        """Plot I/O voltages vs time"""
+        # TODO: Look for ways to generate fewer plots here - maybe a creative 3D plot
+        figures = []
+        # Group data by slew rate so that inputs are the same
+        for slew in self.in_slews:
+            for load in self.out_loads:
+                # Add axes for clk, s, r, d, q (in that order)
+                # Use an additive approach in case some of those aren't present
+                num_axes = 1
+                CLK = 0
+                if self.set:
+                    S = num_axes
+                    num_axes += 1
+                if self.reset:
+                    R = num_axes
+                    num_axes += 1
+                D = num_axes
+                num_axes += 1
+                Q = num_axes
+                num_axes += 1
+                ratios = np.ones(num_axes).tolist()
+                ratios[-1] = num_axes
+                figure, axes = plt.subplots(num_axes, sharex=True, height_ratios=ratios)
+                figure.suptitle(f'{self.cell.name} | {harness.short_str}')
 
+                # Set up plots
+                for ax in axes:
+                    for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
+                        ax.axhline(level, color='0.5', linestyle='--')
+                    # TODO: Set up vlines for important timing events
+                    ax.set_yticks([settings.vss.voltage, settings.vdd.voltage])
+                volt_units = str(settings.units.voltage.prefixed_unit)
+                time_units = str(settings.units.time.prefixed_unit)
+                axes[CLK].set(
+                    title=f'Slew Rate: {str(slew*settings.units.time)} | Fanout: {str(load*settings.units.capacitance)}',
+                    ylabel=f'CLK [{volt_units}]'
+                )
+                if self.set:
+                    axes[S].set_ylabel(f'S [{volt_units}]')
+                if self.reset:
+                    axes[R].set_ylabel(f'R [{volt_units}]')
+                axes[D].set_ylabel(f'D [{volt_units}]')
+                axes[Q].set_ylabel(f'Q [{volt_units}]')
+                axes[-1].set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
+                analysis = harness.results[str(slew)][str(load)]
+                t = analysis.time / settings.units.time
+                axes[CLK].plot(t, analysis.vcin)
+                if self.set:
+                    axes[S].plot(t, analysis.vsin)
+                if self.reset:
+                    axes[R].plot(t, analysis.vrin)
+                axes[D].plot(t, analysis.vin)
+                axes[Q].plot(t, analysis.vout)
+
+                figures.append(figure)
+        return figures
 
 def _flip_direction(direction: str) -> str:
     return 'fall' if direction == 'rise' else 'rise'

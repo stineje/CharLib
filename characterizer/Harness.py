@@ -193,46 +193,6 @@ class CombinationalHarness (Harness):
         if not self._target_in_port:
             raise ValueError(f'Unable to parse target input port from test vector {test_vector}')
 
-    def plot_delay(self, settings, slews, loads, cell_name):
-        """Plot propagation delay and transport delay vs slew rate vs fanout"""
-        # TODO: Consider moving this to Pin, as all this data is eventually stored there anyways
-        figure = plt.figure()
-        figure.suptitle(f'Cell {cell_name} | Arc: {self.arc_str()}')
-
-        ax = figure.add_subplot(projection='3d')
-        ax.set_proj_type('ortho')
-
-        # Tabulate delay data
-        prop_data = []
-        tran_data = []
-        for slew in slews:
-            prop_row = []
-            tran_row = []
-            for load in loads:
-                prop_delay = self.results[str(slew)][str(load)]['prop_in_out'] @ u_s
-                prop_row.append(float(prop_delay.convert(settings.units.time.prefixed_unit).value))
-                tran_delay = self.results[str(slew)][str(load)]['trans_out'] @ u_s
-                tran_row.append(float(tran_delay.convert(settings.units.time.prefixed_unit).value))
-            prop_data.append(prop_row)
-            tran_data.append(tran_row)
-
-        # Expand x and y vectors to 2d arrays
-        x_data = np.repeat(np.expand_dims(slews, 1), len(loads), 1)
-        y_data = np.swapaxes(np.repeat(np.expand_dims(loads, 1), len(slews), 1), 0, 1)
-
-        # Plot delay data
-        p = ax.plot_surface(x_data, y_data, np.asarray(prop_data), edgecolor='red', cmap='inferno', alpha=0.3, label='Propagation Delay')
-        p._edgecolors2d = p._edgecolor3d # Workaround for legend. See https://stackoverflow.com/questions/54994600/pyplot-legend-poly3dcollection-object-has-no-attribute-edgecolors2d
-        p._facecolors2d = p._facecolor3d # Workaround for legend
-        t = ax.plot_surface(x_data, y_data, np.asarray(tran_data), edgecolor='blue', cmap='viridis', alpha=0.3, label='Transport Delay')
-        t._edgecolors2d = t._edgecolor3d # Workaround for legend
-        t._facecolors2d = t._facecolor3d # Workaround for legend
-        ax.set(xlabel=f'Slew Rate [{str(settings.units.time.prefixed_unit)}]',
-               ylabel=f'Fanout [{str(settings.units.capacitance.prefixed_unit)}]',
-               zlabel=f'Delay [{str(settings.units.time.prefixed_unit)}]',
-               title='Transport and Propagation delay vs. Slew Rate vs. Fanout')
-        ax.legend()
-
     def plot_energy(self, settings, slews, loads, cell_name):
         """Plot energy vs slew rate vs fanout"""
         # TODO: Consider moving this to Pin, as all the data is eventually stored there anyways
@@ -376,63 +336,6 @@ class SequentialHarness (Harness):
             return self.target_in_port
         else:
             return f'!{self.target_in_port}'
-
-    def plot_io(self, settings, slews, loads, title):
-        """Plot I/O voltages vs time for the given slew rates and output loads"""
-        # TODO: evaluate display options and try to find a better way of displaying these
-        for slew in slews:
-            for load in loads:
-                # Create a figure with axes for CLK, S (if present), R (if present) D, and Q in that order
-                # Use an additive approach so that we have keys for indexing the axes
-                num_axes = 1
-                CLK = 0
-                if self.set:
-                    S = num_axes
-                    num_axes += 1
-                if self.reset:
-                    R = num_axes
-                    num_axes += 1
-                D = num_axes
-                num_axes += 1
-                Q = num_axes
-                num_axes += 1
-                ratios=np.ones(num_axes).tolist()
-                ratios[-1] = num_axes
-                figure, axes = plt.subplots(num_axes, sharex=True, height_ratios=ratios)
-                figure.suptitle(f'{title} | {self.short_str()}')
-
-                # Set up plots
-                for ax in axes:
-                    for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
-                        ax.axhline(level, color='0.5', linestyle='--')
-                    # TODO: Set up vlines for important timing events
-                    ax.set_yticks([settings.vss.voltage, settings.vdd.voltage])
-                axes[CLK].set_title(f'Slew Rate: {str(slew*settings.units.time)} | Fanout: {str(load*settings.units.capacitance)}')
-                axes[CLK].set_ylabel(f'CLK [{str(settings.units.voltage.prefixed_unit)}]')
-                if self.set:
-                    axes[S].set_ylabel(f'S [{str(settings.units.voltage.prefixed_unit)}]')
-                if self.reset:
-                    axes[R].set_ylabel(f'R [{str(settings.units.voltage.prefixed_unit)}]')
-                axes[D].set_ylabel(f'D [{str(settings.units.voltage.prefixed_unit)}]')
-                axes[Q].set_ylabel(f'Q [{str(settings.units.voltage.prefixed_unit)}]')
-                for level in [settings.energy_meas_low_threshold_voltage(), settings.energy_meas_high_threshold_voltage()]:
-                    axes[Q].axhline(level, color='g', linestyle=':')
-                axes[-1].set_xlabel(f'Time [{str(settings.units.time.prefixed_unit)}]')
-
-                # Plot simulation data
-                data = self.results[str(slew)][str(load)]
-                t = data.time / settings.units.time
-                axes[Q].plot(t, data['vout'])
-                axes[CLK].plot(t, data['vcin'])
-                if self.set:
-                    axes[S].plot(t, data['vsin'])
-                if self.reset:
-                    axes[R].plot(t, data['vrin'])
-                axes[D].plot(t, data['vin'])
-                axes[Q].plot(t, data['vout'])
-
-    def plot_delay(self, settings, slews, loads, cell_name):
-        pass
 
     def plot_energy(self, settings, slews, loads, cell_name):
         pass

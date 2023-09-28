@@ -1,6 +1,7 @@
 """This module contains data structures used to read and write liberty files"""
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Cell:
     """A single standard cell"""
@@ -202,6 +203,7 @@ class Pin:
             timing_str.append('}')
             return '\n'.join(timing_str)
 
+
     @property
     def name(self) -> str:
         """Return pin name."""
@@ -322,6 +324,48 @@ class Pin:
         :param related_pin: related pin name for the timing information"""
         self.timing[related_pin] = Pin.TimingData(related_pin)
 
+    def plot_delay(self, settings, cell_name):
+        """Plot propagation and transport delays for rise and fall cases
+
+        Generate two plots: one for rise timing and one for fall timing. Both plots
+        should display propagation and transport delay as a function of slew rate and
+        capacitive load."""
+        # Input pins may not have delay data to plot. Prevent plotting in these cases
+        if self.direction == 'output':
+            figs = []
+            # Output pins have cell_{rise,fall} and {rise,fall}_transition
+            for pin, timing_data in self.timing.items():
+                for direction in ['rise', 'fall']:
+                    fig = plt.figure()
+                    fig.suptitle(f'{cell_name} pin {self.name} {direction} timing vs. pin {pin}')
+
+                    prop_table = timing_data[f'cell_{direction}']
+                    tran_table = timing_data[f'{direction}_transition']
+
+                    ax, indices = prop_table.generate_axes(fig)
+                    prop_surface = ax.plot_surface(*indices, np.asarray(prop_table.data()), edgecolor='red', cmap='inferno', alpha=0.3, label='Propagation Delay')
+                    prop_surface._edgecolors2d = prop_surface._edgecolor3d # Workaround for legend. See https://stackoverflow.com/questions/54994600/pyplot-legend-poly3dcollection-object-has-no-attribute-edgecolors2d
+                    prop_surface._facecolors2d = prop_surface._facecolor3d # Workaround for legend
+                    tran_surface = ax.plot_surface(*indices, np.asarray(tran_table.data()), edgecolor='blue', cmap='viridis', alpha=0.3, label='Transport Delay')
+                    tran_surface._edgecolors2d = tran_surface._edgecolor3d # Workaround for legend.
+                    tran_surface._facecolors2d = tran_surface._facecolor3d # Workaround for legend
+                    time_unit = str(settings.units.time.prefixed_unit)
+                    cap_unit = str(settings.units.capacitance.prefixed_unit)
+                    ax.set(
+                        xlabel=f'Slew Rate [{time_unit}]',
+                        ylabel=f'Fanout [{cap_unit}]',
+                        zlabel=f'Delay [{time_unit}]',
+                        title='Transport and Propagation Delay'
+                    )
+                    ax.legend()
+
+                    figs.append(fig)
+            return figs
+
+    def plot_energy(self, settings):
+        """Plot energy for rise and fall cases"""
+        pass # TODO
+
 
 class Table:
     """A Table contains tabular data as would be displayed in a liberty file."""
@@ -400,3 +444,18 @@ class Table:
     def data(self):
         """Return the table values reshaped according to the index lengths"""
         return np.reshape(self.values, self.shape)
+
+    def generate_axes(self, figure):
+        """Generate a set of axes appropriate for displaying this table's data"""
+        to_float = lambda idx: [float(i) for i in idx]
+        if self.is_2d():
+            x_index = np.repeat(np.expand_dims(to_float(self.index_1), 1), len(self.index_2), 1)
+            y_index = np.swapaxes(np.repeat(np.expand_dims(to_float(self.index_2), 1), len(self.index_1), 1), 0, 1)
+            indices = [x_index, y_index]
+            ax = figure.add_subplot(projection='3d')
+            ax.set_proj_type('ortho')
+        else:
+            indices = to_float(self.index_1)
+            ax = figure.add_subplot()
+
+        return ax, indices
