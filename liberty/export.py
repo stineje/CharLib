@@ -15,6 +15,7 @@ class Cell:
         self._name = name.upper()
         self.area = area
         self._attrs = attrs
+        self.flops = []
         self.pins = {}
 
     @classmethod
@@ -30,6 +31,13 @@ class Cell:
     def __getitem__(self, key: str):
         """Return self[key]. Searches pins by name."""
         return self.pins[key.upper()]
+
+    def add_ff(self, in_node: str, out_node: str, next_state: str, clock: str, **attrs):
+        """Add a new flop to this cell's list of flops"""
+        ff = Flop(in_node, out_node, next_state, clock)
+        for attr, value in attrs:
+            setattr(ff, attr, value)
+        self.flops.append()
 
     def add_pin(self, name: str, direction=None, role='io'):
         """Add a new pin to this cell's list of pins"""
@@ -61,11 +69,42 @@ class Cell:
             lib_str.append('  pad_cell : true;')
         for key, value in self.attributes:
             lib_str.append(f'  {key} : {value};')
-        for pin in self.pins.values():
+        for flop in self.flops:
+            for line in str(flop).split('\n'):
+                lib_str.append(f'  {line}')
+        for pin in dict(sorted(self.pins.items())).values():
             for line in str(pin).split('\n'):
                 lib_str.append(f'  {line}')
         lib_str.append('}')
         return '\n'.join(lib_str)
+
+
+class Flop:
+    """A single flip-flop internal to a standard cell"""
+    def __init__(self, in_name, out_name, next_state, clock):
+        self.in_name = in_name
+        self.out_name = out_name
+        self.next_state = next_state
+        self.clocked_on = clock
+        self.clear = ''
+        self.preset = ''
+        self.clear_preset_var1 = 'L'
+
+    def __str__(self) -> str:
+        """Return str(self)"""
+        ff_str = [
+            f'ff ({self.in_name}, {self.out_name}) {{',
+            f'  next_state : "{self.next_state}";',
+            f'  clocked_on : "{self.clocked_on}";',
+        ]
+        if self.clear:
+            ff_str.append(f'  clear : "{self.clear}";')
+        if self.preset:
+            ff_str.append(f'  preset : "{self.preset}";')
+        if self.clear_preset_var1:
+            ff_str.append(f'  clear_preset_var1 : {self.clear_preset_var1};')
+        ff_str.append('}')
+        return '\n'.join(ff_str)
 
 
 class Pin:
