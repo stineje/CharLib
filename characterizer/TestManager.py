@@ -902,6 +902,7 @@ class SequentialTestManager(TestManager):
                     template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should be in LibrarySettings
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
                     self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
+        print(str(self.cell))
 
         # Display plots
         if 'io' in self.plots:
@@ -915,7 +916,6 @@ class SequentialTestManager(TestManager):
         print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
         t_setup = self._find_setup_time(settings, harness, slew, load, self.sim_hold_highest*settings.units.time)
         t_hold = self._find_hold_time(settings, harness, slew, load, t_setup)
-        print(f'Setup, Hold time: {t_setup}, {t_hold}')
 
     def _find_setup_time(self, settings, harness: SequentialHarness, slew, load, t_hold):
         """Perform a binary search to identify setup time"""
@@ -929,8 +929,7 @@ class SequentialTestManager(TestManager):
             try:
                 harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load, t_setup, t_hold)
                 failed = False
-            except NameError as e:
-                print(str(e))
+            except NameError:
                 failed = True
 
             # Identify next setup time
@@ -963,8 +962,7 @@ class SequentialTestManager(TestManager):
             try:
                 harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load, t_setup, t_hold)
                 failed = False
-            except NameError as e:
-                print(str(e))
+            except NameError:
                 failed = True
 
             # Identify the next hold time
@@ -1115,8 +1113,6 @@ class SequentialTestManager(TestManager):
             v_clk_transition = settings.logic_low_to_high_threshold_voltage()
         else:
             clk_direction = 'fall'
-            v_clk_energy_start = settings.logic_threshold_high_voltage()
-            v_clk_energy_end = settings.logic_threshold_low_voltage()
             v_clk_transition = settings.logic_high_to_low_threshold_voltage()
 
         # Measure propagation delay from first data edge to last output edge
@@ -1126,8 +1122,8 @@ class SequentialTestManager(TestManager):
         
         # Measure transport delay from first data edge to first output edge
         simulator.measure('tran', 'trans_out',
-                          f'trig v(vin) val={v_trans_start} cross=1',
-                          f'targ v(vout) val={v_trans_end} cross=1')
+                          f'trig v(vin) val={v_trans_start} td={float(t_removal)} {harness.in_direction}=1',
+                          f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
 
         # Measure setup delay from first data edge to last clock edge
         simulator.measure('tran', 't_setup',

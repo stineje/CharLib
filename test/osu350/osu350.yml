@@ -44,6 +44,7 @@ settings:
                 highest:    1
                 lowest:     0.01
                 timestep:   0.005
+        plots: [io, delay]
 cells:
     INVX1:
         netlist:    osu350_spice_temp/INVX1.sp
@@ -84,14 +85,14 @@ cells:
         # flops:      [P0002,P0003]
         # functions:
             # - Q=P0002
-    # DFFSR:
-        # netlist:    osu350_spice_temp/DFFSR.sp
-        # area:       704
-        # clock:      posedge CLK
-        # set:        negedge S
-        # reset:      negedge R
-        # inputs:     [D]
-        # outputs:    [Q]
-        # flops:      [P0002,P0003]
-        # functions:
-            # - Q=D
+    DFFSR:
+        netlist:    osu350_spice_temp/DFFSR.sp
+        area:       704
+        clock:      posedge CLK
+        set:        negedge S
+        reset:      negedge R
+        inputs:     [D]
+        outputs:    [Q]
+        flops:      [P0002,P0003]
+        functions:
+            - Q=D
