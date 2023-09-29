@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PySpice.Plot.BodeDiagram import bode_diagram
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 
@@ -623,10 +622,15 @@ class SequentialTestManager(TestManager):
         return '\n'.join(lines)
 
     @property
-    def clock(self) -> str:
+    def clock(self) -> Pin:
         """Return clock pin"""
-        return self._clock
-    
+        return self.cell[self.clock_name]
+
+    @property
+    def clock_name(self) -> str:
+        """Return clock pin name."""
+        return self._clock_name
+
     @property
     def clock_trigger(self) -> str:
         """Return clock trigger type."""
@@ -635,7 +639,9 @@ class SequentialTestManager(TestManager):
     @clock.setter
     def clock(self, value: str):
         """Assign clock trigger and pin"""
-        (self._clock_trigger, self._clock) = _parse_triggered_pin(value, 'clock')
+        (self._clock_trigger, pin) = _parse_triggered_pin(value, 'clock')
+        self._clock_name = pin.name
+        self.cell.add_pin(pin.name, pin.direction, pin.role)
 
     @property
     def clock_slew(self) -> float:
@@ -662,9 +668,14 @@ class SequentialTestManager(TestManager):
             raise TypeError(f'Invalid type for clock slew rate: {type(value)}')
 
     @property
-    def set(self) -> str:
+    def set(self):
         """Return set pin"""
-        return self._set
+        return self.cell.pins.get(self.set_name)
+
+    @property
+    def set_name(self) -> str:
+        """Return set pin name"""
+        return self._set_name
 
     @property
     def set_trigger(self) -> str:
@@ -674,15 +685,19 @@ class SequentialTestManager(TestManager):
     @set.setter
     def set(self, value):
         """Assign set pin and trigger"""
-        if value is None:
-            self._set = None
-        else:
-            (self._set_trigger, self._set) = _parse_triggered_pin(value, 'set')
+        (self._set_trigger, pin) = _parse_triggered_pin(value, 'set')
+        self._set_name = pin.name
+        self.cell.add_pin(pin.name, pin.direction, pin.role)
 
     @property
-    def reset(self) -> str:
+    def reset(self):
         """Return reset pin"""
-        return self._reset
+        return self.cell.pins.get(self.reset_name)
+
+    @property
+    def reset_name(self) -> str:
+        """Return reset pin name"""
+        return self._reset_name
     
     @property
     def reset_trigger(self) -> str:
@@ -692,10 +707,9 @@ class SequentialTestManager(TestManager):
     @reset.setter
     def reset(self, value):
         """Assign reset pin and trigger"""
-        if value is None:
-            self._reset = None
-        else:
-            (self._reset_trigger, self._reset) = _parse_triggered_pin(value, 'reset')
+        (self._reset_trigger, pin) = _parse_triggered_pin(value, 'reset')
+        self._reset_name = pin.name
+        self.cell.add_pin(pin.name, pin.direction, pin.role)
 
     @property
     def flops(self) -> list:
@@ -862,11 +876,15 @@ class SequentialTestManager(TestManager):
     def characterize(self, settings):
         """Run Delay, Recovery & Removal characterization for a sequential cell"""
         # Measure input capacitance for all input pins
-        for pin in self.in_ports:
+        in_cap_pins = [*self.in_ports, self.clock]
+        if self.set:
+            in_cap_pins += [self.set]
+        if self.reset:
+            in_cap_pins += [self.reset]
+        for pin in in_cap_pins:
             input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
-        unsorted_harnesses = []
         for test_vector in self.test_vectors:
             # Generate harness
             harness = SequentialHarness(self, test_vector)
@@ -876,8 +894,6 @@ class SequentialTestManager(TestManager):
             for slew in self.in_slews:
                 for load in self.out_loads:
                     self._run_delay(settings, harness, slew, load, trial_name)
-
-            # Add harness to collection after characterization
             self.harnesses.append(harness)
 
         for out_port in self.out_ports:
@@ -1161,7 +1177,7 @@ class SequentialTestManager(TestManager):
                 ratios = np.ones(num_axes).tolist()
                 ratios[-1] = num_axes
                 figure, axes = plt.subplots(num_axes, sharex=True, height_ratios=ratios)
-                figure.suptitle(f'{self.cell.name} | {harness.short_str}')
+                figure.suptitle(f'{self.cell.name} | {harness.short_str()}')
 
                 # Set up plots
                 for ax in axes:
