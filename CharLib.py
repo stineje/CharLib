@@ -113,12 +113,13 @@ def execute_lib(characterizer: Characterizer, library_dir):
 
     # Initialize workspace, characterize, and export
     characterizer.characterize()
-    plt.tight_layout()
-    plt.show()
     for cell in characterizer.cells:
         exportFiles(characterizer.settings, cell)
         characterizer.num_files_generated += 1
     exitFiles(characterizer.settings, characterizer.num_files_generated)
+    if plt.get_figlabels(): # Check if any figures exist
+        plt.tight_layout()
+        plt.show()
 
 def execute_shell(characterizer: Characterizer):
     """Enter CharLib shell"""

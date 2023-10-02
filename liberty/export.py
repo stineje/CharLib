@@ -375,8 +375,9 @@ class Pin:
             # Output pins have cell_{rise,fall} and {rise,fall}_transition
             for pin, timing_data in self.timing.items():
                 for direction in ['rise', 'fall']:
-                    fig = plt.figure()
-                    fig.suptitle(f'{cell_name} pin {self.name} {direction} timing vs. pin {pin}')
+                    fig = plt.figure(
+                        label=f'{cell_name} | {self.name} ({direction}) Timing | Related Pin: {pin}'
+                    )
 
                     prop_table = timing_data[f'cell_{direction}']
                     tran_table = timing_data[f'{direction}_transition']
@@ -403,6 +404,10 @@ class Pin:
 
     def plot_energy(self, settings):
         """Plot energy for rise and fall cases"""
+        pass # TODO
+
+    def generate_lut_templates(self) -> list:
+        """Generate all lookup table templates required for this pin"""
         pass # TODO
 
 

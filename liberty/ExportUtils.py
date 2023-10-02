@@ -18,7 +18,7 @@ def exportLib(target_lib: LibrarySettings, target_cell):
     outlines = [
         f'library ({target_lib.lib_name}) {{',
         f'',
-        f'  delay_model : "{target_lib.delay_model}";'
+        f'  delay_model : "{target_lib.delay_model}";',
         f'  in_place_swap_mode : match_footprint;',
         f'',
         f'  /* unit attributes */',
@@ -86,6 +86,7 @@ def exportLib(target_lib: LibrarySettings, target_cell):
         f'    index_2 ("{", ".join([str(load) for load in target_cell.out_loads])}");',
         f'  }}\n\n',
     ]
+    # TODO: Generate lut templates from liberty structures instead
     
     with open(target_lib.dotlib_name, 'w') as f:
         f.writelines('\n'.join(outlines))

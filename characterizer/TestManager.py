@@ -543,8 +543,11 @@ class CombinationalTestManager(TestManager):
         # Group data by slew rate so that inputs are the same
         for slew in self.in_slews:
             # Generate plots for Vin and Vout
-            figure, (ax_i, ax_o) = plt.subplots(2, sharex=True, height_ratios=[3, 7])
-            figure.suptitle(f'Cell {self.cell.name} | Arc: {harness.arc_str()} | Slew: {str(slew*settings.units.time)}')
+            figure, (ax_i, ax_o) = plt.subplots(2,
+                sharex=True,
+                height_ratios=[3, 7],
+                label=f'{self.cell.name} | {harness.arc_str()} | {str(slew*settings.units.time)}'
+            )
             volt_units = str(settings.units.voltage.prefixed_unit)
             time_units = str(settings.units.time.prefixed_unit)
             ax_i.set(
@@ -918,7 +921,6 @@ class SequentialTestManager(TestManager):
                     template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should be in LibrarySettings
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
                     self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
-        print(str(self.cell))
 
         # Display plots
         if 'io' in self.plots:
@@ -1176,8 +1178,11 @@ class SequentialTestManager(TestManager):
                 num_axes += 1
                 ratios = np.ones(num_axes).tolist()
                 ratios[-1] = num_axes
-                figure, axes = plt.subplots(num_axes, sharex=True, height_ratios=ratios)
-                figure.suptitle(f'{self.cell.name} | {harness.short_str()}')
+                figure, axes = plt.subplots(num_axes,
+                    sharex=True,
+                    height_ratios=ratios,
+                    label=f'{self.cell.name} | {harness.short_str()}'
+                )
 
                 # Set up plots
                 for ax in axes:
