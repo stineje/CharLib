@@ -17,11 +17,14 @@ class TestManager:
     """A test manager for a standard cell"""
     def __init__ (self, name: str, in_ports: str|list, out_ports: list|None, functions: str|list, **kwargs):
         """Create a new TestManager for a standard cell.
+
+        A TestManager manages cell data, runs simulations on cells, and stores results
+        on the cell.
         
         :param name: cell name
         :param in_ports: a list of input pin names
         :param out_ports: a list of output pin names
-        :param functions: a list of functions implemented by the cell (in verilog syntax)
+        :param functions: a list of functions implemented by each of the cell's outputs (in verilog syntax)
         :param **kwargs: a dict of configuration and test parameters for the cell, including
             - netlist: path to the cell's spice netlist
             - model: path to transistor spice models
@@ -57,7 +60,6 @@ class TestManager:
                     raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{func}"')
 
         # Characterization settings
-        self.harnesses = []
         self._netlist = kwargs.get('netlist')
         self._model = kwargs.get('model')
         self._in_slews = kwargs.get('slews', [])
@@ -92,11 +94,6 @@ class TestManager:
             for load in self.out_loads:
                 lines.append(f'        {str(load)}')
         lines.append(f'    Simulation timestep: {str(self.sim_timestep)}')
-        if self.harnesses:
-            lines.append('    Harnesses:')
-            for harness in self.harnesses:
-                for h in str(harness).split('\n'):
-                    lines.append(f'        {h}')
         return '\n'.join(lines)
 
     @property
@@ -173,15 +170,13 @@ class TestManager:
             raise ValueError(f'No cell definition found in netlist {self.netlist}')
 
     @property
-    def instance(self, name='XDUT') -> str:
-        """Return a subcircuit instantiation for this cell.
-        
-        :param name: (optional) subcircuit name"""
+    def instance(self) -> str:
+        """Return a subcircuit instantiation for this cell."""
         # Reorganize the definition into an instantiation with instance name XDUT
         # TODO: Instance name should probably be configurable from library settings
         instance = self.definition.split()[1:]  # Delete .subckt
         instance.append(instance.pop(0))        # Move circuit name to last element
-        instance.insert(0, name)                # Insert instance name
+        instance.insert(0, 'XDUT')                # Insert instance name
         return ' '.join(instance)
 
     @property
@@ -403,17 +398,18 @@ class CombinationalTestManager(TestManager):
 
         # Filter out harnesses that aren't worst-case conditions
         # We should be left with the critical path rise and fall harnesses for each i/o path
+        harnesses = []
         for out_port in self.out_ports:
             for in_port in self.in_ports:
                 for direction in ['rise', 'fall']:
                     # Iterate over harnesses that match output, input, and direction
-                    harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, in_port, out_port) if harness.out_direction == direction]
-                    worst_case_harness = harnesses[0]
-                    for harness in harnesses:
+                    matching_harnesses = [harness for harness in filter_harnesses_by_ports(unsorted_harnesses, in_port, out_port) if harness.out_direction == direction]
+                    worst_case_harness = matching_harnesses[0]
+                    for harness in matching_harnesses:
                         # FIXME: Currently we compare by average prop delay. Consider alternative strategies
                         if worst_case_harness.average_propagation_delay() < harness.average_propagation_delay():
                             worst_case_harness = harness # This harness is worse
-                    self.harnesses.append(worst_case_harness)
+                    harnesses.append(worst_case_harness)
 
         # Store propagation and transport delay in pin timing tables
         for out_port in self.out_ports:
@@ -421,7 +417,7 @@ class CombinationalTestManager(TestManager):
                 self.cell[out_port.name].add_timing(in_port.name)
                 for direction in ['rise', 'fall']:
                     # Identify the correct harness
-                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
+                    harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
 
                     # Construct the table
                     index_1 = [str(slew) for slew in self.in_slews]
@@ -441,12 +437,11 @@ class CombinationalTestManager(TestManager):
 
         # Display plots
         if 'io' in self.plots:
-            [self.plot_io(settings, harness) for harness in self.harnesses]
+            [self.plot_io(settings, harness) for harness in harnesses]
         if 'delay' in self.plots:
             [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
         if 'energy' in self.plots:
             print("Energy plotting not yet supported") # TODO: Add correct energy measurement procedure
-            # [harness.plot_energy(settings, self.in_slews, self.out_loads, self.name) for harness in self.harnesses]
 
     def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
         print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
@@ -888,6 +883,8 @@ class SequentialTestManager(TestManager):
             input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
+        # Generate harnesses
+        harnesses = []
         for test_vector in self.test_vectors:
             # Generate harness
             harness = SequentialHarness(self, test_vector)
@@ -897,14 +894,24 @@ class SequentialTestManager(TestManager):
             for slew in self.in_slews:
                 for load in self.out_loads:
                     self._run_delay(settings, harness, slew, load, trial_name)
-            self.harnesses.append(harness)
+            harnesses.append(harness)
 
+        # Save test results to cell
+        normalize_t_units = lambda value: (value @ u_s).convert(settings.units.time.prefixed_unit).value
+        # TODO: Add setup and hold constraints on input pins
+        for in_port in self.in_ports:
+            for direction in ['rise', 'fall']:
+                self.cell[in_port.name].add_timing(self.clock.name)
+                # TODO: Build setup and hold constraint tables
+                
+        # Output ports
         for out_port in self.out_ports:
-            for in_port in self.in_ports:
+            for in_port in self.in_ports: # TODO: Add set and reset
+                # Add propagation and transport delay table to output pin
                 self.cell[out_port.name].add_timing(in_port.name)
                 for direction in ['rise', 'fall']:
                     # Identify the correct harness
-                    harness = find_harness_by_arc(self.harnesses, in_port, out_port, direction)
+                    harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
 
                     # Construct the table
                     index_1 = [str(slew) for slew in self.in_slews]
@@ -914,21 +921,20 @@ class SequentialTestManager(TestManager):
                     for slew in index_1:
                         for load in index_2:
                             result = harness.results[slew][load]
-                            prop_value = (result['prop_in_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
-                            prop_values.append(f'{prop_value:7f}')
-                            tran_value = (result['trans_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
-                            tran_values.append(f'{tran_value:7f}')
+                            prop_values.append(f'{normalize_t_units(result["prop_in_out"]):7f}')
+                            tran_values.append(f'{normalize_t_units(result["trans_out"]):7f}')
                     template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should be in LibrarySettings
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
                     self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
+        # TODO: Add internal power
 
         # Display plots
         if 'io' in self.plots:
-            [self.plot_io(settings, harness) for harness in self.harnesses]
+            [self.plot_io(settings, harness) for harness in harnesses]
         if 'delay' in self.plots:
             [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
         if 'energy' in self.plots:
-            [harness.plot_energy(settings, self.in_slews, self.out_loads, self.cell.name) for harness in self.harnesses]
+            pass # TODO
 
     def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
         print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
