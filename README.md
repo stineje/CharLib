@@ -6,7 +6,13 @@ CharLib is an open cell library characterizer originally based on [3]. The curre
 CharLib uses the OSU 0.35um SCMOS library for testing. This will be expanded to SKY130 and GF180 at a later date.
 
 ## Dependencies
-Make sure you have `ngspice` installed. If `ngspice` is not in your `PATH`, you may have to specify the absolute path to the `ngspice` binary using the `set_simulator` command or `simulator` YAML key.
+CharLib uses a lightly customized version of PySpice. PySpice is compatible with ngspice and Xyce simulators; you should make sure you have one of those installed to use CharLib. CharLib defaults to the ngspice simulator, but this can be changed using the `simulator` YAML key or the `set_simulator` command.
+
+Install information can be found at the links below:
+* [ngspice](https://ngspice.sourceforge.io/download.html)
+* [Xyce](https://xyce.sandia.gov/)
+
+CharLib supports all PySpice simulator options. Available options can be found [here on the PySpice FAQ](https://pyspice.fabrice-salvaire.fr/releases/latest/faq.html#how-to-set-the-simulator).
 
 ## Usage
 CharLib has three operating modes:

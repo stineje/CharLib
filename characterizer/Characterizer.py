@@ -1,7 +1,7 @@
-import os, shutil
+import shutil
 
 from liberty.LibrarySettings import LibrarySettings
-from liberty.LogicCell import LogicCell, CombinationalCell, SequentialCell
+from characterizer.TestManager import TestManager, CombinationalTestManager, SequentialTestManager
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""
@@ -22,17 +22,17 @@ class Characterizer:
                 lines.append(f'    {line}')
         return '\n'.join(lines)
 
-    def last_cell(self) -> LogicCell:
+    def last_cell(self):
         """Get last cell"""
         return self.cells[-1]
 
     def add_cell(self, name, in_ports, out_ports, functions, **kwargs):
         # Create a new logic cell
-        self.cells.append(CombinationalCell(name, in_ports, out_ports, functions, **kwargs))
+        self.cells.append(CombinationalTestManager(name, in_ports, out_ports, functions, **kwargs))
 
-    def add_flop(self, name, in_ports, out_ports, clock_pin, flops, functions, **kwargs):
+    def add_flop(self, name, in_ports, out_ports, clock, flops, functions, **kwargs):
         # Create a new sequential cell
-        self.cells.append(SequentialCell(name, in_ports, out_ports, clock_pin, flops, functions, **kwargs))
+        self.cells.append(SequentialTestManager(name, in_ports, out_ports, clock, flops, functions, **kwargs))
 
     def initialize_work_dir(self):
         if self.settings.run_sim:
@@ -49,15 +49,3 @@ class Characterizer:
         # If no target cells were given, characterize all cells
         for cell in cells if cells else self.cells:
             cell.characterize(self.settings)
-
-    def print_msg(self, message: str):
-        if not self.settings.suppress_message:
-            print(message)
-    
-    def print_sim(self, message: str):
-        if not self.settings.suppress_sim_message:
-            print(f'SIM: {message}')
-    
-    def print_debug(self, message: str):
-        if not self.settings.suppress_debug_message:
-            print(f'DEBUG: {message}')

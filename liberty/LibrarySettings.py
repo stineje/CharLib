@@ -1,9 +1,9 @@
 from pathlib import Path
-from shutil import which
 from liberty.UnitsSettings import UnitsSettings
 
 class NamedNode:
     def __init__(self, name, voltage = 0):
+        # TODO: Use units for voltages
         self.name = name
         self.voltage = voltage
 
@@ -12,11 +12,6 @@ class NamedNode:
 
     def __repr__(self) -> str:
         return f'NamedNode({self.name}, {self.voltage})'
-
-    def normalized_voltage(self, units_settings: UnitsSettings) -> float:
-        """Returns the voltage after converting from global units to V"""
-        return self.voltage * units_settings.voltage.magnitude
-
 
 def str_to_bool(value: str) -> bool:
     if value.lower() in ['true', 't', '1', 'yes']:
@@ -29,21 +24,21 @@ def str_to_bool(value: str) -> bool:
 
 class LibrarySettings:
     def __init__(self, **kwargs):
-        # Key Library settings
+        # Behavioral settings
         self._lib_name = kwargs.get('lib_name', 'unnamed_lib')
         self._dotlib_name = kwargs.get('dotlib_name')
         self._verilog_name = kwargs.get('verilog_name')
         self._cell_name_suffix = kwargs.get('cell_name_suffix', '')
         self._cell_name_prefix = kwargs.get('cell_name_prefix', '')
-        self.units = UnitsSettings(**kwargs.get('units', {}))
-
-        # Simulator Settings
-        self._simulator = Path(kwargs.get('simulator', which('ngspice')))
         self._work_dir = Path(kwargs.get('work_dir', 'work'))
         self._results_dir = Path(kwargs.get('results_dir', 'results'))
         self._run_sim = kwargs.get('run_simulation', True)
         self._use_multithreaded = kwargs.get('multithreaded', True)
         self._is_exported = False
+
+        # Simulation Settings
+        self._simulator = kwargs.get('simulator', 'ngspice-shared')
+        self.units = UnitsSettings(**kwargs.get('units', {}))
 
         named_nodes = kwargs.get('named_nodes', {})
         self.vdd = NamedNode(**named_nodes.get('vdd', {'name':'VDD'}))
@@ -64,7 +59,7 @@ class LibrarySettings:
 
         self._process = kwargs.get('process')
         self._temperature = kwargs.get('temperature', 25)
-        self._operating_conditions = kwargs.get('operating_conditions')
+        self._operating_conditions = kwargs.get('operating_conditions', 'typical')
         self._delay_model = kwargs.get('delay_model', 'table_lookup')
         self.cell_defaults = kwargs.get('cell_defaults', {})
 
@@ -135,14 +130,8 @@ class LibrarySettings:
     @simulator.setter
     def simulator(self, value):
         if value is not None:
-            if isinstance(value, Path):
-                if not value.is_file():
-                    raise ValueError(f'Invalid value for simulator: {value} is not a file')
+            if isinstance(value, str) and any([backend in value for backend in ['ngspice', 'xyce']]):
                 self._simulator = value
-            elif isinstance(value, str):
-                if not Path(value).is_file():
-                    raise ValueError(f'Invalid value for simulator: {value} is not a file')
-                self._simulator = Path(value)
             else:
                 raise TypeError(f'Invalid type for simulator: {type(value)}')
         else:
@@ -247,7 +236,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_threshold_high: {value}')
 
     def logic_threshold_high_voltage(self) -> float:
-        return self.logic_threshold_high * self.vdd.normalized_voltage(self.units)
+        return self.logic_threshold_high * self.vdd.voltage
 
     @property
     def logic_threshold_low(self) -> float:
@@ -261,7 +250,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_threshold_high: {value}')
 
     def logic_threshold_low_voltage(self) -> float:
-        return self.logic_threshold_low * self.vdd.normalized_voltage(self.units)
+        return self.logic_threshold_low * self.vdd.voltage
 
     @property
     def logic_high_to_low_threshold(self) -> float:
@@ -275,7 +264,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_high_to_low_threshold: {value}')
 
     def logic_high_to_low_threshold_voltage(self) -> float:
-        return self.logic_high_to_low_threshold * self.vdd.normalized_voltage(self.units)
+        return self.logic_high_to_low_threshold * self.vdd.voltage
 
     @property
     def logic_low_to_high_threshold(self) -> float:
@@ -289,7 +278,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for logic_low_to_high_threshold: {value}')
 
     def logic_low_to_high_threshold_voltage(self) -> float:
-        return self.logic_low_to_high_threshold * self.vdd.normalized_voltage(self.units)
+        return self.logic_low_to_high_threshold * self.vdd.voltage
 
     @property
     def energy_meas_low_threshold(self) -> float:
@@ -303,7 +292,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for energy_meas_low_threshold: {value}')
 
     def energy_meas_low_threshold_voltage(self) -> float:
-        return self.energy_meas_low_threshold * self.vdd.normalized_voltage(self.units)
+        return self.energy_meas_low_threshold * self.vdd.voltage
 
     @property
     def energy_meas_high_threshold(self) -> float:
@@ -317,7 +306,7 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for energy_meas_high_threshold: {value}')
 
     def energy_meas_high_threshold_voltage(self) -> float:
-        return self.energy_meas_high_threshold * self.vdd.normalized_voltage(self.units)
+        return self.energy_meas_high_threshold * self.vdd.voltage
 
     @property
     def energy_meas_time_extent(self) -> float:

@@ -26,19 +26,10 @@ While CharLib does provide defaults for all key-value pairs under the `settings`
         * `name`: The name used to refer to this node in spice files.
         * `voltage`: The voltage at this node.
 
-### Optional Keys
-These keys may optionally be included to change simulation parameters:
+### Optional Simulation Parameter Keys
+These keys may optionally be included to specify simulation parameters:
 
-* `dotlib_name`: The file name to use for the exported liberty file. Defaults to whatever `lib_name` is set to + '.lib'.
-* `verilog_name`: The file name to use for the exported verilog file. Defaults to whatever `lib_name` is set to + '.v'.
-* `cell_name_prefix`: A static prefix to append to the start of each cell name in the exported liberty file. Empty by default.
-* `cell_name_suffix`: A static prefix to append to the end of each cell name in the exported liberty file. Empty by default.
-* `simulator`: The absolute path to the spice simulator binary. If omitted, CharLib searches your system's PATH for the `ngspice` binary.
-    * CharLib currently supports ngspice and hspice simulators. Other spice simulators may be added in the future.
-* `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
-* `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
-* `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
-* `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
+* `simulator`: A string specifying which PySpice simulator backend to use. See the [PySpice FAQ](https://pyspice.fabrice-salvaire.fr/releases/latest/faq.html#how-to-set-the-simulator) for available options. Defaults to 'ngspice-shared'.
 * `logic_thresholds`: A dictionary containing logic thresholds specified relative to `named_nodes.vdd`. May contain the following key-value pairs:
     * `low`: The maximum fraction supply voltage which registers as a logical zero. Defaults to 0.2 (20 percent of supply voltage).
     * `high`: The minimum fraction of supply voltage which registers as a logical one. Defaults to 0.8 (80 percent of supply voltage).
@@ -53,6 +44,18 @@ These keys may optionally be included to change simulation parameters:
 * `operating_conditions`: The operating conditions to include in the exported liberty file. Empty by default.
 * `delay_model`: The delay model keyword to include in the exported liberty file. Defaults to 'table_lookup`.
 * `cell_defaults`: A dictionary of default values to use for all cells. See **Cells** below for more information. May contain any key-value pair valid for a cell entry.
+
+### Optional Behavioral Keys
+These keys may optionally be included to adjust CharLib behavior:
+
+* `dotlib_name`: The file name to use for the exported liberty file. Defaults to whatever `lib_name` is set to + '.lib'.
+* `verilog_name`: The file name to use for the exported verilog file. Defaults to whatever `lib_name` is set to + '.v'.
+* `cell_name_prefix`: A static prefix to append to the start of each cell name in the exported liberty file. Empty by default.
+* `cell_name_suffix`: A static prefix to append to the end of each cell name in the exported liberty file. Empty by default.
+* `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
+* `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
+* `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
+* `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
 
 ## Cells
 Specific cells to characterize are specified as entries under the `cells` key.
@@ -74,17 +77,17 @@ Several of these keys can easily be omitted from cell entries by instead specify
 ### Additional Required Keys for Sequential Cell Entries
 Sequential Cell entries must specify the following key-value pairs in addition to the above:
 
-* `clock_pin`: The pin name for the clock pin.
+* `clock`: The clock pin name and edge direction, e.g. 'posedge CLK'.
 * `flops`: A sequence of storage element names.
 * `simulation`: A dictionary containing timing parameters for simulations. Contains the following key-value pairs:
     * `setup`: A dictionary containing setup time simulation parameters. Contains the following key-value pairs:
         * `highest`: The maximum setup time to check.
         * `lowest`: The minimum setup time to check.
-        * `timestep`: The simulation timestep to use during setup time search.
+        * `timestep`: The resolution to use for the setup time search.
     * `hold`: A dictionary containing hold time simulation parameters. Contains the following key-value pairs:
         * `highest`: The maximum hold time to check.
         * `lowest`: The minimum hold time to check.
-        * `timestep`: The simulation timestep to use during hold time search.
+        * `timestep`: The resolution to use for the hold time search.
 
 ### Optional Keys
 These keys may optionally be included to provide additional cell documentation or improve CharLib performance.
@@ -93,9 +96,10 @@ These keys may optionally be included to provide additional cell documentation o
 * `test_vectors`: A sequence of test vectors for simulation. If omitted, test vectors are instead generated based on the cell's `functions`.
     * Each test vector should be in the format `[clk, set (if present), reset (if present), flop1, ..., flopK, in1, ..., inN, out1, ..., outM]` (omit `clk, set, reset, flop1, ..., flopK` for combinational cells).
     * Including the `test_vectors` key can result in significant reductions in CharLib simulation times. If you already know the test conditions that will reveal critical paths for your cells, you should include them as test vectors under this key.
-* `set_pin`: The pin name for the set pin on sequential cells. If omitted, CharLib assumes the cell does not have a set pin.
-* `reset_pin`: The pin name for the reset pin on sequential cells. If omitted, CharLib assumes the cell does not have a reset pin.
-* `clock_slew`: The slew rate to use for the clock signal in simulation. Defaults to 0 if omitted.
+* `set`: For sequential cells only. The set pin name and edge direction, e.g. 'negedge S'. If omitted, CharLib assumes the cell does not have a set pin.
+* `reset`: For sequential cells only. The reset pin name and edge direction, e.g. 'negedge R'. If omitted, CharLib assumes the cell does not have a reset pin.
+* `clock_slew`: For sequential cells only. The slew rate to use for the clock signal in simulation. Defaults to 0 if omitted.
+* `plots`: A string (or list of strings) specifying which plots to show for this cell. May be set to 'all', 'none', or a subset of 'io', 'delay', and 'energy'. Defaults to 'none'.
 
 ## Examples 
 
@@ -142,7 +146,7 @@ cells:
 ```
 
 
-### Example 2: Characterizing Multiple OSU350 Cells
+### Example 2: Characterizing Multiple OSU350 Combinational Cells
 The YAML below configures CharLib to perform timing and power characterization for full adder and half adder cells. Note the contents of `settings` are mostly the same, but several cell parameters are moved into `settings.cell_defaults` to avoid repeating them for each cell.
 
 ``` YAML
@@ -194,3 +198,6 @@ cells:
             - YC=A&B
             - YS=A^B
 ```
+
+### Example 3: OSU350 DFFSR Characterization
+TODO

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse, os, yaml
+import matplotlib.pyplot as plt
 from pathlib import Path
 
 from characterizer.Characterizer import Characterizer
@@ -29,6 +30,7 @@ def main():
             help='Execute specified batch .cmd file')
     mode_group.add_argument('-l', '--library', type=str,
             help='Read in a library of standard cells from the specified directory, and automatically characterize')
+    # TODO: consider adding a -v/--verbose argument
     args = parser.parse_args()
 
     # Dispatch based on operating mode
@@ -58,7 +60,7 @@ def execute_batch(characterizer: Characterizer, batchfile):
 def execute_lib(characterizer: Characterizer, library_dir):
     """Parse a library of standard cells and characterize"""
 
-    print("Searching for YAML files in " + str(library_dir))
+    print(f'Searching for YAML files in {str(library_dir)}')
     # Search for a YAML file with the required config information
     config = None
     for file in Path(library_dir).rglob('*.yml'):
@@ -73,6 +75,7 @@ def execute_lib(characterizer: Characterizer, library_dir):
             break # We have found a YAML file with config information
     if not config:
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
+    print(f'Reading configuration found in "{str(file)}"')
 
     # Read in library settings
     characterizer.settings = LibrarySettings(**config['settings'])
@@ -109,12 +112,14 @@ def execute_lib(characterizer: Characterizer, library_dir):
     # TODO: Add print statements to display which keys in YAML were not used
 
     # Initialize workspace, characterize, and export
-    characterizer.initialize_work_dir()
     characterizer.characterize()
     for cell in characterizer.cells:
         exportFiles(characterizer.settings, cell)
         characterizer.num_files_generated += 1
     exitFiles(characterizer.settings, characterizer.num_files_generated)
+    if plt.get_figlabels(): # Check if any figures exist
+        plt.tight_layout()
+        plt.show()
 
 def execute_shell(characterizer: Characterizer):
     """Enter CharLib shell"""
