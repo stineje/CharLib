@@ -8,8 +8,8 @@ CELL_COMMIT='df1d8ec95b'
 CELL_DIR='globalfoundries-pdk-libs-gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3/cells'
 
 # Source for fetching models
-MODEL_SOURCE='https://github.com/google/globalfoundries-pdk-libs-gf180mcu_fd_pr/blob/main/models/ngspice/sm141064.ngspice'
-MODEL_FILENAME='sm141064.spice'
+MODEL_SOURCE='https://raw.githubusercontent.com/google/globalfoundries-pdk-libs-gf180mcu_fd_pr/main/models/ngspice/sm141064.ngspice'
+MODEL_FILENAME='sm141064.ngspice'
 
 mkdir -p $TARGET_DIR
 pushd $TARGET_DIR > /dev/null
@@ -22,6 +22,7 @@ cd ..
 for CELL_FILE in `find "$CELL_DIR" -type f -name "*.spice"`
 do
     cp $CELL_FILE $TARGET_DIR/.
+    sed -i 's/fet_03p3/mos_3p3_t/' $TARGET_DIR/$CELL_FILE
 done
 rm -rf globalfoundries-pdk-libs-gf180mcu_osu_sc/
 

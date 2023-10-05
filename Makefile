@@ -18,6 +18,7 @@ osu350_lib: CharLib.py test/osu350/osu350.yml
 
 gf180: CharLib.py
 	$(shell test/gf180/fetch_spice.sh)
+	python3 CharLib.py -l test/gf180
 
 clean:
 	rm -rf __pycache__

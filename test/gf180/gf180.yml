@@ -1,0 +1,42 @@
+settings:
+    lib_name:           GF180
+    cell_name_prefix:   _V1
+    cell_name_suffix:   GF180_
+    units:
+        voltage:        V
+        capacitance:    pF
+        resistance:     kOhm
+        current:        uA
+        leakage_power:  nW
+        energy:         fJ
+        time:           ns
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       VSS
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
+    cell_defaults:
+        model:  gf180_spice_temp/sm141064.spice
+        slews:  [0.015, 0.08, 0.4]
+        loads:  [0.06, 1.2]
+        simulation_timestep: auto
+        plots:  none
+cells:
+    gf180mcu_osu_sc_gp12t3v3__inv_1:
+        netlist:    gf180_spice_temp/gf180mcu_osu_sc_gp12t3v3__inv_1.spice
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:  [Y=~A]
+    gf180mcu_osu_sc_gp12t3v3__and2_1:
+        netlist:    gf180_spice_temp/gf180mcu_osu_sc_gp12t3v3__and2_1.spice
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=A&B]
