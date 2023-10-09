@@ -93,6 +93,9 @@ These keys may optionally be included to provide additional cell documentation o
 
 * `area`: The physical area occupied by the cell layout. Defaults to 0 if omitted.
 * `models`: A sequence of paths to the spice models for transistors used in this cell's netlist. If omitted, CharLib assumes each cell has no dependencies.
+	* Using the syntax `path/to/file` will result in `.include path/to/file` in SPICE simulations.
+	* Using the syntax `path/to/dir` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using `.include path/to/dir/file`.
+	* Using the syntax `path/to/file section` will result in `.lib path/to/file section` in SPICE simulations.
 * `test_vectors`: A sequence of test vectors for simulation. If omitted, test vectors are instead generated based on the cell's `functions`.
     * Each test vector should be in the format `[clk, set (if present), reset (if present), flop1, ..., flopK, in1, ..., inN, out1, ..., outM]` (omit `clk, set, reset, flop1, ..., flopK` for combinational cells).
     * Including the `test_vectors` key can result in significant reductions in CharLib simulation times. If you already know the test conditions that will reveal critical paths for your cells, you should include them as test vectors under this key.
@@ -283,7 +286,7 @@ settings:
             voltage:    3.3
     cell_defaults:
         models:  
-            - gf180_temp/models/sm141064.ngspice typical
+            - gf180_temp/models/sm141064.ngspice typical # This syntax tells CharLib to use the '.lib file section' syntax for this model
             - gf180_temp/models/design.ngspice
         slews:  [0.015, 0.08, 0.4]
         loads:  [0.06, 1.2]
