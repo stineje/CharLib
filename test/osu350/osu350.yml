@@ -2,11 +2,6 @@ settings:
     lib_name:           OSU350
     cell_name_prefix:   _V1
     cell_name_suffix:   OSU350_
-    work_dir:           work
-    export_lib:         yes
-    export_cmd:         no
-    run_simulation:     yes
-    multithreaded:      no
     units:
         voltage:        V
         capacitance:    pF
@@ -29,7 +24,7 @@ settings:
             name:       VNW
             voltage:    3.3
     cell_defaults:
-        model: test/osu350/model.sp
+        models: [test/osu350/model.sp]
         # slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         # loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         slews: [0.015, 0.08, 0.4]
@@ -44,7 +39,7 @@ settings:
                 highest:    1
                 lowest:     0.01
                 timestep:   0.005
-        plots: [io, delay]
+        #plots: [io, delay]
 cells:
     INVX1:
         netlist:    osu350_spice_temp/INVX1.sp

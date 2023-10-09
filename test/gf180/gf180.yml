@@ -24,19 +24,21 @@ settings:
             name:       VNW
             voltage:    3.3
     cell_defaults:
-        model:  gf180_spice_temp/sm141064.spice
+        models:  
+            - gf180_temp/models/sm141064.ngspice typical
+            - gf180_temp/models/design.ngspice
         slews:  [0.015, 0.08, 0.4]
         loads:  [0.06, 1.2]
         simulation_timestep: auto
         plots:  none
 cells:
     gf180mcu_osu_sc_gp12t3v3__inv_1:
-        netlist:    gf180_spice_temp/gf180mcu_osu_sc_gp12t3v3__inv_1.spice
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__inv_1.spice
         inputs:     [A]
         outputs:    ['Y']
         functions:  [Y=~A]
     gf180mcu_osu_sc_gp12t3v3__and2_1:
-        netlist:    gf180_spice_temp/gf180mcu_osu_sc_gp12t3v3__and2_1.spice
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__and2_1.spice
         inputs:     [A,B]
         outputs:    ['Y']
         functions:  [Y=A&B]

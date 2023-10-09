@@ -64,7 +64,6 @@ Specific cells to characterize are specified as entries under the `cells` key.
 Each cell entry is a dictionary with (at minimum) the following required keys:
 
 * `netlist`: The path to the spice file containing the netlist for this cell.
-* `model`: The path to the spice models for transistors used in this cell's netlist.
 * `inputs`: A sequence of input pin names.
 * `outputs`: A sequence of output pin names.
 * `functions`: A sequence of verilog functions describing how the inputs relate to each output.
@@ -93,6 +92,7 @@ Sequential Cell entries must specify the following key-value pairs in addition t
 These keys may optionally be included to provide additional cell documentation or improve CharLib performance.
 
 * `area`: The physical area occupied by the cell layout. Defaults to 0 if omitted.
+* `models`: A sequence of paths to the spice models for transistors used in this cell's netlist. If omitted, CharLib assumes each cell has no dependencies.
 * `test_vectors`: A sequence of test vectors for simulation. If omitted, test vectors are instead generated based on the cell's `functions`.
     * Each test vector should be in the format `[clk, set (if present), reset (if present), flop1, ..., flopK, in1, ..., inN, out1, ..., outM]` (omit `clk, set, reset, flop1, ..., flopK` for combinational cells).
     * Including the `test_vectors` key can result in significant reductions in CharLib simulation times. If you already know the test conditions that will reveal critical paths for your cells, you should include them as test vectors under this key.
@@ -135,7 +135,7 @@ settings:
 cells:
     INVX1:
         netlist:    osu350_spice_temp/INVX1.sp
-        models:     test/osu350/model.sp
+        models:     [test/osu350/model.sp]
         area:       128
         inputs:     [A]
         outputs:    ['Y'] # We have to put this in quotes because YAML interprets Y as boolean True by default
@@ -176,7 +176,7 @@ settings:
             name:       VNW
             voltage:    3.3
     cell_defaults:
-        model: test/osu350/model.sp
+        model: [test/osu350/model.sp]
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         simulation_timestep: auto
@@ -200,4 +200,104 @@ cells:
 ```
 
 ### Example 3: OSU350 DFFSR Characterization
-TODO
+```
+settings:
+    lib_name:           OSU350
+    cell_name_prefix:   _V1
+    cell_name_suffix:   OSU350_
+    units:
+        voltage:        V
+        capacitance:    pF
+        resistance:     kOhm
+        current:        uA
+        leakage_power:  nW
+        energy:         fJ
+        time:           ns
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       GND
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
+    cell_defaults:
+        models: [test/osu350/model.sp]
+        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        simulation_timestep: auto
+        simulation:
+            setup:
+                highest:    1
+                lowest:     0.01
+                timestep:   0.005
+            hold:
+                highest:    1
+                lowest:     0.01
+                timestep:   0.005
+cells:
+    DFFSR:
+        netlist:    osu350_spice_temp/DFFSR.sp
+        area:       704
+        clock:      posedge CLK
+        set:        negedge S
+        reset:      negedge R
+        inputs:     [D]
+        outputs:    [Q]
+        flops:      [P0002,P0003]
+        functions:
+            - Q=D
+```
+
+### Example 4: Characterizing Multiple GF180 Cells
+```
+settings:
+    lib_name:           GF180
+    cell_name_prefix:   _V1
+    cell_name_suffix:   GF180_
+    units:
+        voltage:        V
+        capacitance:    pF
+        resistance:     kOhm
+        current:        uA
+        leakage_power:  nW
+        energy:         fJ
+        time:           ns
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       VSS
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
+    cell_defaults:
+        models:  
+            - gf180_temp/models/sm141064.ngspice typical
+            - gf180_temp/models/design.ngspice
+        slews:  [0.015, 0.08, 0.4]
+        loads:  [0.06, 1.2]
+        simulation_timestep: auto
+        plots:  none
+cells:
+    gf180mcu_osu_sc_gp12t3v3__inv_1:
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__inv_1.spice
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:  [Y=~A]
+    gf180mcu_osu_sc_gp12t3v3__and2_1:
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__and2_1.spice
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=A&B]
+```
