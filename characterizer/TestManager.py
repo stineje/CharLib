@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
+from PySpice.Spice.Library import SpiceLibrary
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 
@@ -60,8 +61,8 @@ class TestManager:
                     raise ValueError(f'Expected an expression of the form "Y=A Z=B" for cell function, got "{func}"')
 
         # Characterization settings
-        self._netlist = kwargs.get('netlist')
-        self._model = kwargs.get('model')
+        self.netlist = kwargs.get('netlist')
+        self.models = kwargs.get('models', [])
         self._in_slews = kwargs.get('slews', [])
         self._out_loads = kwargs.get('loads', [])
         self._sim_timestep = 0
@@ -83,8 +84,8 @@ class TestManager:
             lines.append(f'        {p}={f}')
         if self.netlist:
             lines.append(f'    Netlist:             {str(self.netlist)}')
-            lines.append(f'    Definition:          {self.definition.rstrip()}')
-            lines.append(f'    Instance:            {self.instance}')
+            lines.append(f'    Definition:          {self.definition().rstrip()}')
+            lines.append(f'    Instance:            {self.instance()}')
         if self.in_slews:
             lines.append('    Simulation slew rates:')
             for slope in self.in_slews:
@@ -117,25 +118,43 @@ class TestManager:
         return [pin.function for pin in self.out_ports]
 
     @property
-    def model(self):
-        """Return cell model"""
-        return self._model
+    def models(self) -> list:
+        """Return cell models"""
+        return self._models
 
-    @model.setter
-    def model(self, value):
-        """Set path to cell transistor models"""
-        if isinstance(value, Path):
-            if not value.is_file():
-                raise ValueError(f'Invalid value for model: {value} is not a file')
+    @models.setter
+    def models(self, value):
+        models = []
+        """Set paths to cell transistor models"""
+        for model in value:
+            modelargs = model.split()
+            path = Path(modelargs.pop(0))
+            if modelargs: # If the list is not empty (e.g. there is a section parameter)
+                section = modelargs.pop(0)
+                # Use a tuple so that this is included with .lib path section syntax
+                if not path.is_file():
+                    raise ValueError(f'Invalid model {path} {section}: {path} is not a file')
+                models.append((path, section))
             else:
-                self._model = value
-        elif isinstance(value, str):
-            if not Path(value).is_file():
-                raise ValueError(f'Invalid value for model: {value} is not a file')
-            else:
-                self._model = value
-        else:
-            raise TypeError(f'Invalid type for model: {type(value)}')
+                if path.is_dir():
+                    models.append(SpiceLibrary(path))
+                elif path.is_file():
+                    models.append(path)
+                else:
+                    raise FileNotFoundError(f'File {value} not found')
+        self._models = models
+
+    def _include_models(self, circuit):
+        """Include models in the circuit netlist."""
+        for model in self.models:
+            if isinstance(model, SpiceLibrary):
+                for device in self.used_models():
+                    # TODO: Handle the case where we have multiple spice libraries
+                    circuit.include(model[device])
+            elif isinstance(model, Path):
+                circuit.include(model)
+            elif isinstance(model, tuple):
+                circuit.lib(*model)
 
     @property
     def netlist(self) -> str:
@@ -145,18 +164,13 @@ class TestManager:
     @netlist.setter
     def netlist(self, value):
         """Set path to cell netlist."""
-        if isinstance(value, Path):
-            if not value.is_file():
-                raise ValueError(f'Invalid value for netlist: {value} is not a file')
-            self._netlist = value
-        elif isinstance(value, str):
+        if isinstance(value, (str, Path)):
             if not Path(value).is_file():
                 raise ValueError(f'Invalid value for netlist: {value} is not a file')
             self._netlist = Path(value)
         else:
             raise TypeError(f'Invalid type for netlist: {type(value)}')
 
-    @property
     def definition(self) -> str:
         """Return the cell's spice definition"""
         # Search the netlist file for the circuit definition
@@ -169,15 +183,30 @@ class TestManager:
             file.close()
             raise ValueError(f'No cell definition found in netlist {self.netlist}')
 
-    @property
     def instance(self) -> str:
         """Return a subcircuit instantiation for this cell."""
         # Reorganize the definition into an instantiation with instance name XDUT
         # TODO: Instance name should probably be configurable from library settings
-        instance = self.definition.split()[1:]  # Delete .subckt
+        instance = self.definition().split()[1:]  # Delete .subckt
         instance.append(instance.pop(0))        # Move circuit name to last element
         instance.insert(0, 'XDUT')                # Insert instance name
         return ' '.join(instance)
+
+    def used_models(self) -> list:
+        """Return a list of subcircuits used by this cell."""
+        subckts = []
+        with open(self.netlist, 'r') as file:
+            for line in file:
+                if line.lower().startswith('x'):
+                    # Get the subckt name
+                    # This should be the last item that doesn't contain =
+                    for term in reversed(line.split()):
+                        if '=' not in term:
+                            subckts.append(term)
+                            break
+            file.close()
+        print(subckts)
+        return subckts
 
     @property
     def in_slews(self) -> list:
@@ -318,7 +347,7 @@ class TestManager:
 
         # Initialize circuit
         circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
-        circuit.include(self.model)
+        self._include_models(circuit)
         circuit.include(self.netlist)
         circuit.V('dd', 'vdd', circuit.gnd, vdd)
         circuit.V('ss', 'vss', circuit.gnd, vss)
@@ -326,7 +355,7 @@ class TestManager:
         circuit.R('in', circuit.gnd, 'vin', r_in)
 
         # Initialize device under test and wire up ports
-        ports = self.definition.upper().split()[1:]
+        ports = self.definition().upper().split()[1:]
         subcircuit_name = ports.pop(0)
         connections = []
         for port in ports:
@@ -460,7 +489,7 @@ class CombinationalTestManager(TestManager):
         # Initialize circuit
         # TODO: Consider adding a driving cell (such as an inverter) to improve accuracy
         circuit = Circuit(f'{self.cell.name}_delay')
-        circuit.include(self.model)
+        self._include_models(circuit)
         circuit.include(self.netlist)
         (v_start, v_end) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
         pwl_values = [(0, v_start), (t_start, v_start), (t_end, v_end), (t_simend, v_end)]
@@ -473,7 +502,7 @@ class CombinationalTestManager(TestManager):
         circuit.C('0', 'wout', 'vss_dyn', load * settings.units.capacitance)
 
         # Initialize device under test subcircuit and wire up ports
-        ports = self.definition.upper().split()[1:]
+        ports = self.definition().upper().split()[1:]
         subcircuit_name = ports.pop(0)
         connections = []
         for port in ports:
@@ -499,7 +528,7 @@ class CombinationalTestManager(TestManager):
                     if port == nontarget_port.pin.name:
                         connections.append(f'wfloat{str(nontarget_port.state)}')
         if len(connections) is not len(ports):
-            raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
+            raise ValueError(f'Failed to match all ports identified in definition "{self.definition().strip()}"')
         circuit.X('dut', subcircuit_name, *connections)
 
         # Initialize simulator
@@ -1008,7 +1037,7 @@ class SequentialTestManager(TestManager):
         return t_hold
 
     def _wire_subcircuit(self, settings, harness: SequentialHarness):
-        ports = self.definition.upper().split()[1:]
+        ports = self.definition().upper().split()[1:]
         connections = [ports.pop(0)]
         for port in ports:
             if port == harness.target_in_port.pin.name:
@@ -1039,7 +1068,7 @@ class SequentialTestManager(TestManager):
                     if port == nontarget_port.pin.name:
                         connections.append(f'wfloat{str(nontarget_port.state)}')
         if len(connections) is not len(ports)+1:
-            raise ValueError(f'Failed to match all ports identified in definition "{self.definition.strip()}"')
+            raise ValueError(f'Failed to match all ports identified in definition "{self.definition().strip()}"')
         return connections
 
     def _run_delay_trial(self, settings, harness: SequentialHarness, slew, load, t_setup, t_hold):
@@ -1073,7 +1102,7 @@ class SequentialTestManager(TestManager):
         # Initialize circuit
         # TODO: Consider adding a driving cell to improve accuracy
         circuit = Circuit(self.cell.name)
-        circuit.include(self.model)
+        self._include_models(circuit)
         circuit.include(self.netlist)
         circuit.V('high', 'vhigh', circuit.gnd, vdd)
         circuit.V('low', 'vlow', circuit.gnd, vss)

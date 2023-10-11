@@ -68,7 +68,8 @@ def execute_lib(characterizer: Characterizer, library_dir):
             with open(file, 'r') as f:
                 config = yaml.safe_load(f)
                 f.close()
-        except yaml.YAMLError:
+        except yaml.YAMLError as e:
+            print(e)
             print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
         if config.keys() >= {'settings', 'cells'}:

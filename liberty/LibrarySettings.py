@@ -25,11 +25,11 @@ def str_to_bool(value: str) -> bool:
 class LibrarySettings:
     def __init__(self, **kwargs):
         # Behavioral settings
-        self._lib_name = kwargs.get('lib_name', 'unnamed_lib')
+        self.lib_name = str(kwargs.get('lib_name', 'unnamed_lib'))
         self._dotlib_name = kwargs.get('dotlib_name')
         self._verilog_name = kwargs.get('verilog_name')
-        self._cell_name_suffix = kwargs.get('cell_name_suffix', '')
-        self._cell_name_prefix = kwargs.get('cell_name_prefix', '')
+        self.cell_name_suffix = str(kwargs.get('cell_name_suffix', ''))
+        self.cell_name_prefix = str(kwargs.get('cell_name_prefix', ''))
         self._work_dir = Path(kwargs.get('work_dir', 'work'))
         self._results_dir = Path(kwargs.get('results_dir', 'results'))
         self._run_sim = kwargs.get('run_simulation', True)
@@ -62,11 +62,6 @@ class LibrarySettings:
         self._operating_conditions = kwargs.get('operating_conditions', 'typical')
         self._delay_model = kwargs.get('delay_model', 'table_lookup')
         self.cell_defaults = kwargs.get('cell_defaults', {})
-
-        # TODO: Deprecate these settings
-        self._suppress_msg = False
-        self._suppress_sim_msg = False
-        self._suppress_debug_msg = False
 
     def __str__(self) -> str:
         lines = []
@@ -138,17 +133,6 @@ class LibrarySettings:
             raise ValueError(f'Invalid value for simulator: {value}')
 
     @property
-    def lib_name(self) -> str:
-        return self._lib_name
-
-    @lib_name.setter
-    def lib_name(self, value: str):
-        if value is not None and len(value) > 0:
-            self._lib_name = value
-        else:
-            raise ValueError(f'Invalid value for lib_name: {value}')
-
-    @property
     def dotlib_name(self) -> str:
         if self._dotlib_name is None:
             return self.lib_name + '.lib'
@@ -179,28 +163,6 @@ class LibrarySettings:
             self._verilog_name = str(value)
         else:
             raise ValueError(f'Invalid value for verilog_name: {value}')
-
-    @property
-    def cell_name_suffix(self) -> str:
-        return self._cell_name_suffix
-
-    @cell_name_suffix.setter
-    def cell_name_suffix(self, value: str):
-        if value is not None and len(value) > 0:
-            self._cell_name_suffix = value
-        else:
-            raise ValueError(f'Invalid value for cell_name_suffix: {value}')
-
-    @property
-    def cell_name_prefix(self) -> str:
-        return self._cell_name_prefix
-
-    @cell_name_prefix.setter
-    def cell_name_prefix(self, value: str):
-        if value is not None and len(value) > 0:
-            self._cell_name_prefix = value
-        else:
-            raise ValueError(f'Invalid value for cell_name_suffix: {value}')
 
     @property
     def process(self) -> str:
@@ -379,27 +341,3 @@ class LibrarySettings:
 
     def set_exported(self):
         self._is_exported = True
-
-    @property
-    def suppress_message(self) -> bool:
-        return self._suppress_msg
-    
-    @suppress_message.setter
-    def suppress_message(self, value: str):
-        self._suppress_msg = str_to_bool(value)
-
-    @property
-    def suppress_sim_message(self) -> bool:
-        return self._suppress_sim_msg
-
-    @suppress_sim_message.setter
-    def suppress_sim_message(self, value: str):
-        self._suppress_sim_msg = str_to_bool(value)
-    
-    @property
-    def suppress_debug_message(self) -> bool:
-        return self._suppress_debug_msg
-
-    @suppress_debug_message.setter
-    def suppress_debug_message(self, value: str):
-        self._suppress_debug_msg = str_to_bool(value)
