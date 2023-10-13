@@ -2,10 +2,10 @@
 
 class Function:
     """Provides function evaluation and mapping faculties"""
-    def __init__(self, func_dict: dict) -> None:
+    def __init__(self, expression: str, test_vectors: list=[]) -> None:
         """Initialize a new Function"""
-        self.expression = func_dict['expression']
-        self.stored_test_vectors = func_dict['test_vectors']
+        self.expression = expression
+        self.stored_test_vectors = test_vectors
 
     @property
     def operands(self) -> list:
