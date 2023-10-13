@@ -10,6 +10,7 @@ from PySpice.Spice.Library import SpiceLibrary
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 
+from characterizer.functions import *
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
 from characterizer.LogicParser import parse_logic
 from liberty.export import Cell, Pin
@@ -54,7 +55,8 @@ class TestManager:
                     for pin_name in out_ports:
                         if pin_name == func_pin:
                             if parse_logic(expr):
-                                self.cell[pin_name].function = expr
+                                # TODO: Check if we already recognize this function (instead of creating a new one)
+                                self.cell[pin_name].function = Function(expr)
                             else:
                                 raise ValueError(f'Invalid function "{expr}"')
                 else:
@@ -278,55 +280,14 @@ class TestManager:
     @property
     def test_vectors(self) -> list:
         """Generate a list of test vectors from this cell's functions"""
-        # Note that this uses "brute force" methods to determine test vectors. It also tests far
-        # more vectors than necessary, lengthening simulation times.
-        # A smarter approach would be to parse the function for each output, determine potential
-        # critical paths, and then test only those paths to determine worst-case delays.
-        #
-        # Revisiting this: we actually can't know critical path just from the function, as the
-        # given function may not match up with hardware implementation in terms of operation order.
-        # We have to evaluate all potential masking conditions and determine critical paths
-        # afterwards.
-        #
-        # Revisiting this again: While we can't know critical paths from the information given, we
-        # could provide tools to let users tell us which conditions reveal the critical path.
-        # Consider adding an option to let users provide critical path nonmasking conditions.
-        #
-        # Revisiting yet again: This should probably be replaced with lctime-style cell inspection
-        # to more cleverly determine cell functions. That might allow us to remove the need to
-        # manually specify cell functions as well.
+        # If given test vectors during configuration, use those
         if self.stored_test_vectors:
             return self.stored_test_vectors
-        else:
-            test_vectors = []
-            values = _gen_graycode(len(self.in_ports))
-            for out_index in range(len(self.out_ports)):
-                # Assemble a callable function corresponding to this output port's function
-                f = eval(f'lambda {",".join([pin.name for pin in self.in_ports])} : int({self.functions[out_index].replace("~", "not ")})')
-                for j in range(len(values)):
-                    # TODO: consider changing to enumerate() instead of range(len())
-                    # Evaluate f at the last two values and see if the output changes
-                    x0 = values[j-1]
-                    x1 = values[j]
-                    y0 = f(*x0)
-                    y1 = f(*x1)
-                    if not y1 == y0:
-                        # If the output differs, we can use these two vectors to test the input at the index where they differ
-                        in_index = [k for k in range(len(x1)) if x0[k] != x1[k]][0] # If there is more than 1 element here, we have a problem with our gray coding
-                        # Add two test vectors: one for rising and one for falling
-                        # Generate the first test vector
-                        test_vector = [str(e) for e in x1]
-                        test_vector[in_index] = f'{x0[in_index]}{x1[in_index]}'
-                        for n in range(len(self.out_ports)):
-                            test_vector.append(f'{y0}{y1}' if n == out_index else '0')
-                        test_vectors.append(test_vector)
-                        # Generate the second test vector
-                        test_vector = [str(e) for e in x0]
-                        test_vector[in_index] = f'{x1[in_index]}{x0[in_index]}'
-                        for n in range(len(self.out_ports)):
-                            test_vector.append(f'{y1}{y0}' if n == out_index else '0')
-                        test_vectors.append(test_vector)
-            return test_vectors
+        # Otherwise use functions to generate test vectors
+        test_vectors = []
+        for pin in self.out_ports:
+            test_vectors += pin.function.test_vectors
+        return test_vectors
 
     def _run_input_capacitance(self, settings, target_pin):
         """Measure the input capacitance of target_pin.

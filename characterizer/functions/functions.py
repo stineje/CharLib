@@ -41,6 +41,10 @@ class Function:
             result = self == func # Recurse
         return result
 
+    def __str__(self) -> str:
+        """Return str(self)"""
+        return self.expression
+
     @property
     def test_vectors(self) -> list:
         """Generate test vectors, or return stored configuration."""
