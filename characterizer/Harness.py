@@ -24,77 +24,42 @@ class PinTestBinding:
 
 
 class Harness:
-    """Characterization parameters for one path through a cell
-    
-    A Harness defines characterization parameters from one input to one
-    output of a standard cell circuit. The target input port and output
-    port are defined by the value of test_vector passed to the
-    constructor."""
+    """Characterization parameters for one path through a cell.
 
-    def __init__(self, target_cell, test_vector: list) -> None:
-        """Create a new Harness.
-        
-        The key parameter here is test_vector. It describes the expected
-        state of each input pin and output pin, as well as which input and
-        output this Harness is testing. It should be formatted as a list of
-        strings with N+M entries, where N is the number of input ports and
-        M is the number of output ports in target_cell:
+    The primary purpose of a harness is to encode mapping of pins to
+    states. It also provides some cell-related calculations."""
 
-        [in1, ..., inN, out1, ..., outM]
+    def __init__(self, test_manager, pin_state_map: dict) -> None:
+        """Create a new Harness"""
 
-        Each entry in test_vector is a string that represents the state of
-        the corresponding I/O on the standard cell. For inputs, the values
-        '0' and '1' represent nontarget input ports. These ports will be
-        held stable with the corresponding logic values. Values of '01' or
-        '10' indicate target input ports that are rising or falling
-        respectively. The case is similar for outputs: '0' and '1' represent
-        expected results for nontarget output ports, and '01' or '10'
-        represent target outputs that are expected to fall or rise as the
-        input changes.
-
-        For example, a test vector for a single-input single-output inverter
-        might look like this: ['01', '10'].
-        Or a test vector for an AND gate with 2 inputs and a single output
-        might look like: ['01', '1', '01'].
-
-        Note that target_cell is only required for initialization checks,
-        such as ensuring that test_vector correctly maps to the input and
-        output pins of the cell under test. A Harness does not keep track of
-        changes to target_cell. If target_cell is altered after the Harness
-        was generated, a new Harness should be generated."""
-
-        self._stable_in_ports = [] # input pins to hold stable
-        self._nontarget_out_ports = [] # output pins that we aren't specifically evaluating
-        self.results =  {} # nested dictionary of characterization results
-
-        # Parse inputs from test vector
-        # Test vector should be formatted like [in1, ..., inN, out1, ..., outM]
-        num_inputs = len(target_cell.in_ports)
-        num_outputs = len(target_cell.out_ports)
-        input_test_vector = test_vector[0:num_inputs]
-        output_test_vector = test_vector[num_inputs:num_inputs+num_outputs]
-
-        # Get inputs from test vector
-        for in_port, state in zip(target_cell.in_ports, input_test_vector):
-            if len(state) > 1:
-                self._target_in_port = PinTestBinding(in_port, state)
+        # Parse pin state mapping and set up PinTestBindings
+        self._stable_in_ports = []
+        self._nontarget_ports = []
+        for pin in test_manager.cell.pins.values():
+            if pin.name in pin_state_map:
+                # Add to targeted or stable ports
+                state = pin_state_map[pin.name]
+                if state == 'ignore':
+                    continue
+                binding = PinTestBinding(pin, state)
+                if len(state) > 1:
+                    if pin.direction == 'input':
+                        self._target_in_port = binding
+                    elif pin.direction == 'output':
+                        self._target_out_port = binding
+                else:
+                    if pin.direction == 'input':
+                        self._stable_in_ports.append(binding)
             else:
-                self._stable_in_ports.append(PinTestBinding(in_port, state))
+                # Add to nontargeted ports
+                self._nontarget_ports.append(PinTestBinding(pin))
 
-        # Get outputs from test vector
-        for out_port, state in zip(target_cell.out_ports, output_test_vector):
-            if len(state) > 1:
-                self._target_out_port = PinTestBinding(out_port, state)
-            else:
-                self._nontarget_out_ports.append(PinTestBinding(out_port, state))
-        if not self._target_out_port:
-            raise ValueError(f'Unable to parse target output port from test vector {test_vector}')
-
-        # Initialize results from target_cell input slopes and loads
-        for in_slew in target_cell.in_slews:
-            self.results[str(in_slew)] = {}
-            for out_load in target_cell.out_loads:
-                self.results[str(in_slew)][str(out_load)] = {}
+        # Initialize results from test input slopes and loads
+        self.results = {}
+        for slew in test_manager.in_slews:
+            self.results[str(slew)] = {}
+            for load in test_manager.out_loads:
+                self.results[str(slew)][str(load)] = {}
 
     def __str__(self) -> str:
         """Return str(self)"""
@@ -103,21 +68,20 @@ class Harness:
             lines.append('    Stable Input Ports:')
             for in_port in self.stable_in_ports:
                 lines.append(f'        {in_port.pin.name}: {in_port.state}')
-        if self.nontarget_out_ports:
-            lines.append('    Nontarget Output Ports:')
-            for out_port in self.nontarget_out_ports:
+        if self.nontarget_ports:
+            lines.append('    Nontarget Ports:')
+            for out_port in self.nontarget_ports:
                 lines.append(f'        {out_port.pin.name}: {out_port.state}')
         # TODO: Display results if available
         return '\n'.join(lines)
 
     def short_str(self):
         """Create an abbreviated string for the test vector represented by this harness"""
-        # TODO: Replace this with a method that generates the test vector string (if possible)
         harness_str = f'{self.target_in_port.pin.name}={self.target_in_port.state}'
         for in_port in self.stable_in_ports:
             harness_str += f' {in_port.pin.name}={in_port.state}'
         harness_str += f' {self.target_out_port.pin.name}={self.target_out_port.state}'
-        for out_port in self.nontarget_out_ports:
+        for out_port in self.nontarget_ports:
             harness_str += f' {out_port.pin.name}={out_port.state}'
         return harness_str
 
@@ -141,9 +105,9 @@ class Harness:
         return self._target_out_port
 
     @property
-    def nontarget_out_ports(self) -> list:
-        """Return list of nontarget output ports"""
-        return self._nontarget_out_ports
+    def nontarget_ports(self) -> list:
+        """Return list of nontarget ports"""
+        return self._nontarget_ports
 
     @property
     def in_direction(self) -> str:
@@ -186,6 +150,7 @@ class Harness:
 
 class CombinationalHarness (Harness):
     """A CombinationalHarness captures configuration for testing a CombinationalCell."""
+
     def __init__(self, target_cell, test_vector) -> None:
         """Create a new CombinationalHarness."""
         super().__init__(target_cell, test_vector)
@@ -223,32 +188,25 @@ class CombinationalHarness (Harness):
 
 
 class SequentialHarness (Harness):
-    def __init__(self, target_cell, test_vector: list) -> None:
-        # Parse internal storage states, clock, set, and reset out of test vector
-        # For sequential harnesses, test vectors are in the format:
-        # [clk, set, reset, flop1, ..., flopK, in1, ..., inN, out1, ..., outM]
+    def __init__(self, test_manager, pin_state_map: dict) -> None:
+        # Parse internal storage states, clock, set, and reset out of pin mapping
         # Note that set and reset are optional, but must be provided if present
         # on the target cell
         self.set = None
         self.reset = None
-        self.flops = []
-        self.flop_states = []
-        self.clock = PinTestBinding(target_cell.clock, test_vector.pop(0))
+        self.clock = PinTestBinding(test_manager.clock, pin_state_map[test_manager.clock.name])
+        pin_state_map[test_manager.clock.name] = 'ignore'
         # Set up Reset
-        if target_cell.reset:
-            self.reset = PinTestBinding(target_cell.reset, test_vector.pop(0))
-            if len(self.reset.state) > 1:
-                self._target_in_port = self.reset
+        if test_manager.reset:
+            self.reset = PinTestBinding(test_manager.reset, pin_state_map[test_manager.reset.name])
+            pin_state_map[test_manager.reset.name] = 'ignore'
         # Set up Set
-        if target_cell.set:
-            self.set = PinTestBinding(target_cell.set, test_vector.pop(0))
-            if len(self.set.state) > 1:
-                self._target_in_port = self.set
-        # Set up flop internal states
-        for flop in target_cell.flops:
-            self.flops.append(flop)
-            self.flop_states.append(test_vector.pop(0))
-        super().__init__(target_cell, test_vector)
+        if test_manager.set:
+            self.set = PinTestBinding(test_manager.set, pin_state_map[test_manager.set.name])
+            pin_state_map[test_manager.set.name] = 'ignore'
+        # TODO: handle flop internal states
+        self.flops = []
+        super().__init__(test_manager, pin_state_map)
 
     def short_str(self):
         harness_str = f'{self.clock.pin.name}={self.clock.state} {super().short_str()}'

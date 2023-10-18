@@ -9,7 +9,7 @@ class Function:
 
     @property
     def operands(self) -> list:
-        return [char for char in self.expression if char.isalnum()]
+        return list(set([char for char in self.expression if char.isalnum()]))
 
     def eval(self, *inputs) -> bool:
         """Evaluate this function for the given inputs"""
