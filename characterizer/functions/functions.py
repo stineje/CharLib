@@ -1,24 +1,26 @@
-"""Maps logic functions to test vectors."""
+"""Maps logic functions to truth tables and test vectors."""
+
+import re
 
 class Function:
     """Provides function evaluation and mapping faculties"""
     def __init__(self, expression: str, test_vectors: list=[]) -> None:
         """Initialize a new Function"""
-        self.expression = expression
+        self.expression = expression.replace('!','~')
         self.stored_test_vectors = test_vectors
 
     @property
     def operands(self) -> list:
-        return list(set([char for char in self.expression if char.isalnum()]))
+        """Return a list of operand names"""
+        return list(set(re.findall(r'(\w+)', self.expression)))
 
-    def eval(self, *inputs) -> bool:
+    def eval(self, **inputs) -> bool:
         """Evaluate this function for the given inputs"""
-        # Search expression for single-character operands
         operands = self.operands
         if not len(inputs) == len(operands):
             raise ValueError(f'Expected {len(operands)} inputs for function {self.expression}, got {len(inputs)}')
         f = eval(f'lambda {",".join(operands)}: int({self.expression.replace("~", " not ")})')
-        return f(*inputs)
+        return f(**inputs)
 
     def truth_table(self) -> list:
         """Return a truth table for this function"""
@@ -26,7 +28,7 @@ class Function:
         length = len(self.operands)
         for n in range(2**length):
             input_vector = [int(c) for c in f'{n:0{length}b}']
-            result = self.eval(*input_vector)
+            result = self.eval(**dict(zip(self.operands, input_vector)))
             table.append([input_vector, result])
         return table
 
@@ -37,13 +39,27 @@ class Function:
             result = self.truth_table() == other.truth_table()
         except AttributeError:
             # other is probably not a Function object; assume it's a str expression instead
-            func = Function({'expression': other, 'test_vectors': []})
-            result = self == func # Recurse
+            result = self == Function(other) # Recurse
         return result
 
     def __str__(self) -> str:
         """Return str(self)"""
         return self.expression
+
+    def __repr__(self) -> str:
+        """Return repr(self)"""
+        return f'Function("{self.expression}", {self.test_vectors})'
+
+    def to_yaml(self, name) -> str:
+        """Convert to a YAML-formatted string"""
+        func_str = [
+            f'{name}:',
+            f'    expression: {self.expression}',
+            '    test_vectors:'
+        ]
+        for tv in self.test_vectors:
+            func_str.append(f'        - {tv}')
+        return '\n'.join(func_str)
 
     @property
     def test_vectors(self) -> list:
