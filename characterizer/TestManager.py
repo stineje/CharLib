@@ -10,6 +10,7 @@ from PySpice.Spice.Library import SpiceLibrary
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 
+from characterizer.functions import Function, registered_functions
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
 from characterizer.LogicParser import parse_logic
 from liberty.export import Cell, Pin
@@ -54,7 +55,14 @@ class TestManager:
                     for pin_name in out_ports:
                         if pin_name == func_pin:
                             if parse_logic(expr):
-                                self.cell[pin_name].function = expr
+                                # Check if we already recognize this function
+                                function = Function(expr)
+                                for reg_name, reg_func in registered_functions.items():
+                                    if reg_func == function:
+                                        # Copy test vectors
+                                        print(f'Recognized {self.cell.name} pin {pin_name} function as {reg_name}')
+                                        function.stored_test_vectors = reg_func.test_vectors
+                                self.cell[pin_name].function = function
                             else:
                                 raise ValueError(f'Invalid function "{expr}"')
                 else:
@@ -68,7 +76,6 @@ class TestManager:
         self._sim_timestep = 0
         if 'simulation_timestep' in kwargs:
             self.sim_timestep = kwargs['simulation_timestep']
-        self.stored_test_vectors = kwargs.get('test_vectors')
 
         # Behavioral/internal-use settings
         self.plots = kwargs.get('plots', [])
@@ -275,59 +282,6 @@ class TestManager:
         else:
             raise TypeError(f'Invalid type for sim_timestep: {type(value)}')
 
-    @property
-    def test_vectors(self) -> list:
-        """Generate a list of test vectors from this cell's functions"""
-        # Note that this uses "brute force" methods to determine test vectors. It also tests far
-        # more vectors than necessary, lengthening simulation times.
-        # A smarter approach would be to parse the function for each output, determine potential
-        # critical paths, and then test only those paths to determine worst-case delays.
-        #
-        # Revisiting this: we actually can't know critical path just from the function, as the
-        # given function may not match up with hardware implementation in terms of operation order.
-        # We have to evaluate all potential masking conditions and determine critical paths
-        # afterwards.
-        #
-        # Revisiting this again: While we can't know critical paths from the information given, we
-        # could provide tools to let users tell us which conditions reveal the critical path.
-        # Consider adding an option to let users provide critical path nonmasking conditions.
-        #
-        # Revisiting yet again: This should probably be replaced with lctime-style cell inspection
-        # to more cleverly determine cell functions. That might allow us to remove the need to
-        # manually specify cell functions as well.
-        if self.stored_test_vectors:
-            return self.stored_test_vectors
-        else:
-            test_vectors = []
-            values = _gen_graycode(len(self.in_ports))
-            for out_index in range(len(self.out_ports)):
-                # Assemble a callable function corresponding to this output port's function
-                f = eval(f'lambda {",".join([pin.name for pin in self.in_ports])} : int({self.functions[out_index].replace("~", "not ")})')
-                for j in range(len(values)):
-                    # TODO: consider changing to enumerate() instead of range(len())
-                    # Evaluate f at the last two values and see if the output changes
-                    x0 = values[j-1]
-                    x1 = values[j]
-                    y0 = f(*x0)
-                    y1 = f(*x1)
-                    if not y1 == y0:
-                        # If the output differs, we can use these two vectors to test the input at the index where they differ
-                        in_index = [k for k in range(len(x1)) if x0[k] != x1[k]][0] # If there is more than 1 element here, we have a problem with our gray coding
-                        # Add two test vectors: one for rising and one for falling
-                        # Generate the first test vector
-                        test_vector = [str(e) for e in x1]
-                        test_vector[in_index] = f'{x0[in_index]}{x1[in_index]}'
-                        for n in range(len(self.out_ports)):
-                            test_vector.append(f'{y0}{y1}' if n == out_index else '0')
-                        test_vectors.append(test_vector)
-                        # Generate the second test vector
-                        test_vector = [str(e) for e in x0]
-                        test_vector[in_index] = f'{x1[in_index]}{x0[in_index]}'
-                        for n in range(len(self.out_ports)):
-                            test_vector.append(f'{y1}{y0}' if n == out_index else '0')
-                        test_vectors.append(test_vector)
-            return test_vectors
-
     def _run_input_capacitance(self, settings, target_pin):
         """Measure the input capacitance of target_pin.
 
@@ -395,40 +349,45 @@ class CombinationalTestManager(TestManager):
             input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
-        # Run delay simulation for all test vectors
-        unsorted_harnesses = []
-        for test_vector in self.test_vectors:
-            # Generate harness
-            harness = CombinationalHarness(self, test_vector)
-            # Determine spice filename prefix
-            trial_name = f'delay {self.cell.name} {harness.short_str()}'
-            # Run delay characterization
-            # Note: ngspice-shared doesn't work with multithreaded as the shared interface must be a singleton
-            if settings.use_multithreaded and not settings.simulator == 'ngspice-shared':
-                # Split simulation jobs into threads and run multiple simultaneously
-                thread_id = 0
-                threadlist = []
-                for slew in self.in_slews:
-                    for load in self.out_loads:
-                        thread = threading.Thread(target=self._run_delay,
-                                args=([settings, harness, slew, load, trial_name]),
-                                name="%d" % thread_id)
-                        threadlist.append(thread)
-                        thread_id += 1
-                [thread.start() for thread in threadlist]
-                [thread.join() for thread in threadlist]
-            else:
-                # Run simulation jobs sequentially
-                for slew in self.in_slews:
-                    for load in self.out_loads:
-                        self._run_delay(settings, harness, slew, load, trial_name)
-            # Save harness to the cell
-            unsorted_harnesses.append(harness)
-
-        # Filter out harnesses that aren't worst-case conditions
-        # We should be left with the critical path rise and fall harnesses for each i/o path
-        harnesses = []
+        # Run delay simulation for all test vectors of each function
         for out_port in self.out_ports:
+            unsorted_harnesses = []
+            # Run characterization
+            for test_vector in out_port.function.test_vectors:
+                # Map pins to test vector
+                inputs = out_port.function.operands
+                state_map = dict(zip([*inputs, out_port.name], test_vector))
+
+                # Generate harness
+                harness = CombinationalHarness(self, state_map)
+                trial_name = f'delay {self.cell.name} {harness.short_str()}'
+
+                # Run delay characterization
+                # Note: ngspice-shared doesn't work with multithreaded as the shared interface must be a singleton
+                if settings.use_multithreaded and not settings.simulator == 'ngspice-shared':
+                    # Split simulation jobs into threads and run multiple simultaneously
+                    thread_id = 0
+                    threadlist = []
+                    for slew in self.in_slews:
+                        for load in self.out_loads:
+                            thread = threading.Thread(target=self._run_delay,
+                                    args=([settings, harness, slew, load, trial_name]),
+                                    name="%d" % thread_id)
+                            threadlist.append(thread)
+                            thread_id += 1
+                    [thread.start() for thread in threadlist]
+                    [thread.join() for thread in threadlist]
+                else:
+                    # Run simulation jobs sequentially
+                    for slew in self.in_slews:
+                        for load in self.out_loads:
+                            self._run_delay(settings, harness, slew, load, trial_name)
+                # Save harness to the cell
+                unsorted_harnesses.append(harness)
+
+            # Filter out harnesses that aren't worst-case conditions
+            # We should be left with the critical path rise and fall harnesses for each i/o path
+            harnesses = []
             for in_port in self.in_ports:
                 for direction in ['rise', 'fall']:
                     # Iterate over harnesses that match output, input, and direction
@@ -440,8 +399,7 @@ class CombinationalTestManager(TestManager):
                             worst_case_harness = harness # This harness is worse
                     harnesses.append(worst_case_harness)
 
-        # Store propagation and transport delay in pin timing tables
-        for out_port in self.out_ports:
+            # Store propagation and transient delay in pin timing tables
             for in_port in self.in_ports:
                 self.cell[out_port.name].add_timing(in_port.name)
                 for direction in ['rise', 'fall']:
@@ -464,13 +422,13 @@ class CombinationalTestManager(TestManager):
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
                     self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
 
-        # Display plots
-        if 'io' in self.plots:
-            [self.plot_io(settings, harness) for harness in harnesses]
-        if 'delay' in self.plots:
-            [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
-        if 'energy' in self.plots:
-            print("Energy plotting not yet supported") # TODO: Add correct energy measurement procedure
+            # Display plots
+            if 'io' in self.plots:
+                [self.plot_io(settings, harness) for harness in harnesses]
+            if 'delay' in self.plots:
+                [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
+            if 'energy' in self.plots:
+                print("Energy plotting not yet supported") # TODO: Add correct energy measurement procedure
 
     def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
         print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
@@ -482,7 +440,7 @@ class CombinationalTestManager(TestManager):
         data_slew = slew * settings.units.time
         t_start = data_slew
         t_end = t_start + data_slew
-        t_simend = 1000 * data_slew
+        t_simend = 10000 * data_slew
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
 
@@ -523,10 +481,8 @@ class CombinationalTestManager(TestManager):
                             connections.append('vlow')
                         else:
                             raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
-            elif port in [pin.pin.name for pin in harness.nontarget_out_ports]:
-                for nontarget_port in harness.nontarget_out_ports:
-                    if port == nontarget_port.pin.name:
-                        connections.append(f'wfloat{str(nontarget_port.state)}')
+            else:
+                connections.append('wfloat0') # Float any unrecognized ports
         if len(connections) is not len(ports):
             raise ValueError(f'Failed to match all ports identified in definition "{self.definition().strip()}"')
         circuit.X('dut', subcircuit_name, *connections)
@@ -606,10 +562,10 @@ class SequentialTestManager(TestManager):
     def __init__(self, name: str, in_ports: list, out_ports: list, clock: str, flops: str, function: str, **kwargs):
         super().__init__(name, in_ports, out_ports, function, **kwargs)
         # TODO: Use flops in place of functions for sequential cells
-        self.set = kwargs.get('set')        # set pin name
-        self.reset = kwargs.get('reset')    # reset pin name
-        self.clock = clock                  # clock pin name
-        self.flops = flops                  # registers
+        self.set = kwargs.get('set')
+        self.reset = kwargs.get('reset')
+        self.clock = clock
+        self.flops = flops
         
         self._clock_slew = 0
         if 'clock_slew' in kwargs.keys():
@@ -712,9 +668,12 @@ class SequentialTestManager(TestManager):
     @set.setter
     def set(self, value):
         """Assign set pin and trigger"""
-        (self._set_trigger, pin) = _parse_triggered_pin(value, 'set')
-        self._set_name = pin.name
-        self.cell.add_pin(pin.name, pin.direction, pin.role)
+        if value is not None:
+            (self._set_trigger, pin) = _parse_triggered_pin(value, 'set')
+            self._set_name = pin.name
+            self.cell.add_pin(pin.name, pin.direction, pin.role)
+        else:
+            self._set_name = None
 
     @property
     def reset(self):
@@ -734,9 +693,12 @@ class SequentialTestManager(TestManager):
     @reset.setter
     def reset(self, value):
         """Assign reset pin and trigger"""
-        (self._reset_trigger, pin) = _parse_triggered_pin(value, 'reset')
-        self._reset_name = pin.name
-        self.cell.add_pin(pin.name, pin.direction, pin.role)
+        if value is not None:
+            (self._reset_trigger, pin) = _parse_triggered_pin(value, 'reset')
+            self._reset_name = pin.name
+            self.cell.add_pin(pin.name, pin.direction, pin.role)
+        else:
+            self._reset_name = None
 
     @property
     def flops(self) -> list:
@@ -875,30 +837,6 @@ class SequentialTestManager(TestManager):
         else:
             raise TypeError(f'Invalid type for sim_setup_timestamp: {type(value)}')
 
-    @property
-    def test_vectors(self) -> list:
-        """Generate a rise and fall test vector for each D->Q path"""
-        if self.stored_test_vectors:
-            return self.stored_test_vectors
-        test_vectors = []
-        for q_target in self.out_ports:
-            for d_target in self.in_ports:
-                for direction in ['01', '10']:
-                    test_vector = []
-                    test_vector.append('0101'if self.clock_trigger == 'posedge' else '1010')
-                    if self.set:
-                        test_vector.append('0' if self.set_trigger == 'posedge' else '1')
-                    if self.reset:
-                        test_vector.append('0' if self.reset_trigger == 'posedge' else '1')
-                    for _ in self.flops:
-                        test_vector.append('0') # FIXME Pretty sure flops are nonfunctional at the moment
-                    for d in self.in_ports:
-                        test_vector.append(direction if d is d_target else '0')
-                    for q in self.out_ports:
-                        test_vector.append(direction if q is q_target else '0')
-                    test_vectors.append(test_vector)
-        return test_vectors
-
 
     def characterize(self, settings):
         """Run Delay, Recovery & Removal characterization for a sequential cell"""
@@ -912,31 +850,39 @@ class SequentialTestManager(TestManager):
             input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
-        # Generate harnesses
-        harnesses = []
-        for test_vector in self.test_vectors:
-            # Generate harness
-            harness = SequentialHarness(self, test_vector)
-            trial_name = f'delay {self.cell.name} {harness.short_str()}'
-            # Run characterization
-            # TODO: Figure out how to thread this
-            for slew in self.in_slews:
-                for load in self.out_loads:
-                    self._run_delay(settings, harness, slew, load, trial_name)
-            harnesses.append(harness)
-
         # Save test results to cell
         normalize_t_units = lambda value: (value @ u_s).convert(settings.units.time.prefixed_unit).value
-        # TODO: Add setup and hold constraints on input pins
-        for in_port in self.in_ports:
-            for direction in ['rise', 'fall']:
-                self.cell[in_port.name].add_timing(self.clock.name)
-                # TODO: Build setup and hold constraint tables
-                
-        # Output ports
+
         for out_port in self.out_ports:
+            unsorted_harnesses = []
+            # Generate Harnesses and run characterization
+            for test_vector in out_port.function.test_vectors:
+                # Map pins
+                inputs = out_port.function.operands
+                state_map = dict(zip([*inputs, out_port.name], test_vector))
+                state_map[self.clock.name] = '0101' if self.clock_trigger == 'posedge' else '1010'
+                if self.set:
+                    state_map[self.set.name] = '0' if self.set_trigger == 'posedge' else '1'
+                if self.reset:
+                    state_map[self.reset.name] = '0' if self.reset_trigger == 'posedge' else '1'
+                # TODO: Add flops
+
+                # Generate harness
+                harness = SequentialHarness(self, state_map)
+                trial_name = f'delay {self.cell.name} {harness.short_str()}'
+
+                # Run characterization
+                # TODO: Figure out how to thread this
+                for slew in self.in_slews:
+                    for load in self.out_loads:
+                        self._run_delay(settings, harness, slew, load, trial_name)
+                unsorted_harnesses.append(harness)
+
+            # TODO: Filter out harnesses that aren't worst-case conditions
+            harnesses = unsorted_harnesses
+
+            # Store propagation and transient delay in pin timing tables
             for in_port in self.in_ports: # TODO: Add set and reset
-                # Add propagation and transport delay table to output pin
                 self.cell[out_port.name].add_timing(in_port.name)
                 for direction in ['rise', 'fall']:
                     # Identify the correct harness
@@ -955,15 +901,18 @@ class SequentialTestManager(TestManager):
                     template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should be in LibrarySettings
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
                     self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
-        # TODO: Add internal power
 
-        # Display plots
-        if 'io' in self.plots:
-            [self.plot_io(settings, harness) for harness in harnesses]
-        if 'delay' in self.plots:
-            [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
-        if 'energy' in self.plots:
-            pass # TODO
+            # TODO: Store setup and hold constraints
+
+            # TODO: Store internal power results
+
+            # Display plots
+            if 'io' in self.plots:
+                [self.plot_io(settings, harness) for harness in harnesses]
+            if 'delay' in self.plots:
+                [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
+            if 'energy' in self.plots:
+                pass # TODO
 
     def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
         print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
@@ -1063,10 +1012,8 @@ class SequentialTestManager(TestManager):
                             connections.append('vlow')
                         else:
                             raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
-            elif port in [pin.pin.name for pin in harness.nontarget_out_ports]:
-                for nontarget_port in harness.nontarget_out_ports:
-                    if port == nontarget_port.pin.name:
-                        connections.append(f'wfloat{str(nontarget_port.state)}')
+            else:
+                connections.append('wfloat0') # Float any unrecognized ports
         if len(connections) is not len(ports)+1:
             raise ValueError(f'Failed to match all ports identified in definition "{self.definition().strip()}"')
         return connections
@@ -1085,7 +1032,7 @@ class SequentialTestManager(TestManager):
         vss = settings.vss.voltage * settings.units.voltage
 
         # Set up timing parameters for clock and data events
-        t_stabilizing = 100*data_slew # TODO: Figure out how to tune this so that the test works
+        t_stabilizing = 1000*data_slew # TODO: Figure out how to tune this so that the test works
         t_clk_edge_1_start = data_slew + t_setup
         t_clk_edge_1_end = t_clk_edge_1_start + clk_slew
         t_clk_edge_2_start = t_clk_edge_1_end + t_hold
@@ -1173,7 +1120,7 @@ class SequentialTestManager(TestManager):
                           f'trig v(vin) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
                           f'targ v(vout) val={v_prop_end} {harness.out_direction}=LAST')
         
-        # Measure transport delay from first data edge to first output edge
+        # Measure transient delay from first data edge to first output edge
         simulator.measure('tran', 'trans_out',
                           f'trig v(vin) val={v_trans_start} td={float(t_removal)} {harness.in_direction}=1',
                           f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
