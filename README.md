@@ -27,7 +27,13 @@ $ make gf180
 A brief script will run to fetch the cell spice files, then you should see the software run characterization for several cells. If everything works as expected, CharLib will produce a liberty file called GF180.lib in the current directory.
 
 ## Usage
-TODO
+`./CharLib -l [DIR]`
+CharLib searches the specified directory for a YAML file containing a valid cell library configuration, then characterizes the specified cells. See [yaml.md](https://github.com/stineje/CharLib/blob/main/docs/yaml.md) for information on constructing a config file.
+
+The general process for using CharLib is as follows:
+1. Acquire SPICE files for the cells you want to characterize
+2. Write a configuration YAML file for the library
+3. Run CharLib
 
 ## References
 [1] M. Mellor and J. E. Stine, "CharLib: an open-source characterization tool written in Python", 2023. <br>
