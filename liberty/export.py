@@ -60,9 +60,9 @@ class Cell:
     def __str__(self) -> str:
         """Return str(self)"""
         lib_str = [f'cell ({self.name}) {{']
-        if 'BUF' in self.name:
+        if 'BUF' in self.name.upper():
             lib_str.append('  cell_footprint : buf;')
-        elif 'INV' in self.name:
+        elif 'INV' in self.name.upper():
             lib_str.append('  cell_footprint : inv;')
         lib_str.append(f'  area : {self.area};')
         if self.is_pad_cell():

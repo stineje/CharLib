@@ -3,13 +3,13 @@ settings:
     cell_name_prefix:   _V1
     cell_name_suffix:   GF180_
     units:
-        voltage:        V
-        capacitance:    pF
-        resistance:     kOhm
-        current:        uA
-        leakage_power:  nW
-        energy:         fJ
-        time:           ns
+        voltage:            V
+        capacitive_load:    pF
+        pulling_resistance: kOhm
+        current:            uA
+        leakage_power:      nW
+        energy:             fJ
+        time:               ns
     named_nodes:
         vdd:
             name:       VDD
@@ -42,3 +42,8 @@ cells:
         inputs:     [A,B]
         outputs:    ['Y']
         functions:  [Y=A&B]
+    gf180mcu_osu_sc_gp12t3v3__xnor2_1:
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__xnor2_1.spice
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=~(A^B)]

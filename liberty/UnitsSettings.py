@@ -3,12 +3,12 @@ from PySpice import Unit
 class UnitsSettings:
     def __init__(self, **kwargs) -> None:
         # Initialize using setters
-        self.voltage = kwargs.get('voltage', 'V')
-        self.capacitance = kwargs.get('capacitance', 'pF')
-        self.resistance = kwargs.get('resistance', 'Ω')
-        self.current = kwargs.get('current', 'uA')
         self.time = kwargs.get('time', 'ns')
-        self.power = kwargs.get('power', 'nW')
+        self.voltage = kwargs.get('voltage', 'V')
+        self.current = kwargs.get('current', 'uA')
+        self.resistance = kwargs.get('pulling_resistance', 'Ω')
+        self.capacitance = kwargs.get('capacitive_load', 'pF')
+        self.power = kwargs.get('leakage_power', 'nW')
         self.energy = kwargs.get('energy', 'fJ')
         # TODO: Add temperature
 
