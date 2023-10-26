@@ -45,6 +45,11 @@ class Library:
                 units[unit_key] = attrs[f'{unit_key}_unit']
         self.units = UnitsSettings(**units)
 
+        # Nominal operating conditions
+        self.nom_process = attrs.get('nom_process', 1)
+        self.nom_voltage = attrs.get('nom_voltage', 3.3)
+        self.nom_temperature = attrs.get('nom_temperature', 25)
+
     @property
     def time_unit(self):
         """Return self.units.time"""
@@ -87,13 +92,32 @@ class Library:
         """Add a new liberty attribute to this cell"""
         self._attrs[key] = str(value)
 
+    def add_cell(self, cell) -> None:
+        """Add a cell to the library"""
+        self.cells[cell.name] = cell
+
+    def templates(self) -> list:
+        templates = []
+        for cell in self.cells.values():
+            templates.extend(cell.templates())
+        return list(set(templates))
+
     def __str__(self) -> str:
         """Return str(self)"""
+        spice_unit = lambda unit : unit.prefixed_unit.str_spice()
         lib_str = [
             f'library ({self.name}) {{',
             f'  technology : ({self.technology});',
             f'  delay_model : {self.delay_model};',
             f'  bus_naming_style : "{self.bus_naming_style}";',
+            '\n  /* Units */',
+            f'  time_unit : "1{spice_unit(self.units.time)}";',
+            f'  voltage_unit : "1{spice_unit(self.units.voltage)}";',
+            f'  current_unit : "1{spice_unit(self.units.current)}";',
+            f'  pulling_resistance_unit : "1{spice_unit(self.units.resistance)}";',
+            f'  leakage_power_unit : "1{spice_unit(self.units.power)}";',
+            f'  capacitive_load_unit : (1,{spice_unit(self.units.capacitance)});',
+            '\n  /* Slew characteristics */',
             f'  slew_upper_threshold_pct_rise : {self.slew_upper_threshold_pct_rise};',
             f'  slew_lower_threshold_pct_rise : {self.slew_lower_threshold_pct_rise};',
             f'  slew_upper_threshold_pct_fall : {self.slew_upper_threshold_pct_fall};',
@@ -102,4 +126,24 @@ class Library:
             f'  input_threshold_pct_fall : {self.input_threshold_pct_fall};',
             f'  output_threshold_pct_rise : {self.output_threshold_pct_rise};',
             f'  output_threshold_pct_fall : {self.output_threshold_pct_fall};',
+            '\n  /* Operating Conditions */',
+            f'  nom_process : {self.nom_process};',
+            f'  nom_voltage : {self.nom_voltage};',
+            f'  nom_temperature : {self.nom_temperature};',
         ]
+        # TODO: Display wire loads, operating conditions, and power supplies
+
+        # Display templates from cells
+        lib_str.append('\n  /* Table Templates */')
+        for template in self.templates():
+            for line in template.split('\n'):
+                lib_str.append(f'  {line}')
+
+        # Display cells
+        for name, cell in self.cells.items():
+            lib_str.append(f'\n  /* {name} */')
+            for line in str(cell).split('\n'):
+                lib_str.append(f'  {line}')
+        
+        lib_str.append('}')
+        return '\n'.join(lib_str)

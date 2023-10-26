@@ -1,6 +1,5 @@
 """This module contains test managers for various types of standard cells"""
 
-import threading
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +12,7 @@ from PySpice.Unit import *
 from characterizer.functions import Function, registered_functions
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
 from characterizer.LogicParser import parse_logic
-from liberty.export import Cell, Pin
+from liberty.cell import Cell, Pin, TableTemplate
 
 class TestManager:
     """A test manager for a standard cell"""
@@ -363,26 +362,9 @@ class CombinationalTestManager(TestManager):
                 trial_name = f'delay {self.cell.name} {harness.short_str()}'
 
                 # Run delay characterization
-                # Note: ngspice-shared doesn't work with multithreaded as the shared interface must be a singleton
-                if settings.use_multithreaded and not settings.simulator == 'ngspice-shared':
-                    # Split simulation jobs into threads and run multiple simultaneously
-                    thread_id = 0
-                    threadlist = []
-                    for slew in self.in_slews:
-                        for load in self.out_loads:
-                            thread = threading.Thread(target=self._run_delay,
-                                    args=([settings, harness, slew, load, trial_name]),
-                                    name="%d" % thread_id)
-                            threadlist.append(thread)
-                            thread_id += 1
-                    [thread.start() for thread in threadlist]
-                    [thread.join() for thread in threadlist]
-                else:
-                    # Run simulation jobs sequentially
-                    for slew in self.in_slews:
-                        for load in self.out_loads:
-                            self._run_delay(settings, harness, slew, load, trial_name)
-                # Save harness to the cell
+                for slew in self.in_slews:
+                    for load in self.out_loads:
+                        self._run_delay(settings, harness, slew, load, trial_name)
                 unsorted_harnesses.append(harness)
 
             # Filter out harnesses that aren't worst-case conditions
@@ -418,7 +400,10 @@ class CombinationalTestManager(TestManager):
                             prop_values.append(f'{prop_value:7f}')
                             tran_value = (result['trans_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
                             tran_values.append(f'{tran_value:7f}')
-                    template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should probably be in LibrarySettings
+                    # TODO: Template names should probably be in LibrarySettings
+                    template = TableTemplate()
+                    template.name = f'delay_template_{len(index_1)}x{len(index_2)}'
+                    template.variables = ['input_net_transition', 'total_output_net_capacitance']
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
                     self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
 
@@ -429,6 +414,11 @@ class CombinationalTestManager(TestManager):
                 [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
             if 'energy' in self.plots:
                 print("Energy plotting not yet supported") # TODO: Add correct energy measurement procedure
+            if plt.get_figlabels():
+                plt.tight_layout()
+                plt.show()
+
+        return self.cell
 
     def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
         print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
@@ -494,24 +484,27 @@ class CombinationalTestManager(TestManager):
         simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
 
         # Measure delay
-        if harness.in_direction == 'rise':
-            v_prop_start = settings.logic_low_to_high_threshold_voltage()
-        else:
-            v_prop_start = settings.logic_high_to_low_threshold_voltage()
-        if harness.out_direction == 'rise':
-            v_prop_end = settings.logic_low_to_high_threshold_voltage()
-            v_trans_start = settings.logic_threshold_low_voltage()
-            v_trans_end = settings.logic_threshold_high_voltage()
-        else:
-            v_prop_end = settings.logic_low_to_high_threshold_voltage()
-            v_trans_start = settings.logic_threshold_high_voltage()
-            v_trans_end = settings.logic_threshold_low_voltage()
+        pct_vdd = lambda x : x * settings.vdd.voltage
+        match harness.in_direction:
+            case 'rise':
+                v_prop_start = settings.logic_threshold_low_to_high
+            case 'fall':
+                v_prop_start = settings.logic_threshold_high_to_low
+        match harness.out_direction:
+            case 'rise':
+                v_prop_end = settings.logic_threshold_low_to_high
+                v_trans_start = settings.logic_threshold_low
+                v_trans_end = settings.logic_threshold_high
+            case 'fall':
+                v_prop_end = settings.logic_threshold_high_to_low
+                v_trans_start = settings.logic_threshold_high
+                v_trans_end = settings.logic_threshold_low
         simulator.measure('tran', 'prop_in_out',
-                        f'trig v(vin) val={v_prop_start} {harness.in_direction}=1',
-                        f'targ v(vout) val={v_prop_end} {harness.out_direction}=1')
+                        f'trig v(vin) val={pct_vdd(v_prop_start)} {harness.in_direction}=1',
+                        f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=1')
         simulator.measure('tran', 'trans_out',
-                        f'trig v(vout) val={v_trans_start} {harness.out_direction}=1',
-                        f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
+                        f'trig v(vout) val={pct_vdd(v_trans_start)} {harness.out_direction}=1',
+                        f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1')
 
         # Run transient analysis
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
@@ -547,8 +540,8 @@ class CombinationalTestManager(TestManager):
             # Add lines indicating logic levels and timing
             for ax in [ax_i, ax_o]:
                 ax.grid()
-                for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
-                    ax.axhline(level, color='0.5', linestyle='--')
+                for level in [settings.logic_threshold_low, settings.logic_threshold_high]:
+                    ax.axhline(level*settings.vdd.voltage, color='0.5', linestyle='--')
                 for t in [slew, 2*slew]:
                     ax.axvline(float(t), color='r', linestyle=':')
 
@@ -872,7 +865,6 @@ class SequentialTestManager(TestManager):
                 trial_name = f'delay {self.cell.name} {harness.short_str()}'
 
                 # Run characterization
-                # TODO: Figure out how to thread this
                 for slew in self.in_slews:
                     for load in self.out_loads:
                         self._run_delay(settings, harness, slew, load, trial_name)
@@ -898,7 +890,10 @@ class SequentialTestManager(TestManager):
                             result = harness.results[slew][load]
                             prop_values.append(f'{normalize_t_units(result["prop_in_out"]):7f}')
                             tran_values.append(f'{normalize_t_units(result["trans_out"]):7f}')
-                    template = f'delay_template_{len(index_1)}x{len(index_2)}' # TODO: Template names should be in LibrarySettings
+                    # TODO: Template names should probably be in LibrarySettings
+                    template = TableTemplate()
+                    template.name = f'delay_template_{len(index_1)}x{len(index_2)}'
+                    template.variables = ['input_net_transition', 'total_output_net_capacitance']
                     self.cell[out_port.name].timing[in_port.name].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
                     self.cell[out_port.name].timing[in_port.name].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
 
@@ -913,6 +908,11 @@ class SequentialTestManager(TestManager):
                 [self.cell[out_pin.name].plot_delay(settings, self.cell.name) for out_pin in self.out_ports]
             if 'energy' in self.plots:
                 pass # TODO
+            if plt.get_figlabels():
+                plt.tight_layout()
+                plt.show()
+
+        return self.cell
 
     def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
         print(f'Running sequential {trial_name} with slew={str(slew * settings.units.time)}, load={str(load*settings.units.capacitance)}')
@@ -1092,48 +1092,48 @@ class SequentialTestManager(TestManager):
         simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
 
         # Set up voltage bounds for measurements
-        if harness.in_direction == 'rise':
-            v_prop_start = settings.logic_low_to_high_threshold_voltage()
-            v_trans_start = settings.logic_threshold_low_voltage()
-        elif harness.in_direction == 'fall':
-            v_prop_start = settings.logic_high_to_low_threshold_voltage()
-            v_trans_start = settings.logic_threshold_high_voltage()
-        else:
-            raise ValueError('Unable to configure simulation: no target input pin')
-        if harness.out_direction == 'rise':
-            v_trans_end = settings.logic_threshold_low_voltage()
-            v_prop_end = settings.logic_low_to_high_threshold_voltage()
-        elif harness.out_direction == 'fall':
-            v_trans_end = settings.logic_threshold_high_voltage()
-            v_prop_end = settings.logic_high_to_low_threshold_voltage()
-        else:
-            raise ValueError('Unable to configure simulation: no target output pin')
-        if harness.timing_type_clock == 'rising_edge':
-            clk_direction = 'rise'
-            v_clk_transition = settings.logic_low_to_high_threshold_voltage()
-        else:
-            clk_direction = 'fall'
-            v_clk_transition = settings.logic_high_to_low_threshold_voltage()
+        pct_vdd = lambda x : x * settings.vdd.voltage
+        match harness.in_direction:
+            case 'rise':
+                v_prop_start = settings.logic_threshold_low_to_high
+            case 'fall':
+                v_prop_start = settings.logic_threshold_high_to_low
+        match harness.out_direction:
+            case 'rise':
+                v_prop_end = settings.logic_threshold_low_to_high
+                v_trans_start = settings.logic_threshold_low
+                v_trans_end = settings.logic_threshold_high
+            case 'fall':
+                v_prop_end = settings.logic_threshold_high_to_low
+                v_trans_start = settings.logic_threshold_high
+                v_trans_end = settings.logic_threshold_low
+        match harness.timing_type_clock:
+            case 'rising_edge':
+                clk_direction = 'rise'
+                v_clk_transition = settings.logic_threshold_low_to_high
+            case 'falling_edge':
+                clk_direction = 'fall'
+                v_clk_transition = settings.logic_threshold_high_to_low
 
         # Measure propagation delay from first data edge to last output edge
         simulator.measure('tran', 'prop_in_out',
-                          f'trig v(vin) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
-                          f'targ v(vout) val={v_prop_end} {harness.out_direction}=LAST')
+                          f'trig v(vin) val={pct_vdd(v_prop_start)} td={float(t_removal)} {harness.in_direction}=1',
+                          f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=LAST')
         
         # Measure transient delay from first data edge to first output edge
         simulator.measure('tran', 'trans_out',
-                          f'trig v(vin) val={v_trans_start} td={float(t_removal)} {harness.in_direction}=1',
-                          f'targ v(vout) val={v_trans_end} {harness.out_direction}=1')
+                          f'trig v(vin) val={pct_vdd(v_trans_start)} td={float(t_removal)} {harness.in_direction}=1',
+                          f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1')
 
         # Measure setup delay from first data edge to last clock edge
         simulator.measure('tran', 't_setup',
-                          f'trig v(vin) val={v_prop_start} td={float(t_removal)} {harness.in_direction}=1',
-                          f'targ v(vcin) val={v_clk_transition} {clk_direction}=1')
+                          f'trig v(vin) val={pct_vdd(v_prop_start)} td={float(t_removal)} {harness.in_direction}=1',
+                          f'targ v(vcin) val={pct_vdd(v_clk_transition)} {clk_direction}=1')
         
         # Measure hold delay from last clock edge to last data edge
         simulator.measure('tran', 't_hold',
-                          f'trig v(vcin) val={v_clk_transition} td={float(t_removal)} {_flip_direction(clk_direction)}=last',
-                          f'targ v(vin) val={v_prop_end} {_flip_direction(harness.in_direction)}=1')
+                          f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(t_removal)} {_flip_direction(clk_direction)}=last',
+                          f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=1')
 
         return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_sim_end)
 
@@ -1168,8 +1168,8 @@ class SequentialTestManager(TestManager):
 
                 # Set up plots
                 for ax in axes:
-                    for level in [settings.logic_threshold_low_voltage(), settings.logic_threshold_high_voltage()]:
-                        ax.axhline(level, color='0.5', linestyle='--')
+                    for level in [settings.logic_threshold_low, settings.logic_threshold_high]:
+                        ax.axhline(level*settings.vdd.voltage, color='0.5', linestyle='--')
                     # TODO: Set up vlines for important timing events
                     ax.set_yticks([settings.vss.voltage, settings.vdd.voltage])
                 volt_units = str(settings.units.voltage.prefixed_unit)
