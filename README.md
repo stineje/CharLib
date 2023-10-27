@@ -27,17 +27,18 @@ $ make gf180
 A brief script will run to fetch the cell spice files, then you should see the software run characterization for several cells. If everything works as expected, CharLib will produce a liberty file called GF180.lib in the current directory.
 
 ## Usage
-`./CharLib -l [DIR]`
+`./CharLib path/to/library/config/`
 
 CharLib searches the specified directory for a YAML file containing a valid cell library configuration, then characterizes the specified cells. See [yaml.md](https://github.com/stineje/CharLib/blob/main/docs/yaml.md) for information on constructing a config file.
 
 The general process for using CharLib is as follows:
-1. Acquire SPICE files for the cells you want to characterize
+1. Acquire SPICE files and transistor models for the cells you want to characterize
 2. Write a configuration YAML file for the library
 3. Run CharLib
 
 ## References
 [1] M. Mellor and J. E. Stine, "CharLib: an open-source characterization tool written in Python", 2023. <br>
 [2] Synopsys, "What is Library Characterization?", https://www.synopsys.com/glossary/what-is-library-characterization.html, 2023 <br>
-[3] S. Nishizawa and T. Nakura, libretto: An Open Cell Timing Characterizer for Open Source VLSI Design, IEICE Transactions on Fundamentals of Electronics, Communications and Computer Sciences, 論文ID 2022VLP0007, [早期公開] 公開日 2022/09/13, Online ISSN 1745-1337, Print ISSN 0916-8508, https://doi.org/10.1587/transfun.2022VLP0007, https://www.jstage.jst.go.jp/article/transfun/advpub/0/advpub_2022VLP0007/_article/-char/ja, <br>
+[3] S. Nishizawa and T. Nakura, "libretto: An Open Cell Timing Characterizer for Open Source VLSI Design," IEICE Transactions on Fundamentals of Electronics, Communications and Computer Sciences, 論文ID 2022VLP0007, [早期公開] 公開日 2022/09/13, Online ISSN 1745-1337, Print ISSN 0916-8508, https://doi.org/10.1587/transfun.2022VLP0007, https://www.jstage.jst.go.jp/article/transfun/advpub/0/advpub_2022VLP0007/_article/-char/ja, <br>
 [4] I. K. Rachit and M. S. Bhat, "AutoLibGen: An open source tool for standard cell library characterization at 65nm technology," 2008 International Conference on Electronic Design, Penang, Malaysia, 2008, pp. 1-6, doi: 10.1109/ICED.2008.4786726. <br>
+[5] E. Salman, A. Dasdan, F. Taraporevala, K. Kucukcakar and E. G. Friedman, "Exploiting Setup-Holt-Time Interdependence in Static Timing Analysis," IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems, vol. 26, no. 6, pp. 1114-1125, June 2007, doi: 10.1109/TCAD.2006.885834.
