@@ -1,15 +1,13 @@
 settings:
     lib_name:           GF180
-    cell_name_prefix:   _V1
-    cell_name_suffix:   GF180_
     units:
-        voltage:            V
-        capacitive_load:    pF
-        pulling_resistance: kOhm
-        current:            uA
-        leakage_power:      nW
-        energy:             fJ
         time:               ns
+        voltage:            V
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      nW
+        capacitive_load:    pF
+        energy:             fJ
     named_nodes:
         vdd:
             name:       VDD

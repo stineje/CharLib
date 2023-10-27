@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import argparse, yaml
+import argparse, os, yaml
 from pathlib import Path
 
 from characterizer.Characterizer import Characterizer
@@ -70,10 +70,15 @@ def main():
 
     # TODO: Add print statements to display which keys in YAML were not used
 
-    # Initialize workspace, characterize, and export
+    # Characterize
     library = characterizer.characterize()
-    # TODO: Export to file
-    print(library)
+
+    # Export
+    results_dir = characterizer.settings.results_dir
+    results_dir.mkdir(parents=True, exist_ok=True)
+    with open(results_dir / f'{library.name}.lib', 'w') as libfile:
+        libfile.write(str(library))
+    
 
 if __name__ == '__main__':
     main()
