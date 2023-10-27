@@ -10,12 +10,12 @@ While CharLib does provide defaults for all key-value pairs under the `settings`
 
 * `lib_name`: The library name to use within the exported liberty file. Defaults to 'unnamed_lib'.
 * `units`: A dictionary describing the unit symbols to use for input and output values. If omitted, the default units below are used. May contain the following key-value pairs:
-    * `voltage`: The unit symbol to use when expressing electrical potential values. Defaults to Volts.
-    * `capacitance`: The unit symbol to use when expressing capacitance values. Defaults to picofarads.
-    * `resistance`: The unit symbol to use when expressing resistance values. Defaults to Ohms.
-    * `current`: The unit symbol to use when expressing electrical current values. Defaults to microamps.
     * `time`: The unit symbol to use when expressing time values. Defaults to nanoseconds.
-    * `power`: The unit symbol to use when expressing power values. Defaults to nanowatts.
+    * `voltage`: The unit symbol to use when expressing electrical potential values. Defaults to Volts.
+    * `current`: The unit symbol to use when expressing electrical current values. Defaults to microamps.
+    * `capacitive_load`: The unit symbol to use when expressing capacitance values. Defaults to picofarads.
+    * `pulling_resistance`: The unit symbol to use when expressing resistance values. Defaults to Ohms.
+    * `leakage_power`: The unit symbol to use when expressing power values. Defaults to nanowatts.
     * `energy`: The unit symbol to use when expressing energy values. Defaults to femtojoules.
 * `named_nodes`: A dictionary mapping important node names to the names used in spice models. May contain the following key-value pairs:
     * `vdd`: A dictionary containing the name and voltage used for device supply voltage. Defaults to 'VDD' with voltage 3.3V.
@@ -34,27 +34,16 @@ These keys may optionally be included to specify simulation parameters:
     * `low`: The maximum fraction supply voltage which registers as a logical zero. Defaults to 0.2 (20 percent of supply voltage).
     * `high`: The minimum fraction of supply voltage which registers as a logical one. Defaults to 0.8 (80 percent of supply voltage).
     * `high_to_low`: The threshold which must be crossed before a particular signal can be considered falling from one to zero. Defaults to 0.5 (50% of supply voltage).
-    * `low to high`: The threshold which must be crossed before a particular signal can be considered rising from zero to one. Defaults to 0.5 (50% of supply voltage).
-* `energy_measurement`: A dictionary containing parameters for energy measurement during simulation. May contain the following key-value pairs:
-    * `low_threshold`: The minimum fraction of supply voltage to include in switching energy measurements. Defaults to 0.01 (1% of supply voltage).
-    * `high_threshold`: The maximum fraction of supply voltage to include in switching energy measurements. Defaults to 0.99 (99% of supply voltage).
-    * `time_extent`: The time interval to use for energy measurements. Defaults to 10 time units.
-* `process`: The process condition to include in the exported liberty file. Empty by default.
+    * `low_to_high`: The threshold which must be crossed before a particular signal can be considered rising from zero to one. Defaults to 0.5 (50% of supply voltage).
+* `process`: The process condition to include in the exported liberty file. Defaults t0 1.
 * `temperature`: The temperature to use during spice simulations. Defaults to 25C. 
 * `operating_conditions`: The operating conditions to include in the exported liberty file. Empty by default.
-* `delay_model`: The delay model keyword to include in the exported liberty file. Defaults to 'table_lookup`.
 * `cell_defaults`: A dictionary of default values to use for all cells. See **Cells** below for more information. May contain any key-value pair valid for a cell entry.
 
 ### Optional Behavioral Keys
 These keys may optionally be included to adjust CharLib behavior:
 
-* `dotlib_name`: The file name to use for the exported liberty file. Defaults to whatever `lib_name` is set to + '.lib'.
-* `verilog_name`: The file name to use for the exported verilog file. Defaults to whatever `lib_name` is set to + '.v'.
-* `cell_name_prefix`: A static prefix to append to the start of each cell name in the exported liberty file. Empty by default.
-* `cell_name_suffix`: A static prefix to append to the end of each cell name in the exported liberty file. Empty by default.
-* `run_simulation`: A boolean which tells CharLib whether to run spice simulation or re-use existing results in the work directory. Defaults to True.
 * `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
-* `work_dir`: The directory to use for intermediate simulation spice files and other characterization artifacts. If omitted, CharLib creates a `work` directory in the current folder.
 * `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
 
 ## Cells
@@ -64,6 +53,10 @@ Specific cells to characterize are specified as entries under the `cells` key.
 Each cell entry is a dictionary with (at minimum) the following required keys:
 
 * `netlist`: The path to the spice file containing the netlist for this cell.
+* `models`: A sequence of paths to the spice models for transistors used in this cell's netlist. If omitted, CharLib assumes each cell has no dependencies.
+	* Using the syntax `path/to/file` will result in `.include path/to/file` in SPICE simulations.
+	* Using the syntax `path/to/dir` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using `.include path/to/dir/file`.
+	* Using the syntax `path/to/file section` will result in `.lib path/to/file section` in SPICE simulations.
 * `inputs`: A sequence of input pin names.
 * `outputs`: A sequence of output pin names.
 * `functions`: A sequence of verilog functions describing how the inputs relate to each output.
@@ -92,10 +85,6 @@ Sequential Cell entries must specify the following key-value pairs in addition t
 These keys may optionally be included to provide additional cell documentation or improve CharLib performance.
 
 * `area`: The physical area occupied by the cell layout. Defaults to 0 if omitted.
-* `models`: A sequence of paths to the spice models for transistors used in this cell's netlist. If omitted, CharLib assumes each cell has no dependencies.
-	* Using the syntax `path/to/file` will result in `.include path/to/file` in SPICE simulations.
-	* Using the syntax `path/to/dir` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using `.include path/to/dir/file`.
-	* Using the syntax `path/to/file section` will result in `.lib path/to/file section` in SPICE simulations.
 * `test_vectors`: A sequence of test vectors for simulation. If omitted, test vectors are instead generated based on the cell's `functions`.
     * Each test vector should be in the format `[clk, set (if present), reset (if present), flop1, ..., flopK, in1, ..., inN, out1, ..., outM]` (omit `clk, set, reset, flop1, ..., flopK` for combinational cells).
     * Including the `test_vectors` key can result in significant reductions in CharLib simulation times. If you already know the test conditions that will reveal critical paths for your cells, you should include them as test vectors under this key.
@@ -112,16 +101,14 @@ The YAML below configures CharLib to perform timing and power characterization f
 ``` YAML
 settings:
     lib_name:           OSU350
-    cell_name_prefix:   OSU350_
-    cell_name_suffix:   _V1
     units:
-        voltage:        V
-        capacitance:    pF
-        resistance:     kOhm
-        current:        uA
-        leakage_power:  nW
-        energy:         fJ
-        time:           ns
+        time:               ns
+        voltage:            V
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      nW
+        capacitive_load:    pF
+        energy:             fJ
     named_nodes:
         vdd:
             name:       VDD
@@ -155,16 +142,14 @@ The YAML below configures CharLib to perform timing and power characterization f
 ``` YAML
 settings:
     lib_name:           OSU350
-    cell_name_prefix:   _V1
-    cell_name_suffix:   OSU350_
     units:
-        voltage:        V
-        capacitance:    pF
-        resistance:     kOhm
-        current:        uA
-        leakage_power:  nW
-        energy:         fJ
-        time:           ns
+        time:               ns
+        voltage:            V
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      nW
+        capacitive_load:    pF
+        energy:             fJ
     named_nodes:
         vdd:
             name:       VDD
@@ -179,7 +164,7 @@ settings:
             name:       VNW
             voltage:    3.3
     cell_defaults:
-        model: [test/osu350/model.sp]
+        models: [test/osu350/model.sp]
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         simulation_timestep: auto
@@ -206,16 +191,14 @@ cells:
 ```
 settings:
     lib_name:           OSU350
-    cell_name_prefix:   _V1
-    cell_name_suffix:   OSU350_
     units:
-        voltage:        V
-        capacitance:    pF
-        resistance:     kOhm
-        current:        uA
-        leakage_power:  nW
-        energy:         fJ
-        time:           ns
+        time:               ns
+        voltage:            V
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      nW
+        capacitive_load:    pF
+        energy:             fJ
     named_nodes:
         vdd:
             name:       VDD
@@ -254,23 +237,21 @@ cells:
         outputs:    [Q]
         flops:      [P0002,P0003]
         functions:
-            - Q=D
+            - Q<=D
 ```
 
 ### Example 4: Characterizing Multiple GF180 Cells
 ```
 settings:
     lib_name:           GF180
-    cell_name_prefix:   _V1
-    cell_name_suffix:   GF180_
     units:
-        voltage:        V
-        capacitance:    pF
-        resistance:     kOhm
-        current:        uA
-        leakage_power:  nW
-        energy:         fJ
-        time:           ns
+        time:               ns
+        voltage:            V
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      nW
+        capacitive_load:    pF
+        energy:             fJ
     named_nodes:
         vdd:
             name:       VDD
@@ -303,4 +284,9 @@ cells:
         inputs:     [A,B]
         outputs:    ['Y']
         functions:  [Y=A&B]
+    gf180mcu_osu_sc_gp12t3v3__xnor2_1:
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__xnor2_1.spice
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=~(A^B)]
 ```
