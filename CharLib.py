@@ -76,8 +76,10 @@ def main():
     # Export
     results_dir = characterizer.settings.results_dir
     results_dir.mkdir(parents=True, exist_ok=True)
-    with open(results_dir / f'{library.name}.lib', 'w') as libfile:
+    libfile_name = results_dir / f'{library.name}.lib'
+    with open(libfile_name, 'w') as libfile:
         libfile.write(str(library))
+        print(f'Results written to {str(libfile_name.resolve())}')
     
 
 if __name__ == '__main__':
