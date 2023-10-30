@@ -1,5 +1,7 @@
 """This module contains data structures used to read and write liberty files"""
 
+from dataclasses import dataclass
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -57,12 +59,19 @@ class Cell:
         """Return `True` if this cell contains any pad pins."""
         return 'pad' in [pin.role for pin in self.pins.values()]
 
+    def templates(self) -> list:
+        """Generate templates for all lookup tables in this cell's pins"""
+        templates = []
+        for pin in self.pins.values():
+            templates.extend(pin.templates())
+        return list(set(templates))
+
     def __str__(self) -> str:
         """Return str(self)"""
         lib_str = [f'cell ({self.name}) {{']
-        if 'BUF' in self.name:
+        if 'BUF' in self.name.upper():
             lib_str.append('  cell_footprint : buf;')
-        elif 'INV' in self.name:
+        elif 'INV' in self.name.upper():
             lib_str.append('  cell_footprint : inv;')
         lib_str.append(f'  area : {self.area};')
         if self.is_pad_cell():
@@ -180,6 +189,9 @@ class Pin:
             """Set fall_power table data"""
             self._fall_power = Table('fall_power', template, values, index_1, index_2)
 
+        def templates(self) -> list:
+            return [table.template_str() for table in [self._rise_power, self._fall_power]]
+
         def __str__(self) -> str:
             """Return str(self)"""
             internal_power_str = ['internal_power () {']
@@ -218,6 +230,9 @@ class Pin:
             :param index_2: (optional) a list of table indexes for dimension 2"""
             self._tables[name] = Table(name, template, values, index_1, index_2)
 
+        def templates(self) -> list:
+            return [table.template_str() for table in self._tables.values()]
+
         def __getitem__(self, key):
             """Return self[key]. Searches tables by name."""
             return self._tables[key]
@@ -241,7 +256,6 @@ class Pin:
                     timing_str.append(f'  {line}')
             timing_str.append('}')
             return '\n'.join(timing_str)
-
 
     @property
     def name(self) -> str:
@@ -364,10 +378,10 @@ class Pin:
         self.timing[related_pin] = Pin.TimingData(related_pin)
 
     def plot_delay(self, settings, cell_name):
-        """Plot propagation and transport delays for rise and fall cases
+        """Plot propagation and transient delays for rise and fall cases
 
         Generate two plots: one for rise timing and one for fall timing. Both plots
-        should display propagation and transport delay as a function of slew rate and
+        should display propagation and transient delay as a function of slew rate and
         capacitive load."""
         # Input pins may not have delay data to plot. Prevent plotting in these cases
         if self.direction == 'output':
@@ -386,7 +400,7 @@ class Pin:
                     prop_surface = ax.plot_surface(*indices, np.asarray(prop_table.data()), edgecolor='red', cmap='inferno', alpha=0.3, label='Propagation Delay')
                     prop_surface._edgecolors2d = prop_surface._edgecolor3d # Workaround for legend. See https://stackoverflow.com/questions/54994600/pyplot-legend-poly3dcollection-object-has-no-attribute-edgecolors2d
                     prop_surface._facecolors2d = prop_surface._facecolor3d # Workaround for legend
-                    tran_surface = ax.plot_surface(*indices, np.asarray(tran_table.data()), edgecolor='blue', cmap='viridis', alpha=0.3, label='Transport Delay')
+                    tran_surface = ax.plot_surface(*indices, np.asarray(tran_table.data()), edgecolor='blue', cmap='viridis', alpha=0.3, label='Transient Delay')
                     tran_surface._edgecolors2d = tran_surface._edgecolor3d # Workaround for legend.
                     tran_surface._facecolors2d = tran_surface._facecolor3d # Workaround for legend
                     time_unit = str(settings.units.time.prefixed_unit)
@@ -395,7 +409,7 @@ class Pin:
                         xlabel=f'Slew Rate [{time_unit}]',
                         ylabel=f'Fanout [{cap_unit}]',
                         zlabel=f'Delay [{time_unit}]',
-                        title='Transport and Propagation Delay'
+                        title='Transient and Propagation Delays'
                     )
                     ax.legend()
 
@@ -406,18 +420,32 @@ class Pin:
         """Plot energy for rise and fall cases"""
         pass # TODO
 
-    def generate_lut_templates(self) -> list:
+    def templates(self) -> list:
         """Generate all lookup table templates required for this pin"""
-        pass # TODO
+        templates = []
+        [templates.extend(timing.templates()) for timing in self.timing.values()]
+        [templates.extend(power.templates()) for power in self.internal_power.values()]
+        return list(set(templates))
+
+
+@dataclass
+class TableTemplate:
+    """Template data for a Table"""
+    name = 'delay_template'
+    variables = ['input_net_transition']
+
+    def __str__(self) -> str:
+        """Return str(self)"""
+        return self.name
 
 
 class Table:
     """A Table contains tabular data as would be displayed in a liberty file."""
-    def __init__(self, name: str, template: str, values: list, index_1: list, index_2: list|None=None) -> None:
+    def __init__(self, name: str, template: TableTemplate, values: list, index_1: list, index_2: list|None=None) -> None:
         """Create a new Table
 
         :param name: table name
-        :param template: table template name
+        :param template: table template
         :param values: a list of values in the table
         :param index_1: indices used to lookup table values in dimension 1
         :param index_2: indices used to lookup table values in dimension 2 (if present)
@@ -438,7 +466,7 @@ class Table:
 
     @property
     def template(self) -> str:
-        """Return table template name"""
+        """Return table template data"""
         return self._template
 
     @property
@@ -503,3 +531,18 @@ class Table:
             ax = figure.add_subplot()
 
         return ax, indices
+
+    def template_str(self):
+        """Generate the template for this table"""
+        template_str = [
+            f'lu_table_template ({self.template.name}) {{',
+            f'  variable_1 : {self.template.variables[0]};',
+        ]
+        if self.index_2:
+            template_str.append(f'  variable_2 : {self.template.variables[1]};')
+        template_str.append(f'  index_1 ("{", ".join(self.index_1)}");')
+        if self.index_2:
+            template_str.append(f'  index_2 ("{", ".join(self.index_2)}");')
+        template_str.append('}')
+        return '\n'.join(template_str)
+        
