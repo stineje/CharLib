@@ -25,9 +25,11 @@ settings:
         models:  
             - gf180_temp/models/sm141064.ngspice typical
             - gf180_temp/models/design.ngspice
-        slews:  [0.015, 0.08, 0.4]
-        loads:  [0.06, 1.2]
+        slews:  [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
+        loads:  [0.005, 0.01, 0.025, 0.05, 0.1]
         simulation_timestep: auto
+        setup_time_range: [0.05, 1]
+        hold_time_range: [0.05, 1]
         plots:  none
 cells:
     gf180mcu_osu_sc_gp12t3v3__inv_1:
