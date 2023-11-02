@@ -1,7 +1,6 @@
 settings:
     lib_name:           OSU350
-    cell_name_prefix:   _V1
-    cell_name_suffix:   OSU350_
+    multithreaded:      no
     units:
         time:               ns
         voltage:            V
@@ -30,47 +29,40 @@ settings:
         slews: [0.015, 0.4]
         loads: [0.06]
         simulation_timestep: auto
-        simulation:
-            setup:
-                highest:    1
-                lowest:     0.01
-                timestep:   0.005
-            hold:
-                highest:    1
-                lowest:     0.01
-                timestep:   0.005
+        setup_time_range: [0.005, 1]
+        hold_time_range: [0.005, 1]
         #plots: [io, delay]
 cells:
-    INVX1:
-        netlist:    osu350_spice_temp/INVX1.sp
-        area:       128
-        inputs:     [A]
-        outputs:    ['Y']
-        functions:
-            - Y=~A
-    AND2X1:
-        netlist:    osu350_spice_temp/AND2X1.sp
-        area:       128
-        inputs:     [A,B]
-        outputs:    ['Y']
-        functions:
-            - Y=A&B
-    FAX1:
-        netlist:    osu350_spice_temp/FAX1.sp
-        area:       480
-        inputs:     [A, B, C]
-        outputs:    [YC, YS]
-        functions:
-            - YC=(A&B)|(C&(A^B))
-            - YS=A^B^C
-    HAX1:
-        netlist:    osu350_spice_temp/HAX1.sp
-        area:       320
-        inputs:     [A, B]
-        outputs:    [YC, YS]
-        functions:
-            - YC=A&B
-            - YS=A^B
+    # INVX1:
+        # netlist:    osu350_spice_temp/INVX1.sp
+        # area:       128
+        # inputs:     [A]
+        # outputs:    ['Y']
+        # functions:
+            # - Y=~A
+    # AND2X1:
+        # netlist:    osu350_spice_temp/AND2X1.sp
+        # area:       128
+        # inputs:     [A,B]
+        # outputs:    ['Y']
+        # functions:
+            # - Y=A&B
+    # FAX1:
+        # netlist:    osu350_spice_temp/FAX1.sp
+        # area:       480
+        # inputs:     [A, B, C]
+        # outputs:    [YC, YS]
+        # functions:
+            # - YC=(A&B)|(C&(A^B))
+            # - YS=A^B^C
+    # HAX1:
+        # netlist:    osu350_spice_temp/HAX1.sp
+        # area:       320
+        # inputs:     [A, B]
+        # outputs:    [YC, YS]
+        # functions:
+            # - YC=A&B
+            # - YS=A^B
     DFFSR:
         netlist:    osu350_spice_temp/DFFSR.sp
         area:       704
@@ -81,4 +73,4 @@ cells:
         outputs:    [Q]
         flops:      [P0002,P0003]
         functions:
-            - Q=D
+            - Q<=D

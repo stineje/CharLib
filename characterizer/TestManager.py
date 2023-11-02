@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from PySpice.Spice.Library import SpiceLibrary
 from PySpice.Spice.Netlist import Circuit
+from PySpice.Tools.StringTools import str_spice
 from PySpice.Unit import *
 
 from characterizer.functions import Function, registered_functions
@@ -280,7 +281,7 @@ class TestManager:
         circuit.include(self.netlist)
         circuit.V('dd', 'vdd', circuit.gnd, vdd)
         circuit.V('ss', 'vss', circuit.gnd, vss)
-        circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {str(i_in)}')
+        circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {str_spice(i_in)}')
         circuit.R('in', circuit.gnd, 'vin', r_in)
 
         # Initialize device under test and wire up ports
@@ -723,8 +724,10 @@ class SequentialTestManager(TestManager):
         c_load = load * settings.units.capacitance
     
         print(f'Running sequential {trial_name} with slew={str(t_slew)}, load={str(c_load)}')
-        t_stab = self.find_stabilizing_time(settings, harness, t_slew, c_load)
-        t_setup, t_hold = self._find_setup_hold_delay(self, settings, harness, t_slew, c_load, t_stab)
+        t_stab = self._find_stabilizing_time(settings, harness, t_slew, c_load)
+        msp, mhp = self._find_setup_hold_delay(settings, harness, t_slew, c_load, t_stab)
+        print(msp)
+        print(mhp)
 
     def _find_stabilizing_time(self, settings, harness, t_slew, c_load):
         """Find a reasonable stablilizing time for the current configuration.
@@ -744,16 +747,81 @@ class SequentialTestManager(TestManager):
         sim.measure('tran', 't_stabilizing',
             f'trig v(vout) val={0.01*settings.vdd.voltage} td={float(t["removal"])} {harness.out_direction}=last',
             f'targ v(vout) val={0.99*settings.vdd.voltage} {harness.out_direction}=last')
-        results = simulator.transient(step_time=(self.sim_timestep*settings.units.time), end_time=timings['sim_end'])
+        results = sim.transient(step_time=(self.sim_timestep*settings.units.time), end_time=t['sim_end'])
         return results['t_stabilizing'] @ u_s
 
-    def _find_setup_hold_delay(self, settings, harness, t_stabilizing):
+    def _find_setup_hold_delay(self, settings, harness, t_slew, c_load, t_stabilizing):
         """Calculate setup and hold time.
 
         Calculate the minimum setup and hold time for the current configuration, accounting for
         interdependence between the two. Uses the procedure proposed by Salman et. al.; See
         https://ieeexplore.ieee.org/document/4167994"""
-        pass # TODO
+        # Goal: Find two critical setup & hold delay pairs that approximate the c2q contour
+        t_step = self.sim_timestep * settings.units.time
+
+        # Use large hold time and sweep setup time to find ts_min
+        th = max(self.hold_time_range) * settings.units.time
+        ts_max = max(self.setup_time_range) * settings.units.time
+        ts_min = min(self.setup_time_range) * settings.units.time
+        ts = ts_max
+        while ts - ts_min > 2*t_step: # Search until within 2 timesteps
+            ts = (ts_max + ts_min) / 2
+            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, th, t_stabilizing)
+            try:
+                self._measure_c2q(settings, harness, sim, t)
+            except NameError:
+                ts_min = ts
+                continue
+            ts_max = ts
+        t_setup_min = ts
+
+        # Using t_setup = ts_min, sweep t_hold to find th_max
+        th_max = max(self.hold_time_range) * settings.units.time
+        th_min = min(self.hold_time_range) * settings.units.time
+        th = th_max
+        while th - th_min > 2*t_step: # Search until within 2 timesteps
+            th = (th_max + th_min) / 2
+            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup_min, th, t_stabilizing)
+            try:
+                self._measure_c2q(settings, harness, sim, t)
+            except NameError:
+                th_min = th
+                continue
+            th_max = th
+        t_hold_max = th
+
+        # Use large setup time and sweep hold time to find th_min
+        ts = max(self.setup_time_range) * settings.units.time
+        th_max = max(self.hold_time_range) * settings.units.time
+        th_min = min(self.hold_time_range) * settings.units.time
+        th = th_max
+        while th - th_min > 2*t_step: # Search until within 2 timesteps
+            th = (th_max + th_min) / 2
+            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, th, t_stabilizing)
+            try:
+                self._measure_c2q(settings, harness, sim, t)
+            except NameError:
+                th_min = th
+                continue
+            th_max = th
+        t_hold_min = th
+
+        # Using t_hold = th_min, sweep setup time to find ts_max
+        ts_max = max(self.setup_time_range) * settings.units.time
+        ts_min = min(self.setup_time_range) * settings.units.time
+        ts = ts_max
+        while ts - ts_min > 2*t_step: # Search until within 2 timesteps
+            ts = (ts_max + ts_min) / 2
+            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, t_hold_min, t_stabilizing)
+            try:
+                self._measure_c2q(settings, harness, sim, t)
+            except NameError:
+                ts_min = ts
+                continue
+            ts_max = ts
+        t_setup_max = ts
+
+        return (t_setup_min, t_hold_max), (t_setup_max, t_hold_min) 
 
     def _build_test_circuit(self, settings, harness, t_slew, c_load, t_setup, t_hold, t_stabilizing):
         """Construct the circuit simulator object with the provided test parameters"""
@@ -786,7 +854,7 @@ class SequentialTestManager(TestManager):
         circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd)
         circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss)
         circuit.V('o_cap', 'vout', 'wout', 0)
-        circuit.C('0', 'wout', 'vss_dyn', c_load * settings.units.capacitance)
+        circuit.C('0', 'wout', 'vss_dyn', c_load)
 
         # Set up clock input
         (v0, v1) = (vss, vdd) if harness.timing_type_clock == 'falling_edge' else (vdd, vss)
