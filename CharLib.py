@@ -4,6 +4,8 @@
 import argparse, os, yaml
 from pathlib import Path
 
+from PySpice.Logging import Logging
+
 from characterizer.Characterizer import Characterizer
 
 def main():
@@ -38,6 +40,7 @@ def main():
 
     # Read in library settings
     characterizer = Characterizer(**config['settings'])
+    logger = Logging.setup_logging()
 
     # Read cells
     for name, properties in config['cells'].items():
