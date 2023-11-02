@@ -29,8 +29,8 @@ settings:
         slews: [0.015, 0.4]
         loads: [0.06]
         simulation_timestep: auto
-        setup_time_range: [0.005, 1]
-        hold_time_range: [0.005, 1]
+        setup_time_range: [0.001, 1]
+        hold_time_range: [0.001, 1]
         #plots: [io, delay]
 cells:
     # INVX1:

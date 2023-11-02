@@ -736,17 +736,24 @@ class SequentialTestManager(TestManager):
         out any initial state, and the second half of the procedure, where we measure delay
         characteristics. It's important to minimize stabilizing time as it has a major effect on
         total simulation time."""
-        # Start with 100x max slew rate. Run a single simulation and measure the time it takes for
+        # Start with 50x max slew rate. Run a single simulation and measure the time it takes for
         # the Q output to change from 1% of vdd to 99% of vdd
-        t_stab = 100 * max(self.in_slews) * settings.units.time
+        t_stab = 50 * max(self.in_slews) * settings.units.time
         t_setup = max(self.setup_time_range) * settings.units.time
         t_hold = max(self.hold_time_range) * settings.units.time
         sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
 
         # Measure time it takes for Q to stabilize
+        match harness.out_direction:
+            case 'rise':
+                v_start = 0.01 * settings.vdd.voltage
+                v_end = 0.99 * settings.vdd.voltage
+            case 'fall':
+                v_start = 0.99 * settings.vdd.voltage
+                v_end = 0.01 * settings.vdd.voltage
         sim.measure('tran', 't_stabilizing',
-            f'trig v(vout) val={0.01*settings.vdd.voltage} td={float(t["removal"])} {harness.out_direction}=last',
-            f'targ v(vout) val={0.99*settings.vdd.voltage} {harness.out_direction}=last')
+            f'trig v(vout) val={v_start} td={float(t["removal"])} {harness.out_direction}=last',
+            f'targ v(vout) val={v_end} {harness.out_direction}=last')
         results = sim.transient(step_time=(self.sim_timestep*settings.units.time), end_time=t['sim_end'])
         return results['t_stabilizing'] @ u_s
 
@@ -757,71 +764,55 @@ class SequentialTestManager(TestManager):
         interdependence between the two. Uses the procedure proposed by Salman et. al.; See
         https://ieeexplore.ieee.org/document/4167994"""
         # Goal: Find two critical setup & hold delay pairs that approximate the c2q contour
-        t_step = self.sim_timestep * settings.units.time
-
         # Use large hold time and sweep setup time to find ts_min
         th = max(self.hold_time_range) * settings.units.time
-        ts_max = max(self.setup_time_range) * settings.units.time
-        ts_min = min(self.setup_time_range) * settings.units.time
-        ts = ts_max
-        while ts - ts_min > 2*t_step: # Search until within 2 timesteps
-            ts = (ts_max + ts_min) / 2
-            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, th, t_stabilizing)
-            try:
-                self._measure_c2q(settings, harness, sim, t)
-            except NameError:
-                ts_min = ts
-                continue
-            ts_max = ts
-        t_setup_min = ts
+        t_setup_min = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, th)
 
         # Using t_setup = ts_min, sweep t_hold to find th_max
-        th_max = max(self.hold_time_range) * settings.units.time
-        th_min = min(self.hold_time_range) * settings.units.time
-        th = th_max
-        while th - th_min > 2*t_step: # Search until within 2 timesteps
-            th = (th_max + th_min) / 2
-            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup_min, th, t_stabilizing)
-            try:
-                self._measure_c2q(settings, harness, sim, t)
-            except NameError:
-                th_min = th
-                continue
-            th_max = th
-        t_hold_max = th
+        t_hold_max = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, t_setup_min)
 
         # Use large setup time and sweep hold time to find th_min
         ts = max(self.setup_time_range) * settings.units.time
-        th_max = max(self.hold_time_range) * settings.units.time
-        th_min = min(self.hold_time_range) * settings.units.time
-        th = th_max
-        while th - th_min > 2*t_step: # Search until within 2 timesteps
-            th = (th_max + th_min) / 2
-            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, th, t_stabilizing)
-            try:
-                self._measure_c2q(settings, harness, sim, t)
-            except NameError:
-                th_min = th
-                continue
-            th_max = th
-        t_hold_min = th
+        t_hold_min = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, ts)
 
         # Using t_hold = th_min, sweep setup time to find ts_max
+        t_setup_max = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, t_hold_min)
+
+        return (t_setup_min, t_hold_max), (t_setup_max, t_hold_min)
+
+    def _sweep_ts(self, settings, harness, t_slew, c_load, t_stabilizing, t_hold):
+        """Perform a binary search to find the minimum viable t_setup with the given t_hold"""
+        t_step = self.sim_timestep * settings.units.time
         ts_max = max(self.setup_time_range) * settings.units.time
         ts_min = min(self.setup_time_range) * settings.units.time
         ts = ts_max
-        while ts - ts_min > 2*t_step: # Search until within 2 timesteps
-            ts = (ts_max + ts_min) / 2
-            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, t_hold_min, t_stabilizing)
+        while ts - ts_min > t_step:
+            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, t_hold, t_stabilizing)
             try:
                 self._measure_c2q(settings, harness, sim, t)
             except NameError:
                 ts_min = ts
                 continue
             ts_max = ts
-        t_setup_max = ts
+            ts = (ts_max + ts_min) / 2
+        return ts_max
 
-        return (t_setup_min, t_hold_max), (t_setup_max, t_hold_min) 
+    def _sweep_th(self, settings, harness, t_slew, c_load, t_stabilizing, t_setup):
+        """Perform a binary search to find the minimum viable t_hold with the given t_setup"""
+        t_step = self.sim_timestep * settings.units.time
+        th_max = max(self.hold_time_range) * settings.units.time
+        th_min = min(self.hold_time_range) * settings.units.time
+        th = th_max
+        while th - th_min > t_step:
+            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup, th, t_stabilizing)
+            try:
+                self._measure_c2q(settings, harness, sim, t)
+            except NameError:
+                th_min = th
+                continue
+            th_max = th
+            th = (th_max + th_min) / 2
+        return th_max
 
     def _build_test_circuit(self, settings, harness, t_slew, c_load, t_setup, t_hold, t_stabilizing):
         """Construct the circuit simulator object with the provided test parameters"""
@@ -839,9 +830,9 @@ class SequentialTestManager(TestManager):
         t['removal'] = t['clk_edge_2_end'] + t_hold # initial state has now been zeroed out
         t['data_edge_1_start'] = t['removal'] + t_stabilizing # wait for the system to stabilize
         t['data_edge_1_end'] = t['data_edge_1_start'] + t_slew
-        t['clk_edge_3_start'] = t['data_edge_1_end'] + t_setup - (t_slew + clk_slew)/2
+        t['clk_edge_3_start'] = t['data_edge_1_start'] + t_slew/2 + t_setup + clk_slew/2
         t['clk_edge_3_end'] = t['clk_edge_3_start'] + clk_slew
-        t['data_edge_2_start'] = t['clk_edge_3_end'] + t_hold - (t_slew + clk_slew)/2
+        t['data_edge_2_start'] = t['clk_edge_3_start'] + clk_slew/2 + t_hold + t_slew/2
         t['data_edge_2_end'] = t['data_edge_2_start'] + t_slew
         t['sim_end'] = t['data_edge_2_end'] + t_stabilizing # wait for the system to stabilize
 
@@ -857,7 +848,7 @@ class SequentialTestManager(TestManager):
         circuit.C('0', 'wout', 'vss_dyn', c_load)
 
         # Set up clock input
-        (v0, v1) = (vss, vdd) if harness.timing_type_clock == 'falling_edge' else (vdd, vss)
+        (v0, v1) = (vdd, vss) if harness.timing_type_clock == 'falling_edge' else (vss, vdd)
         circuit.PieceWiseLinearVoltageSource('cin', 'vcin', circuit.gnd, values=[
             (0, v0),
             (t['clk_edge_1_start'], v0),
@@ -984,18 +975,18 @@ class SequentialTestManager(TestManager):
         match harness.timing_type_clock:
             case 'rising_edge':
                 clk_direction = 'rise'
-                v_clk_transition = settings.logic_threshold_low_to_high
+                v_clk_transition = settings.logic_threshold_low_to_high * settings.vdd.voltage
             case 'falling_edge':
                 clk_direction = 'fall'
-                v_clk_transition = settings.logic_threshold_high_to_low
+                v_clk_transition = settings.logic_threshold_high_to_low * settings.vdd.voltage
         match harness.out_direction:
             case 'rise':
-                v_prop_end = settings.logic_threshold_low_to_high
+                v_prop_end = settings.logic_threshold_low_to_high * settings.vdd.voltage
             case 'fall':
-                v_prop_end = settings.logic_threshold_high_to_low
+                v_prop_end = settings.logic_threshold_high_to_low * settings.vdd.voltage
         simulator.measure('tran', 't_c2q',
-            f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(timings["removal"])} {clk_direction}=last',
-            f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=last')
+            f'trig v(vcin) val={v_clk_transition} td={float(timings["removal"])} {clk_direction}=last',
+            f'targ v(vout) val={v_prop_end} {harness.out_direction}=last')
 
         return simulator.transient(
             step_time=(self.sim_timestep * settings.units.time),
