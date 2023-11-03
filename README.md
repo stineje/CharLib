@@ -7,7 +7,7 @@
 - 🌶️ Compatible with ngspice and Xyce
 
 ## Introduction
-CharLib is an open cell library characterizer originally based on [libretto](https://github.com/shiniziwa/libretto). The current version supports timing and power characterization of combinational and sequential cells.
+CharLib is an open cell library characterizer originally based on [libretto](https://github.com/snishizawa/libretto). The current version supports timing and power characterization of combinational and sequential cells.
 
 ## Installation
 CharLib requires the following dependencies:
@@ -41,4 +41,4 @@ The general process for using CharLib is as follows:
 [2] Synopsys, "What is Library Characterization?", https://www.synopsys.com/glossary/what-is-library-characterization.html, 2023 <br>
 [3] S. Nishizawa and T. Nakura, "libretto: An Open Cell Timing Characterizer for Open Source VLSI Design," IEICE Transactions on Fundamentals of Electronics, Communications and Computer Sciences, 論文ID 2022VLP0007, [早期公開] 公開日 2022/09/13, Online ISSN 1745-1337, Print ISSN 0916-8508, https://doi.org/10.1587/transfun.2022VLP0007, https://www.jstage.jst.go.jp/article/transfun/advpub/0/advpub_2022VLP0007/_article/-char/ja, <br>
 [4] I. K. Rachit and M. S. Bhat, "AutoLibGen: An open source tool for standard cell library characterization at 65nm technology," 2008 International Conference on Electronic Design, Penang, Malaysia, 2008, pp. 1-6, doi: 10.1109/ICED.2008.4786726. <br>
-[5] E. Salman, A. Dasdan, F. Taraporevala, K. Kucukcakar and E. G. Friedman, "Exploiting Setup-Holt-Time Interdependence in Static Timing Analysis," IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems, vol. 26, no. 6, pp. 1114-1125, June 2007, doi: 10.1109/TCAD.2006.885834.
+[5] E. Salman, A. Dasdan, F. Taraporevala, K. Kucukcakar and E. G. Friedman, "Exploiting Setup-Hold-Time Interdependence in Static Timing Analysis," IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems, vol. 26, no. 6, pp. 1114-1125, June 2007, doi: 10.1109/TCAD.2006.885834.
