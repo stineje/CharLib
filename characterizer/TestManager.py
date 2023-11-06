@@ -189,7 +189,6 @@ class TestManager:
                             subckts.append(term)
                             break
             file.close()
-        print(subckts)
         return subckts
 
     @property
@@ -671,7 +670,7 @@ class SequentialTestManager(TestManager):
                 # Run characterization
                 for slew in self.in_slews:
                     for load in self.out_loads:
-                        self._run_delay(settings, harness, slew, load, trial_name)
+                        harness.results[str(slew)][str(load)] = self._run_delay(settings, harness, slew, load, trial_name)
                 unsorted_harnesses.append(harness)
 
             # TODO: Filter out harnesses that aren't worst-case conditions
@@ -719,15 +718,18 @@ class SequentialTestManager(TestManager):
         return self.cell
 
     def _run_delay(self, settings, harness: SequentialHarness, slew, load, trial_name):
+        """Run a single sequential delay trial"""
         # Set up slew and load parameters
         t_slew = slew * settings.units.time
         c_load = load * settings.units.capacitance
     
         print(f'Running sequential {trial_name} with slew={str(t_slew)}, load={str(c_load)}')
         t_stab = self._find_stabilizing_time(settings, harness, t_slew, c_load)
-        msp, mhp = self._find_setup_hold_delay(settings, harness, t_slew, c_load, t_stab)
-        print(msp)
-        print(mhp)
+        (t_setup, t_hold) = self._find_setup_hold_delay(settings, harness, t_slew, c_load, t_stab)
+
+        # Characterize using identified setup and hold time
+        simulator, timings = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
+        return self._measure_cell_delays(settings, harness, simulator, timings)
 
     def _find_stabilizing_time(self, settings, harness, t_slew, c_load):
         """Find a reasonable stablilizing time for the current configuration.
@@ -763,22 +765,20 @@ class SequentialTestManager(TestManager):
         Calculate the minimum setup and hold time for the current configuration, accounting for
         interdependence between the two. Uses the procedure proposed by Salman et. al.; See
         https://ieeexplore.ieee.org/document/4167994"""
-        # Goal: Find two critical setup & hold delay pairs that approximate the c2q contour
-        # Use large hold time and sweep setup time to find ts_min
+        # Identify msp
         th = max(self.hold_time_range) * settings.units.time
         t_setup_min = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, th)
-
-        # Using t_setup = ts_min, sweep t_hold to find th_max
         t_hold_max = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, t_setup_min)
 
-        # Use large setup time and sweep hold time to find th_min
+        # Identify mhp
         ts = max(self.setup_time_range) * settings.units.time
         t_hold_min = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, ts)
-
-        # Using t_hold = th_min, sweep setup time to find ts_max
         t_setup_max = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, t_hold_min)
 
-        return (t_setup_min, t_hold_max), (t_setup_max, t_hold_min)
+        # Interpolate mshp along the contour formed by msp, mhp
+        # For now we use a simple average, which may be overly pessimistic
+        mshp = ((t_setup_min+t_setup_max)/2, (t_hold_min+t_hold_max)/2)
+        return mshp
 
     def _sweep_ts(self, settings, harness, t_slew, c_load, t_stabilizing, t_hold):
         """Perform a binary search to find the minimum viable t_setup with the given t_hold"""
@@ -792,6 +792,7 @@ class SequentialTestManager(TestManager):
                 self._measure_c2q(settings, harness, sim, t)
             except NameError:
                 ts_min = ts
+                ts = (ts_max + ts_min) / 2
                 continue
             ts_max = ts
             ts = (ts_max + ts_min) / 2
@@ -809,6 +810,7 @@ class SequentialTestManager(TestManager):
                 self._measure_c2q(settings, harness, sim, t)
             except NameError:
                 th_min = th
+                th = (th_max + th_min) / 2
                 continue
             th_max = th
             th = (th_max + th_min) / 2
@@ -834,7 +836,7 @@ class SequentialTestManager(TestManager):
         t['clk_edge_3_end'] = t['clk_edge_3_start'] + clk_slew
         t['data_edge_2_start'] = t['clk_edge_3_start'] + clk_slew/2 + t_hold + t_slew/2
         t['data_edge_2_end'] = t['data_edge_2_start'] + t_slew
-        t['sim_end'] = t['data_edge_2_end'] + t_stabilizing # wait for the system to stabilize
+        t['sim_end'] = t['data_edge_2_end'] + 2*t_stabilizing # wait for the system to stabilize
 
         # Initialize circuit
         circuit = Circuit(self.cell.name)
@@ -951,7 +953,7 @@ class SequentialTestManager(TestManager):
 
         # Measure transient delay from first data edge to first output edge
         simulator.measure('tran', 'trans_out',
-            f'trig v(vin) val={pct_vdd(v_trans_start)} td={float(timings["removal"])} {harness.in_direction}=1',
+            f'trig v(vout) val={pct_vdd(v_trans_start)} td={float(timings["removal"])} {harness.out_direction}=1',
             f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1')
 
         # Measure setup delay from first data edge to last clock edge
@@ -961,7 +963,7 @@ class SequentialTestManager(TestManager):
 
         # Measure hold delay from last clock edge to last data edge
         simulator.measure('tran', 't_hold',
-            f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(timings["removal"])} {_flip_direction(clk_direction)}=last',
+            f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(timings["removal"])} {clk_direction}=last',
             f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=1')
 
         return simulator.transient(
