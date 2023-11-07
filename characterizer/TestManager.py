@@ -14,7 +14,7 @@ from PySpice.Unit import *
 from characterizer.functions import Function, registered_functions
 from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
 from characterizer.LogicParser import parse_logic
-from liberty.cell import Cell, Pin, TableTemplate
+from liberty.cell import Cell, Pin, TimingData, TableTemplate
 
 class TestManager:
     """A test manager for a standard cell"""
@@ -357,7 +357,7 @@ class CombinationalTestManager(TestManager):
 
             # Store propagation and transient delay in pin timing tables
             for in_port in self.in_ports:
-                self.cell[out_port.name].add_timing(in_port.name)
+                delay_timing = TimingData(in_port.name, '')
                 for direction in ['rise', 'fall']:
                     # Identify the correct harness
                     harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
@@ -374,12 +374,12 @@ class CombinationalTestManager(TestManager):
                             prop_values.append(f'{prop_value:7f}')
                             tran_value = (result['trans_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
                             tran_values.append(f'{tran_value:7f}')
-                    # TODO: Template names should probably be in LibrarySettings
                     template = TableTemplate()
                     template.name = f'delay_template_{len(index_1)}x{len(index_2)}'
                     template.variables = ['input_net_transition', 'total_output_net_capacitance']
-                    self.cell[out_port.name].timings[-1].add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
-                    self.cell[out_port.name].timings[-1].add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
+                    delay_timing.add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
+                    delay_timing.add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
+                self.cell[out_port.name].timings.append(delay_timing)
 
             # Display plots
             if 'io' in self.plots:
@@ -681,13 +681,22 @@ class SequentialTestManager(TestManager):
                 index_1 = [str(slew) for slew in self.in_slews]
                 index_2 = [str(load) for load in self.out_loads]
 
-                # TODO: WIP changing timing to index by related pin and type
-                self.cell[out_port.name].add_timing(in_port.name)
+                # Set up timing groups and table templates
+                delay_template = TableTemplate()
+                delay_template.name = f'delay_template_{len(index_1)}x{len(index_2)}'
+                delay_template.variables = ['input_net_transition', 'total_output_net_capacitance']
+                delay_timing = TimingData(out_port.name, 'rising_edge')
+                setup_template = TableTemplate()
+                setup_template.name = f'setup_template_{len(index_1)}x{len(index_2)}'
+                setup_template.variables = ['related_pin_transition', 'constrained_pin_transition']
+                setup_timing = TimingData(self.clock_name, 'setup_rising')
+                hold_template = TableTemplate()
+                hold_template.name = f'hold_template_{len(index_1)}x{len(index_2)}'
+                hold_template.variables = setup_template.variables
+                hold_timing = TimingData(self.clock_name, 'hold_rising')
                 for direction in ['rise', 'fall']:
-                    # Identify the correct harness
-                    harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
-
                     # Fetch and format data for timing tables
+                    harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
                     prop_values = []
                     tran_values = []
                     setup_values = []
@@ -697,27 +706,21 @@ class SequentialTestManager(TestManager):
                             result = harness.results[slew][load]
                             prop_values.append(f'{normalize_t_units(result["prop_in_out"]):7f}')
                             tran_values.append(f'{normalize_t_units(result["trans_out"]):7f}')
-                            setup_values.append(f'{normalize_t_units(results["t_setup"]):7f}')
-                            hold_values.append(f'{normalize_t_units(results["t_hold"]):7f}')
+                            setup_values.append(f'{normalize_t_units(result["t_setup"]):7f}')
+                            hold_values.append(f'{normalize_t_units(result["t_hold"]):7f}')
 
                     # Store propagation and transient delays on the output pin
-                    delay_template = TableTemplate()
-                    delay_template.name = f'delay_template_{len(index_1)}x{len(index_2)}'
-                    delay_template.variables = ['input_net_transition', 'total_output_net_capacitance']
-                    self.cell[out_port.name].timings[-1].add_table(f'cell_{direction}', delay_template, prop_values, index_1, index_2)
-                    self.cell[out_port.name].timings[-1].add_table(f'{direction}_transition', delay_template, tran_values, index_1, index_2)
+                    delay_timing.add_table(f'cell_{direction}', delay_template, prop_values, index_1, index_2)
+                    delay_timing.add_table(f'{direction}_transition', delay_template, tran_values, index_1, index_2)
 
                     # Store setup and hold constraints on the input pin
-                    self.cell[in_port.name].add_timing(self.clock_name, harness.timing_type_hold)
-                    hold_template = TableTemplate()
-                    hold_template.name = f'hold_template_{len(index_1)}x{len(index_2)}'
-                    hold_template.variables = ['related_pin_transition', 'constrained_pin_transition']
-                    self.cell[in_port.name].timings[-1].add_table(f'{direction}_constraint', hold_template, hold_values, index_1, index_2)
-                    self.cell[in_port.name].add_timing(self.clock_name, harness.timing_type_setup)
-                    setup_template = TableTemplate()
-                    setup_template.name = f'setup_template_{len(index_1)}x{len(index_2)}'
-                    setup_template.variables = hold_template.variables
-                    self.cell[in_port.name].timings[-1].add_table(f'{direction}_constraint', setup_template, setup_values, index_1, index_2)
+                    setup_timing.add_table(f'{direction}_constraint', setup_template, setup_values, index_1, index_2)
+                    hold_timing.add_table(f'{direction}_constraint', hold_template, hold_values, index_1, index_2)
+
+                # Add timing groups to pins
+                self.cell[out_port.name].timings.append(delay_timing)
+                self.cell[in_port.name].timings.append(setup_timing)
+                self.cell[in_port.name].timings.append(hold_timing)
 
             # TODO: Store internal power results
 
@@ -967,7 +970,7 @@ class SequentialTestManager(TestManager):
         # Measure propagation delay from first data edge to last output edge
         simulator.measure('tran', 'prop_in_out',
             f'trig v(vin) val={pct_vdd(v_prop_start)} td={float(timings["removal"])} {harness.in_direction}=1',
-            f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=1')
+            f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=last')
 
         # Measure transient delay from first data edge to first output edge
         simulator.measure('tran', 'trans_out',
@@ -977,12 +980,12 @@ class SequentialTestManager(TestManager):
         # Measure setup delay from first data edge to last clock edge
         simulator.measure('tran', 't_setup',
             f'trig v(vin) val={pct_vdd(v_prop_start)} td={float(timings["removal"])} {harness.in_direction}=1',
-            f'targ v(vcin) val={pct_vdd(v_clk_transition)} {clk_direction}=1')
+            f'targ v(vcin) val={pct_vdd(v_clk_transition)} {clk_direction}=last')
 
         # Measure hold delay from last clock edge to last data edge
         simulator.measure('tran', 't_hold',
             f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(timings["removal"])} {clk_direction}=last',
-            f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=1')
+            f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=last')
 
         return simulator.transient(
             step_time=(self.sim_timestep * settings.units.time),

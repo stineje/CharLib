@@ -23,10 +23,10 @@ settings:
             voltage:    3.3
     cell_defaults:
         models: [test/osu350/model.sp]
-        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
-        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-        # slews: [0.015, 0.4]
-        # loads: [0.06]
+        # slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        # loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        slews: [0.06, 0.3, 0.6]
+        loads: [0.06, 0.24, 0.48, 0.9, 1.2, 1.8]
         simulation_timestep: auto
         setup_time_range: [0.001, 1]
         hold_time_range: [0.001, 1]

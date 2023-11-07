@@ -132,7 +132,7 @@ class Pin:
         self.max_capacitance = 0
         self.function = ''
         self.three_state = ''
-        self._internal_power = {}
+        self.internal_power = []
         self.min_pulse_width_high = 0
         self.min_pulse_width_low = 0
         self.timings = []
@@ -213,12 +213,8 @@ class Pin:
         if self.three_state:
             lib_str.append(f'  three_state : "{self.three_state}";')
         # Internal power
-        try:
-            for data in self.internal_power.values():
-                for line in str(data).split('\n'):
-                    lib_str.append(f'  {line}')
-        except AttributeError: # There's only one internal_power entry, not a dict
-            for line in str(self.internal_power).split('\n'):
+        for data in self.internal_power:
+            for line in str(data).split('\n'):
                 lib_str.append(f'  {line}')
         # min_pulse_width
         if self.role in ['clock', 'set', 'reset']:
@@ -236,31 +232,6 @@ class Pin:
     def __repr__(self) -> str:
         """Return repr(self)."""
         return f'Pin(name="{self.name}", direction="{self.direction}", role="{self.role}")'
-
-    @property
-    def internal_power(self) -> list:
-        """Return internal_power entries"""
-        return self._internal_power
-
-    def add_internal_power(self, related_pin=None):
-        """Add a new internal power entry
-
-        Add an empty internal power entry to the Pin's list of internal power data. Internal power
-        entries are indexed by related pin name. If there is no related pin name, instead set the
-        internal power to a single InternalPowerData with no related pin.
-
-        :param related_pin: (optional) related pin name for power information"""
-        if not related_pin:
-            if not self.internal_power:
-                self._internal_power = InternalPowerData()
-            else:
-                raise ValueError('related_pin must be specified to add more than one internal_power entry to a pin')
-        else:
-            self._internal_power[related_pin] = InternalPowerData(related_pin)
-
-    def add_timing(self, related_pin: str, timing_type: str='', **attrs):
-        """Add a new timing entry"""
-        self.timings.append(TimingData(related_pin, timing_type, **attrs))
 
     def plot_delay(self, settings, cell_name):
         """Plot propagation and transient delays for rise and fall cases
@@ -309,7 +280,7 @@ class Pin:
         """Generate all lookup table templates required for this pin"""
         templates = []
         [templates.extend(timing.templates()) for timing in self.timings]
-        [templates.extend(power.templates()) for power in self.internal_power.values()]
+        [templates.extend(power.templates()) for power in self.internal_power]
         return list(set(templates))
 
 
@@ -417,8 +388,9 @@ class TimingData:
         timing_str = [
             'timing () {',
             f'  related_pin : "{self.related_pin}";',
-            f'  timing_type : {self.timing_type};',
         ]
+        if self.timing_type:
+            timing_str.append(f'  timing_type : {self.timing_type};')
         for key, value in self.attributes:
             timing_str.append(f'  {key} : {value};')
         for table in self._tables.values():
