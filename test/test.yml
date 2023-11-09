@@ -1,0 +1,40 @@
+settings:
+    lib_name:           test_osu_350
+    units:
+        time:               ns
+        voltage:            V
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      nW
+        capacitive_load:    pF
+        energy:             fJ
+    named_nodes:
+        vdd:
+            name:       VDD
+            voltage:    3.3
+        vss:
+            name:       GND
+            voltage:    0
+        pwell:
+            name:       VPW
+            voltage:    0
+        nwell:
+            name:       VNW
+            voltage:    3.3
+    cell_defaults:
+        models: [test/osu350/model.sp]
+        slews: [0.015, 0.6]
+        loads: [0.06, 1.8]
+        setup_time_range: [0.001, 1]
+        hold_time_range: [0.001, 1]
+cells:
+    DFFNEGX1:
+        netlist:    osu350_spice_temp/DFFNEGX1.sp
+        area:       384
+        clock:      negedge CLK
+        inputs:     [D]
+        outputs:    [Q]
+        flops:      [DS0000,P0002]
+        functions:  [Q<=D]
+        setup_time_range: [2, 20]
+        hold_time_range: [2, 20]

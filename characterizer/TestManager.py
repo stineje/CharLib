@@ -73,9 +73,7 @@ class TestManager:
         self.models = kwargs.get('models', [])
         self._in_slews = kwargs.get('slews', [])
         self._out_loads = kwargs.get('loads', [])
-        self._sim_timestep = 0
-        if 'simulation_timestep' in kwargs:
-            self.sim_timestep = kwargs['simulation_timestep']
+        self.sim_timestep = kwargs.get('simulation_timestep', min(self.in_slews)/4.0)
 
         # Behavioral/internal-use settings
         self.plots = kwargs.get('plots', [])
@@ -237,27 +235,6 @@ class TestManager:
         """Set a flag that this test manager's results have been exported"""
         self._is_exported = True
 
-    @property
-    def sim_timestep(self):
-        """Return simulation timestep."""
-        return self._sim_timestep
-
-    @sim_timestep.setter
-    def sim_timestep(self, value):
-        """Set simulation timestep.
-        
-        :param value: The timestep to use during simulation. If `'auto'`, use 1/10 of smalleset slew rate."""
-        if value == 'auto':
-            if self.in_slews:
-                # Use 1/10th of minimum slew rate
-                self._sim_timestep = min(self.in_slews)/10.0
-            else:
-                raise ValueError('Cannot use auto for sim_timestep unless in_slews is set first!')
-        elif isinstance(value, (float, int, str)):
-            self._sim_timestep = float(value)
-        else:
-            raise TypeError(f'Invalid type for sim_timestep: {type(value)}')
-
     def _run_input_capacitance(self, settings, target_pin):
         """Measure the input capacitance of target_pin.
 
@@ -357,7 +334,7 @@ class CombinationalTestManager(TestManager):
 
             # Store propagation and transient delay in pin timing tables
             for in_port in self.in_ports:
-                delay_timing = TimingData(in_port.name, '')
+                delay_timing = TimingData(in_port.name)
                 for direction in ['rise', 'fall']:
                     # Identify the correct harness
                     harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
@@ -481,7 +458,8 @@ class CombinationalTestManager(TestManager):
                         f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1')
 
         # Run transient analysis
-        return simulator.transient(step_time=(self.sim_timestep * settings.units.time), end_time=t_simend)
+        step_time = min(self.sim_timestep*settings.units.time, t_simend/1000)
+        return simulator.transient(step_time=step_time, end_time=t_simend)
 
     def plot_io(self, settings, harness):
         """Plot I/O voltages vs time"""
@@ -682,18 +660,19 @@ class SequentialTestManager(TestManager):
                 index_2 = [str(load) for load in self.out_loads]
 
                 # Set up timing groups and table templates
+                clock_edge = 'rising' if self.clock_trigger == 'posedge' else 'falling'
                 delay_template = TableTemplate()
                 delay_template.name = f'delay_template_{len(index_1)}x{len(index_2)}'
                 delay_template.variables = ['input_net_transition', 'total_output_net_capacitance']
-                delay_timing = TimingData(out_port.name, 'rising_edge')
+                delay_timing = TimingData(out_port.name, f'{clock_edge}_edge')
                 setup_template = TableTemplate()
                 setup_template.name = f'setup_template_{len(index_1)}x{len(index_2)}'
                 setup_template.variables = ['related_pin_transition', 'constrained_pin_transition']
-                setup_timing = TimingData(self.clock_name, 'setup_rising')
+                setup_timing = TimingData(self.clock_name, f'setup_{clock_edge}')
                 hold_template = TableTemplate()
                 hold_template.name = f'hold_template_{len(index_1)}x{len(index_2)}'
                 hold_template.variables = setup_template.variables
-                hold_timing = TimingData(self.clock_name, 'hold_rising')
+                hold_timing = TimingData(self.clock_name, f'hold_{clock_edge}')
                 for direction in ['rise', 'fall']:
                     # Fetch and format data for timing tables
                     harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
@@ -758,9 +737,9 @@ class SequentialTestManager(TestManager):
         out any initial state, and the second half of the procedure, where we measure delay
         characteristics. It's important to minimize stabilizing time as it has a major effect on
         total simulation time."""
-        # Start with 50x max slew rate. Run a single simulation and measure the time it takes for
-        # the Q output to change from 1% of vdd to 99% of vdd
-        t_stab = 50 * max(self.in_slews) * settings.units.time
+        # Run a single simulation and measure the time it takes for the Q output to change from 1%
+        # of vdd to 99% of vdd
+        t_stab = 500 * max(self.in_slews) * settings.units.time
         t_setup = max(self.setup_time_range) * settings.units.time
         t_hold = max(self.hold_time_range) * settings.units.time
         sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
@@ -774,9 +753,10 @@ class SequentialTestManager(TestManager):
                 v_start = 0.99 * settings.vdd.voltage
                 v_end = 0.01 * settings.vdd.voltage
         sim.measure('tran', 't_stabilizing',
-            f'trig v(vout) val={v_start} td={float(t["removal"])} {harness.out_direction}=last',
-            f'targ v(vout) val={v_end} {harness.out_direction}=last')
-        results = sim.transient(step_time=(self.sim_timestep*settings.units.time), end_time=t['sim_end'])
+            f'trig v(vout) val={v_start} {harness.out_direction}=1',
+            f'targ v(vout) val={v_end} {harness.out_direction}=1')
+        step_time = t['sim_end']/5000 # Run with low precision
+        results = sim.transient(step_time=step_time, end_time=t['sim_end'])
         return results['t_stabilizing'] @ u_s
 
     def _find_setup_hold_delay(self, settings, harness, t_slew, c_load, t_stabilizing):
@@ -937,7 +917,6 @@ class SequentialTestManager(TestManager):
         simulator = circuit.simulator(temperature=settings.temperature,
                                       nominal_temperature=settings.temperature,
                                       simulator=settings.simulator)
-        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
         return simulator, t
 
     def _measure_cell_delays(self, settings, harness, simulator, timings):
@@ -987,9 +966,9 @@ class SequentialTestManager(TestManager):
             f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(timings["removal"])} {clk_direction}=last',
             f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=last')
 
-        return simulator.transient(
-            step_time=(self.sim_timestep * settings.units.time),
-            end_time=timings['sim_end'])
+        step_time = min(self.sim_timestep*settings.units.time, timings['sim_end']/1000)
+        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
+        return simulator.transient(step_time=step_time, end_time=timings['sim_end'])
 
     def _measure_c2q(self, settings, harness, simulator, timings):
         """Measure Clock-to-Q delay."""
@@ -1011,9 +990,9 @@ class SequentialTestManager(TestManager):
             f'trig v(vcin) val={v_clk_transition} td={float(timings["removal"])} {clk_direction}=last',
             f'targ v(vout) val={v_prop_end} {harness.out_direction}=last')
 
-        return simulator.transient(
-            step_time=(self.sim_timestep * settings.units.time),
-            end_time=timings['sim_end'])
+        step_time = min(self.sim_timestep*settings.units.time, t['sim_end']/1000)
+        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
+        return simulator.transient(step_time=step_time, end_time=timings['sim_end'])
 
     def plot_io(self, settings, harness):
         """Plot I/O voltages vs time"""
