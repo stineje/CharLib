@@ -55,6 +55,7 @@ class CharacterizationSettings:
         # Behavioral settings
         self.simulator = kwargs.pop('simulator', 'ngspice-shared')
         self.use_multithreaded = kwargs.pop('multithreaded', True)
+        self.debug = kwargs.pop('debug', False)
         self.results_dir = Path(kwargs.pop('results_dir', 'results'))
         self.cell_defaults = kwargs.get('cell_defaults', {})
 

@@ -16,6 +16,10 @@ def main():
             description='Characterize combinational and sequential standard cells.')
     parser.add_argument('library', type=str,
             help='Read in a library of standard cells from the specified directory and characterize')
+    parser.add_argument('--multithreaded', action='store_true',
+            help='Enable multithreaded execution')
+    parser.add_argument('--debug', action='store_true',
+            help='Display extra information useful for debugging')
     # TODO: consider adding a -v/--verbose argument and debug options
     args = parser.parse_args()
     library_dir = args.library
@@ -38,9 +42,14 @@ def main():
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
     print(f'Reading configuration found in "{str(file)}"')
 
+    # Override settings with command line settings
+    settings = config['settings']
+    settings['debug'] = args.debug
+    settings['multithreaded'] = args.multithreaded
+
     # Read in library settings
-    characterizer = Characterizer(**config['settings'])
-    logger = Logging.setup_logging()
+    characterizer = Characterizer(**settings)
+    logger = Logging.setup_logging(logging_level='ERROR')
 
     # Read cells
     for name, properties in config['cells'].items():

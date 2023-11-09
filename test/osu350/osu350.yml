@@ -1,6 +1,6 @@
 settings:
     lib_name:           OSU350
-    multithreaded:      yes
+    multithreaded:      no
     units:
         time:               ns
         voltage:            V
