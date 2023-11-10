@@ -257,9 +257,9 @@ class SequentialHarness (Harness):
             # We're targeting an input port
             if mode == 'clock':
                 if self.clock.state == '0101':
-                    return 'falling_edge'
-                else:
                     return 'rising_edge'
+                else:
+                    return 'falling_edge'
             elif mode in ['hold', 'setup']:
                 if self.in_direction == 'rise':
                     return f'{mode}_rising'
