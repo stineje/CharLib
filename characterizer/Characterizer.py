@@ -55,8 +55,9 @@ class CharacterizationSettings:
         # Behavioral settings
         self.simulator = kwargs.pop('simulator', 'ngspice-shared')
         self.use_multithreaded = kwargs.pop('multithreaded', True)
-        self.debug = kwargs.pop('debug', False)
         self.results_dir = Path(kwargs.pop('results_dir', 'results'))
+        self.debug = kwargs.pop('debug', False)
+        self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))
         self.cell_defaults = kwargs.get('cell_defaults', {})
 
         # Units and important voltages

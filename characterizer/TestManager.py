@@ -277,11 +277,19 @@ class TestManager:
                 circuit.R(port, f'v{port}', circuit.gnd, r_out)
                 connections.append(f'v{port}')
         circuit.X('dut', subcircuit_name, *connections)
-
-        # Measure capacitance as the slope of the conductance
         simulator = circuit.simulator(temperature=settings.temperature,
                                       nominal_temperature=settings.temperature,
                                       simulator=settings.simulator)
+
+        # Log simulation
+        # Path should be debug_dir/cell_name/input_capacitance/pin
+        if settings.debug:
+            debug_path = settings.debug_dir / self.cell.name / 'input_capacitance'
+            debug_path.mkdir(parents=True, exist_ok=True)
+            with open(debug_path/f'{target_pin}.sp', 'w') as spice_file:
+                spice_file.write(str(simulator))
+
+        # Measure capacitance as the slope of the conductance
         analysis = simulator.ac('dec', 100, f_start, f_stop)
         impedance = np.abs(analysis.vin)/i_in
         [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
@@ -386,7 +394,6 @@ class CombinationalTestManager(TestManager):
         vss = settings.vss.voltage * settings.units.voltage
 
         # Initialize circuit
-        # TODO: Consider adding a driving cell (such as an inverter) to improve accuracy
         circuit = Circuit(f'{self.cell.name}_delay')
         self._include_models(circuit)
         circuit.include(self.netlist)
@@ -456,6 +463,15 @@ class CombinationalTestManager(TestManager):
         simulator.measure('tran', 'trans_out',
                         f'trig v(vout) val={pct_vdd(v_trans_start)} {harness.out_direction}=1',
                         f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1')
+
+        # Log simulation
+        # Path should be debug_dir/cell_name/delay/arc/slew/load/
+        if settings.debug:
+            debug_path = settings.debug_dir / self.cell.name / 'delay' / harness.debug_path / \
+                         f'slew_{slew}' / f'load_{load}'
+            debug_path.mkdir(parents=True, exist_ok=True)
+            with open(debug_path/'delay.sp', 'w') as spice_file:
+                spice_file.write(str(simulator))
 
         # Run transient analysis
         step_time = min(self.sim_timestep*settings.units.time, t_simend/1000)
@@ -721,16 +737,18 @@ class SequentialTestManager(TestManager):
         # Set up slew and load parameters
         t_slew = slew * settings.units.time
         c_load = load * settings.units.capacitance
+        debug_path = settings.debug_dir / self.cell.name / 'delay' / harness.debug_path / \
+                     f'slew_{slew}' / f'load_{load}'
     
         print(f'Running sequential {trial_name} with slew={str(t_slew)}, load={str(c_load)}')
-        t_stab = self._find_stabilizing_time(settings, harness, t_slew, c_load)
-        (t_setup, t_hold) = self._find_setup_hold_delay(settings, harness, t_slew, c_load, t_stab)
+        t_stab = self._find_stabilizing_time(settings, harness, t_slew, c_load, debug_path)
+        (t_setup, t_hold) = self._find_setup_hold_delay(settings, harness, t_slew, c_load, t_stab, debug_path)
 
         # Characterize using identified setup and hold time
-        simulator, timings = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
-        return self._measure_cell_delays(settings, harness, simulator, timings)
+        simulator, timings = self._build_test_circuit('delay', settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
+        return self._measure_cell_delays(settings, harness, simulator, timings, debug_path)
 
-    def _find_stabilizing_time(self, settings, harness, t_slew, c_load):
+    def _find_stabilizing_time(self, settings, harness, t_slew, c_load, debug_path):
         """Find a reasonable stablilizing time for the current configuration.
 
         The stabilizing time is the delay between the first half of the procedure, where we zero
@@ -742,7 +760,7 @@ class SequentialTestManager(TestManager):
         t_stab = 500 * max(self.in_slews) * settings.units.time
         t_setup = max(self.setup_time_range) * settings.units.time
         t_hold = max(self.hold_time_range) * settings.units.time
-        sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
+        sim, t = self._build_test_circuit('stabilizing', settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
 
         # Measure time it takes for Q to stabilize
         match harness.out_direction:
@@ -755,11 +773,18 @@ class SequentialTestManager(TestManager):
         sim.measure('tran', 't_stabilizing',
             f'trig v(vout) val={v_start} {harness.out_direction}=1',
             f'targ v(vout) val={v_end} {harness.out_direction}=1')
+
+        # Log simulation
+        if settings.debug:
+            debug_path.mkdir(parents=True, exist_ok=True)
+            with open(debug_path/'stabilizing.sp', 'w') as spice_file:
+                spice_file.write(str(sim))
+            
         step_time = t['sim_end']/5000 # Run with low precision
         results = sim.transient(step_time=step_time, end_time=t['sim_end'])
         return results['t_stabilizing'] @ u_s
 
-    def _find_setup_hold_delay(self, settings, harness, t_slew, c_load, t_stabilizing):
+    def _find_setup_hold_delay(self, settings, harness, t_slew, c_load, t_stabilizing, debug_path):
         """Calculate setup and hold time.
 
         Calculate the minimum setup and hold time for the current configuration, accounting for
@@ -767,13 +792,13 @@ class SequentialTestManager(TestManager):
         https://ieeexplore.ieee.org/document/4167994"""
         # Identify msp
         th = max(self.hold_time_range) * settings.units.time
-        t_setup_min = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, th)
-        t_hold_max = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, t_setup_min)
+        t_setup_min = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, th, 'ts_min', debug_path)
+        t_hold_max = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, t_setup_min, 'th_max', debug_path)
 
         # Identify mhp
         ts = max(self.setup_time_range) * settings.units.time
-        t_hold_min = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, ts)
-        t_setup_max = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, t_hold_min)
+        t_hold_min = self._sweep_th(settings, harness, t_slew, c_load, t_stabilizing, ts, 'th_min', debug_path)
+        t_setup_max = self._sweep_ts(settings, harness, t_slew, c_load, t_stabilizing, t_hold_min, 'ts_max', debug_path)
 
         # Interpolate mshp along the contour formed by msp, mhp
         # For now we use a simple average, which may be overly pessimistic
@@ -781,16 +806,18 @@ class SequentialTestManager(TestManager):
         mshp = (1.4*(t_setup_min+t_setup_max)/2, (t_hold_min+t_hold_max)/2)
         return mshp
 
-    def _sweep_ts(self, settings, harness, t_slew, c_load, t_stabilizing, t_hold):
+    def _sweep_ts(self, settings, harness, t_slew, c_load, t_stabilizing, t_hold, title, debug_path):
         """Perform a binary search to find the minimum viable t_setup with the given t_hold"""
         t_step = self.sim_timestep * settings.units.time
         ts_max = max(self.setup_time_range) * settings.units.time
         ts_min = min(self.setup_time_range) * settings.units.time
         ts = ts_max
+        i = 0
         while ts - ts_min > t_step:
-            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, ts, t_hold, t_stabilizing)
+            i += 1
+            sim, t = self._build_test_circuit(f'{title}_{i}', settings, harness, t_slew, c_load, ts, t_hold, t_stabilizing)
             try:
-                self._measure_c2q(settings, harness, sim, t)
+                self._measure_c2q(settings, harness, sim, t, debug_path)
             except NameError:
                 ts_min = ts
                 ts = (ts_max + ts_min) / 2
@@ -799,16 +826,18 @@ class SequentialTestManager(TestManager):
             ts = (ts_max + ts_min) / 2
         return ts_max
 
-    def _sweep_th(self, settings, harness, t_slew, c_load, t_stabilizing, t_setup):
+    def _sweep_th(self, settings, harness, t_slew, c_load, t_stabilizing, t_setup, title, debug_path):
         """Perform a binary search to find the minimum viable t_hold with the given t_setup"""
         t_step = self.sim_timestep * settings.units.time
         th_max = max(self.hold_time_range) * settings.units.time
         th_min = min(self.hold_time_range) * settings.units.time
         th = th_max
+        i = 0
         while th - th_min > t_step:
-            sim, t = self._build_test_circuit(settings, harness, t_slew, c_load, t_setup, th, t_stabilizing)
+            i += 1
+            sim, t = self._build_test_circuit(f'{title}_{i}', settings, harness, t_slew, c_load, t_setup, th, t_stabilizing)
             try:
-                self._measure_c2q(settings, harness, sim, t)
+                self._measure_c2q(settings, harness, sim, t, debug_path)
             except NameError:
                 th_min = th
                 th = (th_max + th_min) / 2
@@ -817,7 +846,7 @@ class SequentialTestManager(TestManager):
             th = (th_max + th_min) / 2
         return th_max
 
-    def _build_test_circuit(self, settings, harness, t_slew, c_load, t_setup, t_hold, t_stabilizing):
+    def _build_test_circuit(self, title, settings, harness, t_slew, c_load, t_setup, t_hold, t_stabilizing):
         """Construct the circuit simulator object with the provided test parameters"""
         # Set up parameters
         clk_slew = self.clock_slew * settings.units.time
@@ -840,7 +869,7 @@ class SequentialTestManager(TestManager):
         t['sim_end'] = t['data_edge_2_end'] + 2*t_stabilizing # wait for the system to stabilize
 
         # Initialize circuit
-        circuit = Circuit(self.cell.name)
+        circuit = Circuit(title)
         self._include_models(circuit)
         circuit.include(self.netlist)
         circuit.V('high', 'vhigh', circuit.gnd, vdd)
@@ -919,7 +948,7 @@ class SequentialTestManager(TestManager):
                                       simulator=settings.simulator)
         return simulator, t
 
-    def _measure_cell_delays(self, settings, harness, simulator, timings):
+    def _measure_cell_delays(self, settings, harness, simulator, timings, debug_path):
         """Run delay measurement for a single test circuit."""
 
         # Set up voltage bounds for measurements
@@ -966,11 +995,17 @@ class SequentialTestManager(TestManager):
             f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(timings["removal"])} {clk_direction}=last',
             f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=last')
 
+        # Log simulation
+        if settings.debug:
+            debug_path.mkdir(parents=True, exist_ok=True)
+            with open(debug_path/'delay.sp', 'w') as spice_file:
+                spice_file.write(str(simulator))
+
         step_time = min(self.sim_timestep*settings.units.time, timings['sim_end']/1000)
         simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
         return simulator.transient(step_time=step_time, end_time=timings['sim_end'])
 
-    def _measure_c2q(self, settings, harness, simulator, timings):
+    def _measure_c2q(self, settings, harness, simulator, timings, debug_path):
         """Measure Clock-to-Q delay."""
 
         # Measure clock-to-latch time
@@ -989,6 +1024,13 @@ class SequentialTestManager(TestManager):
         simulator.measure('tran', 't_c2q',
             f'trig v(vcin) val={v_clk_transition} td={float(timings["removal"])} {clk_direction}=last',
             f'targ v(vout) val={v_prop_end} {harness.out_direction}=last')
+
+        # Log simulation
+        if settings.debug:
+            debug_path = debug_path / 'c2q'
+            debug_path.mkdir(parents=True, exist_ok=True)
+            with open(debug_path/f'{simulator.circuit.title}.sp', 'w') as spice_file:
+                spice_file.write(str(simulator))
 
         step_time = min(self.sim_timestep*settings.units.time, t['sim_end']/1000)
         simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
