@@ -243,10 +243,10 @@ class Pin:
         if self.direction == 'output':
             figs = []
             # Output pins have cell_{rise,fall} and {rise,fall}_transition
-            for pin, timing_data in self.timings:
+            for timing_data in self.timings:
                 for direction in ['rise', 'fall']:
                     fig = plt.figure(
-                        label=f'{cell_name} | {self.name} ({direction}) Timing | Related Pin: {pin}'
+                        label=f'{cell_name} | {self.name} ({direction}) Timing | Related Pin: {timing_data.related_pin}'
                     )
 
                     prop_table = timing_data[f'cell_{direction}']
