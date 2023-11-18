@@ -44,7 +44,7 @@ class Function:
 
     def __str__(self) -> str:
         """Return str(self)"""
-        return self.expression
+        return self.expression.replace('~', '!')
 
     def __repr__(self) -> str:
         """Return repr(self)"""
