@@ -11,10 +11,10 @@ from PySpice.Spice.Netlist import Circuit
 from PySpice.Tools.StringTools import str_spice
 from PySpice.Unit import *
 
-from characterizer.functions import Function, registered_functions
-from characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
-from characterizer.LogicParser import parse_logic
-from liberty.cell import Cell, Pin, TimingData, TableTemplate
+from charlib.characterizer.functions import Function, registered_functions
+from charlib.characterizer.Harness import CombinationalHarness, SequentialHarness, filter_harnesses_by_ports, find_harness_by_arc
+from charlib.characterizer.LogicParser import parse_logic
+from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
 
 class TestManager:
     """A test manager for a standard cell"""

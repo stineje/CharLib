@@ -27,10 +27,10 @@ settings:
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         # loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         # slews: [0.06, 0.3, 0.6]
-        loads: [0.06, 0.24, 0.48, 0.9, 1.2, 1.8]
+        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         setup_time_range: [0.001, 1]
         hold_time_range: [0.001, 1]
-        #plots: [io, delay]
+        # plots: [io]
 cells:
     AND2X1:
         netlist:    osu350_spice_temp/AND2X1.sp
@@ -49,7 +49,7 @@ cells:
         area:       128
         inputs:     [A,B,C]
         outputs:    ['Y']
-        functions:  [Y=~((A&B)|C)]
+        functions:  [Y=!((A&B)|C)]
     AOI22X1:
         netlist:    osu350_spice_temp/AOI22X1.sp
         area:       160
@@ -106,16 +106,16 @@ cells:
         # functions:  [Q<=D]
         # setup_time_range: [0.1, 10]
         # hold_time_range: [0.1, 10]
-    DFFSR:
-        netlist:    osu350_spice_temp/DFFSR.sp
-        area:       704
-        clock:      posedge CLK
-        set:        negedge S
-        reset:      negedge R
-        inputs:     [D]
-        outputs:    [Q]
-        flops:      [P0002,P0003]
-        functions:  [Q<=D]
+    # DFFSR:
+    #     netlist:    osu350_spice_temp/DFFSR.sp
+    #     area:       704
+    #     clock:      posedge CLK
+    #     set:        negedge S
+    #     reset:      negedge R
+    #     inputs:     [D]
+    #     outputs:    [Q]
+    #     flops:      [P0002,P0003]
+    #     functions:  [Q<=D]
     FAX1:
         netlist:    osu350_spice_temp/FAX1.sp
         area:       480
@@ -137,69 +137,69 @@ cells:
         area:       64
         inputs:     [A]
         outputs:    ['Y']
-        functions:  [Y=~A]
+        functions:  [Y=!A]
     INVX2:
         netlist:    osu350_spice_temp/INVX2.sp
         area:       64
         inputs:     [A]
         outputs:    ['Y']
-        functions:  [Y=~A]
+        functions:  [Y=!A]
     INVX4:
         netlist:    osu350_spice_temp/INVX4.sp
         area:       96
         inputs:     [A]
         outputs:    ['Y']
-        functions:  [Y=~A]
+        functions:  [Y=!A]
     INVX8:
         netlist:    osu350_spice_temp/INVX8.sp
         area:       160
         inputs:     [A]
         outputs:    ['Y']
-        functions:  [Y=~A]
-    LATCH:
-        netlist:    osu350_spice_temp/LATCH.sp
-        clock:      negedge CLK
-        inputs:     [D]
-        outputs:    [Q]
-        functions:  [Q<=D]
-        setup_time_range: [0.1, 10]
-        hold_time_range: [0.1, 10]
+        functions:  [Y=!A]
+    # LATCH:
+    #     netlist:    osu350_spice_temp/LATCH.sp
+    #     clock:      negedge CLK
+    #     inputs:     [D]
+    #     outputs:    [Q]
+    #     functions:  [Q<=D]
+    #     setup_time_range: [0.1, 10]
+    #     hold_time_range: [0.1, 10]
     MUX2X1:
         netlist:    osu350_spice_temp/MUX2X1.sp
         area:       192
         inputs:     [A,B,S]
         outputs:    ['Y']
-        functions:  [Y=~((S&A)|((~S)&B))]
+        functions:  [Y=!((S&A)|((!S)&B))]
     NAND2X1:
         netlist:    osu350_spice_temp/NAND2X1.sp
         area:       96
         inputs:     [A,B]
         outputs:    ['Y']
-        functions:  [Y=~(A&B)]
+        functions:  [Y=!(A&B)]
     NAND3X1:
         netlist:    osu350_spice_temp/NAND3X1.sp
         area:       144
         inputs:     [A,B,C]
         outputs:    ['Y']
-        functions:  [Y=~(A&B&C)]
+        functions:  [Y=!(A&B&C)]
     NOR2X1:
         netlist:    osu350_spice_temp/NOR2X1.sp
         area:       96
         inputs:     [A,B]
         outputs:    ['Y']
-        functions:  [Y=~(A|B)]
+        functions:  [Y=!(A|B)]
     NOR3X1:
         netlist:    osu350_spice_temp/NOR3X1.sp
         area:       256
         inputs:     [A,B,C]
         outputs:    ['Y']
-        functions:  [Y=~(A|B|C)]
+        functions:  [Y=!(A|B|C)]
     OAI21X1:
         netlist:    osu350_spice_temp/OAI21X1.sp
         area:       92
         inputs:     [A,B,C]
         outputs:    ['Y']
-        functions:  [Y=~((A|B)&C)]
+        functions:  [Y=!((A|B)&C)]
     OAI22X1:
         netlist:    osu350_spice_temp/OAI22X1.sp
         area:       160
@@ -219,11 +219,11 @@ cells:
         outputs:    ['Y']
         functions:  [Y=A|B]
     # PADINC:
-        # netlist:    osu350_spice_temp/PADINC.sp
-        # area:       12000
-        # inputs:     [YPAD]
-        # outputs:    [DI]
-        # functions:  [DI=YPAD]
+    #     netlist:    osu350_spice_temp/PADINC.sp
+    #     area:       12000
+    #     inputs:     [YPAD]
+    #     outputs:    [DI]
+    #     functions:  [DI=YPAD]
     # PADINOUT:
     # PADOUT:
         # netlist:    osu350_spice_temp/PADOUT.sp
@@ -238,7 +238,7 @@ cells:
         area:       224
         inputs:     [A,B]
         outputs:    ['Y']
-        functions:  [Y=~(A^B)]
+        functions:  [Y=!(A^B)]
     XOR2X1:
         netlist:    osu350_spice_temp/XOR2X1.sp
         area:       224

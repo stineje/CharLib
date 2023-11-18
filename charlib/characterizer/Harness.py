@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PySpice.Unit import *
 
-from liberty.cell import Pin
+from charlib.liberty.cell import Pin
 
 @dataclass
 class PinTestBinding:

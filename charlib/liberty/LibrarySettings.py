@@ -1,5 +1,5 @@
 from pathlib import Path
-from liberty.UnitsSettings import UnitsSettings
+from charlib.liberty.UnitsSettings import UnitsSettings
 
 class NamedNode:
     def __init__(self, name, voltage = 0):
