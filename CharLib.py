@@ -171,26 +171,60 @@ def compare(benchmark, characterized):
                 charlib_fall_trans_data.append(np.mean(charlib_timing.get_groups('fall_transition')[0].get_array('values')))
                 benchmark_fall_trans_data.append(np.mean(benchmark_timing.get_groups('fall_transition')[0].get_array('values')))
 
-    # Plot the data
+    # Plot propagation delay data
     prop_figure, prop_ax = plt.subplots()
+    prop_ax.grid()
     prop_ax.scatter(benchmark_rise_prop_data, charlib_rise_prop_data, label='Rising')
     prop_ax.scatter(benchmark_fall_prop_data, charlib_fall_prop_data, label='Falling')
+    prop_limits = [0, 1.1*max(benchmark_rise_prop_data)]
+    prop_ax.plot(prop_limits, prop_limits, color='black', alpha=0.2, label='Ideal')
     prop_ax.set(
-        xlabel='Benchmark',
-        ylabel='CharLib',
+        xlim=prop_limits,
+        ylim=prop_limits,
+        xlabel='Benchmark Propagation Delay [ns]',
+        ylabel='CharLib Propagation Delay [ns]',
         title='Propagation Delay Correlation'
     )
     prop_ax.legend()
+
+    # Plot transient delay data
     tran_figure, tran_ax = plt.subplots()
+    tran_ax.grid()
     tran_ax.scatter(benchmark_rise_trans_data, charlib_rise_trans_data, label='Rising')
     tran_ax.scatter(benchmark_fall_trans_data, charlib_fall_trans_data, label='Falling')
+    tran_limits = [0, 1.1*max(benchmark_rise_trans_data)]
+    tran_ax.plot(tran_limits, tran_limits, color='black', alpha=0.2, label='Ideal')
     tran_ax.set(
-        xlabel='Benchmark',
-        ylabel='CharLib',
+        xlim=tran_limits,
+        ylim=tran_limits,
+        xlabel='Benchmark Transient Delay [ns]',
+        ylabel='CharLib Transient Delay [ns]',
         title='Transient Delay Correlation'
     )
     tran_ax.legend()
+
     plt.show()
+
+    # Calculate absolute error
+    rise_prop_ae = np.abs(np.asarray(charlib_rise_prop_data) - np.asarray(benchmark_rise_prop_data))
+    fall_prop_ae = np.abs(np.asarray(charlib_fall_prop_data) - np.asarray(benchmark_fall_prop_data))
+    rise_tran_ae = np.abs(np.asarray(charlib_rise_trans_data) - np.asarray(benchmark_rise_trans_data))
+    fall_tran_ae = np.abs(np.asarray(charlib_fall_trans_data) - np.asarray(benchmark_fall_trans_data))
+    # Calculate worst case absolute error
+    rise_prop_max_ae = max(rise_prop_ae)
+    fall_prop_max_ae = max(fall_prop_ae)
+    rise_tran_max_ae = max(rise_tran_ae)
+    fall_tran_max_ae = max(fall_tran_ae)
+    # Calculate mean absolute error
+    rise_prop_mae = np.mean(rise_prop_ae)
+    fall_prop_mae = np.mean(fall_prop_ae)
+    rise_tran_mae = np.mean(rise_tran_ae)
+    fall_tran_mae = np.mean(fall_tran_ae)
+
+    print('Rise prop', rise_prop_max_ae, rise_prop_mae)
+    print('Fall prop', fall_prop_max_ae, fall_prop_mae)
+    print('Rise tran', rise_tran_max_ae, rise_tran_mae)
+    print('Fall tran', fall_tran_max_ae, fall_tran_mae)
 
 if __name__ == '__main__':
     main()
