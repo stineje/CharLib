@@ -28,13 +28,9 @@ settings:
         setup_time_range: [0.001, 1]
         hold_time_range: [0.001, 1]
 cells:
-    DFFNEGX1:
-        netlist:    osu350_spice_temp/DFFNEGX1.sp
-        area:       384
-        clock:      negedge CLK
-        inputs:     [D]
-        outputs:    [Q]
-        flops:      [DS0000,P0002]
-        functions:  [Q<=D]
-        setup_time_range: [2, 20]
-        hold_time_range: [2, 20]
+    BUFX2:
+        netlist:    osu350_spice_temp/BUFX2.sp
+        area:       96
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:  [Y=A]

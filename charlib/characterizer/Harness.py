@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PySpice.Unit import *
 
-from liberty.cell import Pin
+from charlib.liberty.cell import Pin
 
 @dataclass
 class PinTestBinding:
@@ -21,6 +21,9 @@ class PinTestBinding:
             return 'fall'
         else:
             return None
+
+    def __str__(self) -> str:
+        return f'{self.pin.name}{self.state}'
 
 
 class Harness:
@@ -87,7 +90,7 @@ class Harness:
 
     def arc_str(self):
         """Return a string representing the test arc"""
-        return f'{self.target_in_port.pin.name} ({self.in_direction}) -> {self.target_out_port.pin.name} ({self.out_direction})'
+        return f'{self.target_in_port.pin.name} ({self.in_direction}) to {self.target_out_port.pin.name} ({self.out_direction})'
 
     @property
     def target_in_port(self) -> str:
@@ -118,6 +121,13 @@ class Harness:
     def out_direction(self) -> str:
         """Return target_out_port.direction"""
         return self.target_out_port.direction
+
+    @property
+    def debug_path(self) -> str:
+        """Return folder names for debug results related to this harness."""
+        arc_dir = f'{self.target_in_port}_to_{self.target_out_port}'
+        stable_dir = '_'.join([str(pin) for pin in self.stable_in_ports])
+        return f'{arc_dir}/{stable_dir}'
 
     def average_propagation_delay(self):
         """Calculates the average propagation delay over all trials"""

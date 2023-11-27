@@ -3,9 +3,9 @@
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
-from liberty.UnitsSettings import UnitsSettings
-from liberty.library import Library
-from characterizer.TestManager import TestManager, CombinationalTestManager, SequentialTestManager
+from charlib.liberty.UnitsSettings import UnitsSettings
+from charlib.liberty.library import Library
+from charlib.characterizer.TestManager import TestManager, CombinationalTestManager, SequentialTestManager
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""
@@ -56,6 +56,8 @@ class CharacterizationSettings:
         self.simulator = kwargs.pop('simulator', 'ngspice-shared')
         self.use_multithreaded = kwargs.pop('multithreaded', True)
         self.results_dir = Path(kwargs.pop('results_dir', 'results'))
+        self.debug = kwargs.pop('debug', False)
+        self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))
         self.cell_defaults = kwargs.get('cell_defaults', {})
 
         # Units and important voltages

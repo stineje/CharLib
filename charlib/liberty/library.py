@@ -1,6 +1,6 @@
 """Models liberty library groups"""
 
-from liberty.UnitsSettings import UnitsSettings
+from charlib.liberty.UnitsSettings import UnitsSettings
 
 # TODO: wire loads, operating conditions, power supplies
 
@@ -107,7 +107,7 @@ class Library:
         spice_unit = lambda unit : unit.prefixed_unit.str_spice()
         lib_str = [
             f'library ({self.name}) {{',
-            f'  technology : ({self.technology});',
+            f'  technology : {self.technology};',
             f'  delay_model : {self.delay_model};',
             f'  bus_naming_style : "{self.bus_naming_style}";',
             '\n  /* Units */',
@@ -116,7 +116,7 @@ class Library:
             f'  current_unit : "1{spice_unit(self.units.current)}";',
             f'  pulling_resistance_unit : "1{spice_unit(self.units.resistance)}";',
             f'  leakage_power_unit : "1{spice_unit(self.units.power)}";',
-            f'  capacitive_load_unit : (1,{spice_unit(self.units.capacitance)});',
+            f'  capacitive_load_unit : "1{spice_unit(self.units.capacitance)}";',
             '\n  /* Slew characteristics */',
             f'  slew_upper_threshold_pct_rise : {self.slew_upper_threshold_pct_rise};',
             f'  slew_lower_threshold_pct_rise : {self.slew_lower_threshold_pct_rise};',
