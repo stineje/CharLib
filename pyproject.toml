@@ -13,7 +13,7 @@ packages = [{include = "charlib"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pyspice = {git = "https://github.com/infinitymdm/PySpice.git"}
+#pyspice = {git = "https://github.com/infinitymdm/PySpice.git"}
 liberty-parser = "^0.0.16"
 pyyaml = "^6.0.1"
 numpy = "^1.26.2"
