@@ -7,27 +7,22 @@
 - 🌶️ Compatible with ngspice and Xyce
 
 ## Introduction
-CharLib is an open cell library characterizer originally based on [libretto](https://github.com/snishizawa/libretto). The current version supports timing and power characterization of combinational and sequential cells.
+CharLib is an open cell library characterizer originally based on [libretto](https://github.com/snishizawa/libretto). The current version supports timing characterization of combinational and sequential cells.
 
 ## Installation
-CharLib requires the following dependencies:
-
-- [Python version 3.9 or newer](https://www.python.org)
-- [Our modified version of PySpice](https://github.com/infinitymdm/PySpice)
-- A compatible circuit simulator ([ngspice](https://ngspice.sourceforge.io/) or [xyce](https://xyce.sandia.gov/)).
-
-Once the software listed above are installed, clone CharLib and try to run one of our test configurations:
+CharLib can be installed from [PyPI](https://test.pypi.org/project/charlib) using pip:
 
 ```
-$ git clone https://github.com/stineje/CharLib
-$ cd CharLib
-$ make gf180
-```
+# Install our customized version of PySpice
+pip install git+https://github.com/infinitymdm/PySpice
 
-A brief script will run to fetch the cell spice files, then you should see the software run characterization for several cells. If everything works as expected, CharLib will produce a liberty file called GF180.lib in the current directory.
+# Install CharLib
+pip install charlib
+```
+Make sure you also have a compatible circuit simulator. [ngspice](https://ngspice.sourceforge.io/) and [xyce](https://xyce.sandia.gov/) are currently supported.
 
 ## Usage
-`./CharLib path/to/library/config/`
+`charlib path/to/library/config/`
 
 CharLib searches the specified directory for a YAML file containing a valid cell library configuration, then characterizes the specified cells. See [yaml.md](https://github.com/stineje/CharLib/blob/main/docs/yaml.md) for information on constructing a config file.
 

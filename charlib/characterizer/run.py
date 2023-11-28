@@ -10,25 +10,60 @@ from liberty.parser import parse_liberty
 from PySpice.Logging import Logging
 
 from charlib.characterizer.Characterizer import Characterizer
+from charlib.characterizer.functions.functions import generate_yml
+
 
 def main():
     """Run CharLib"""
-    # Read in arguments
+    # Set up charlib arguments
     parser = argparse.ArgumentParser(
-            prog='CharLib',
+            prog='charlib',
             description='Characterize combinational and sequential standard cells.')
-    parser.add_argument('library', type=str,
-            help='Read in a library of standard cells from the specified directory and characterize')
-    parser.add_argument('--multithreaded', action='store_true',
-            help='Enable multithreaded execution')
     parser.add_argument('--debug', action='store_true',
             help='Display extra information useful for debugging')
-    parser.add_argument('--benchmark', type=str, default='',
-            help='A liberty file to compare results with.')
-    # TODO: consider adding a -v/--verbose argument and debug options
-    args = parser.parse_args()
-    library_dir = args.library
+            
+    # Set up run, compare, and generate_functions subcommands
+    subparser = parser.add_subparsers(title='subcomamands', required=True)
+    parser_characterize = subparser.add_parser('run', help='Characterize a cell library')
+    parser_compare = subparser.add_parser('compare', help='Compare two liberty files')
+    parser_genfunctions = subparser.add_parser('generate_functions', help='Generate YAML maps for registered functions')
 
+    # Set up charlib run arguments
+    parser_characterize.add_argument('library', type=str,
+            help='The directory containing the library characterization configuration file')
+    parser_characterize.add_argument('--multithreaded', action='store_true',
+            help='Enable multithreaded execution')
+    parser_characterize.add_argument('--comparewith', type=str, default='',
+            help='A liberty file to compare results with.')
+    parser_characterize.set_defaults(func=run_charlib)
+
+    # Set up charlib compare arguments
+    def compare_helper(args):
+        """Helper function for compare subcommand"""
+        with open(Path(args.compared), 'r') as compared:
+            compare(args.benchmark, compared.read())
+    parser_compare.add_argument('benchmark',  type=str,
+            help='A liberty file to use as a benchmark for comparison')
+    parser_compare.add_argument('compared', type=str,
+            help='A liberty file to compare against the benchmark')
+    parser_compare.set_defaults(func=compare_helper)
+
+    # Set up charlib generate_functions arguments
+    def genfunctions_helper(args):
+        """Helper function for generate_functions subcommand"""
+        generate_yml()
+    # TOOD: Add argument for expression map
+    parser_genfunctions.set_defaults(func=genfunctions_helper)
+
+    # Parse args and execute
+    args = parser.parse_args()
+    args.func(args)
+
+
+def run_charlib(args):
+    """Run characterization and return the library"""
+    library_dir = args.library
+    
     # Search for a YAML file with the required config information
     print(f'Searching for YAML files in {str(library_dir)}')
     config = None
@@ -52,14 +87,6 @@ def main():
     settings['debug'] = args.debug
     settings['multithreaded'] = args.multithreaded
     cells = config['cells']
-    library = run_charlib(settings, cells)
-
-    # Run any post-characterization analysis
-    if args.benchmark:
-        compare(args.benchmark, library)
-
-def run_charlib(settings, cells):
-    """Run CharLib and return the library"""
 
     # Read in library settings
     characterizer = Characterizer(**settings)
@@ -107,10 +134,13 @@ def run_charlib(settings, cells):
         libfile.write(str(library))
         print(f'Results written to {str(libfile_name.resolve())}')
 
-    return library
+    # Run any post-characterization analysis
+    if args.comparewith:
+        compare(args.comparewith, library)
+
 
 def compare(benchmark, characterized):
-    """Compare input cap, prop delay, and trans delay for each cell and make scatter plots"""
+    """Compare prop delay and trans delay for each cell and make scatter plots"""
     charlib_rise_prop_data = []
     benchmark_rise_prop_data = []
     charlib_fall_prop_data = []

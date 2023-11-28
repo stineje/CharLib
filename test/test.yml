@@ -28,9 +28,45 @@ settings:
         setup_time_range: [0.001, 1]
         hold_time_range: [0.001, 1]
 cells:
+    AND2X1:
+        netlist:    osu350_spice_temp/AND2X1.sp
+        area:       128
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=A&B]
     BUFX2:
         netlist:    osu350_spice_temp/BUFX2.sp
         area:       96
         inputs:     [A]
         outputs:    ['Y']
         functions:  [Y=A]
+    INVX1:
+        netlist:    osu350_spice_temp/INVX1.sp
+        area:       64
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:  [Y=!A]
+    NAND2X1:
+        netlist:    osu350_spice_temp/NAND2X1.sp
+        area:       96
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=!(A&B)]
+    NOR2X1:
+        netlist:    osu350_spice_temp/NOR2X1.sp
+        area:       96
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=!(A|B)]
+    OR2X1:
+        netlist:    osu350_spice_temp/OR2X1.sp
+        area:       128
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=A|B]
+    XNOR2X1:
+        netlist:    osu350_spice_temp/XNOR2X1.sp
+        area:       224
+        inputs:     [A,B]
+        outputs:    ['Y']
+        functions:  [Y=!(A^B)]
