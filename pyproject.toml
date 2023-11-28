@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "charlib"
-version = "0.9.1"
+version = "0.9.2"
 description = "An open-source standard cell library characterizer"
 repository = "https://github.com/stineje/CharLib"
 authors = [
@@ -9,10 +9,10 @@ authors = [
 ]
 license = "GPL-2.0"
 readme = "README.md"
-packages = [{include = "charlib"}]
+packages = [{include = "charlib"},{include = "resources"}]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.9"
 #pyspice = {git = "https://github.com/infinitymdm/PySpice.git"}
 liberty-parser = "^0.0.16"
 pyyaml = "^6.0.1"
