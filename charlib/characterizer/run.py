@@ -204,9 +204,10 @@ def compare(benchmark, characterized):
     # Plot propagation delay data
     prop_figure, prop_ax = plt.subplots()
     prop_ax.grid()
+    print(benchmark_rise_prop_data, charlib_rise_prop_data)
     prop_ax.scatter(benchmark_rise_prop_data, charlib_rise_prop_data, label='Rising')
     prop_ax.scatter(benchmark_fall_prop_data, charlib_fall_prop_data, label='Falling')
-    prop_limits = [0, 1.1*max(benchmark_rise_prop_data)]
+    prop_limits = [0, 1.1*max(max(benchmark_rise_prop_data), max(charlib_rise_prop_data))]
     prop_ax.plot(prop_limits, prop_limits, color='black', alpha=0.2, label='Ideal')
     prop_ax.set(
         xlim=prop_limits,
@@ -222,7 +223,7 @@ def compare(benchmark, characterized):
     tran_ax.grid()
     tran_ax.scatter(benchmark_rise_trans_data, charlib_rise_trans_data, label='Rising')
     tran_ax.scatter(benchmark_fall_trans_data, charlib_fall_trans_data, label='Falling')
-    tran_limits = [0, 1.1*max(benchmark_rise_trans_data)]
+    tran_limits = [0, 1.1*max(max(benchmark_rise_trans_data), max(charlib_rise_trans_data))]
     tran_ax.plot(tran_limits, tran_limits, color='black', alpha=0.2, label='Ideal')
     tran_ax.set(
         xlim=tran_limits,

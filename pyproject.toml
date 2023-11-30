@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "charlib"
-version = "0.9.3"
+version = "0.9.4"
 description = "An open-source standard cell library characterizer"
 repository = "https://github.com/stineje/CharLib"
 authors = [
