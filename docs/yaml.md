@@ -71,23 +71,13 @@ Sequential Cell entries must specify the following key-value pairs in addition t
 
 * `clock`: The clock pin name and edge direction, e.g. 'posedge CLK'.
 * `flops`: A sequence of storage element names.
-* `simulation`: A dictionary containing timing parameters for simulations. Contains the following key-value pairs:
-    * `setup`: A dictionary containing setup time simulation parameters. Contains the following key-value pairs:
-        * `highest`: The maximum setup time to check.
-        * `lowest`: The minimum setup time to check.
-        * `timestep`: The resolution to use for the setup time search.
-    * `hold`: A dictionary containing hold time simulation parameters. Contains the following key-value pairs:
-        * `highest`: The maximum hold time to check.
-        * `lowest`: The minimum hold time to check.
-        * `timestep`: The resolution to use for the hold time search.
+* `setup_time_range`: 
+* `hold_time_range`: 
 
 ### Optional Keys
 These keys may optionally be included to provide additional cell documentation or improve CharLib performance.
 
 * `area`: The physical area occupied by the cell layout. Defaults to 0 if omitted.
-* `test_vectors`: A sequence of test vectors for simulation. If omitted, test vectors are instead generated based on the cell's `functions`.
-    * Each test vector should be in the format `[clk, set (if present), reset (if present), flop1, ..., flopK, in1, ..., inN, out1, ..., outM]` (omit `clk, set, reset, flop1, ..., flopK` for combinational cells).
-    * Including the `test_vectors` key can result in significant reductions in CharLib simulation times. If you already know the test conditions that will reveal critical paths for your cells, you should include them as test vectors under this key.
 * `set`: For sequential cells only. The set pin name and edge direction, e.g. 'negedge S'. If omitted, CharLib assumes the cell does not have a set pin.
 * `reset`: For sequential cells only. The reset pin name and edge direction, e.g. 'negedge R'. If omitted, CharLib assumes the cell does not have a reset pin.
 * `clock_slew`: For sequential cells only. The slew rate to use for the clock signal in simulation. Defaults to 0 if omitted.
@@ -100,7 +90,7 @@ The YAML below configures CharLib to perform timing and power characterization f
 
 ``` YAML
 settings:
-    lib_name:           OSU350
+    lib_name:           test_OSU350
     units:
         time:               ns
         voltage:            V
@@ -129,10 +119,9 @@ cells:
         area:       128
         inputs:     [A]
         outputs:    ['Y'] # We have to put this in quotes because YAML interprets Y as boolean True by default
-        functions:  [Y=~A]
+        functions:  [Y=!A]
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-        simulation_timestep: auto
 ```
 
 
@@ -141,7 +130,7 @@ The YAML below configures CharLib to perform timing and power characterization f
 
 ``` YAML
 settings:
-    lib_name:           OSU350
+    lib_name:           test_OSU350
     units:
         time:               ns
         voltage:            V
@@ -167,7 +156,6 @@ settings:
         models: [test/osu350/model.sp]
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-        simulation_timestep: auto
 cells:
     FAX1:
         netlist:    osu350_spice_temp/FAX1.sp
@@ -190,7 +178,7 @@ cells:
 ### Example 3: OSU350 DFFSR Characterization
 ```
 settings:
-    lib_name:           OSU350
+    lib_name:           test_OSU350
     units:
         time:               ns
         voltage:            V
@@ -216,16 +204,8 @@ settings:
         models: [test/osu350/model.sp]
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-        simulation_timestep: auto
-        simulation:
-            setup:
-                highest:    1
-                lowest:     0.01
-                timestep:   0.005
-            hold:
-                highest:    1
-                lowest:     0.01
-                timestep:   0.005
+	setup_time_range: [0.001, 1]
+	hold_time_range: [0.001, 1]
 cells:
     DFFSR:
         netlist:    osu350_spice_temp/DFFSR.sp
@@ -243,7 +223,7 @@ cells:
 ### Example 4: Characterizing Multiple GF180 Cells
 ```
 settings:
-    lib_name:           GF180
+    lib_name:           test_GF180
     units:
         time:               ns
         voltage:            V
@@ -271,14 +251,12 @@ settings:
             - gf180_temp/models/design.ngspice
         slews:  [0.015, 0.08, 0.4]
         loads:  [0.06, 1.2]
-        simulation_timestep: auto
-        plots:  none
 cells:
     gf180mcu_osu_sc_gp12t3v3__inv_1:
         netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__inv_1.spice
         inputs:     [A]
         outputs:    ['Y']
-        functions:  [Y=~A]
+        functions:  [Y=!A]
     gf180mcu_osu_sc_gp12t3v3__and2_1:
         netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__and2_1.spice
         inputs:     [A,B]
@@ -288,5 +266,5 @@ cells:
         netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__xnor2_1.spice
         inputs:     [A,B]
         outputs:    ['Y']
-        functions:  [Y=~(A^B)]
+        functions:  [Y=!(A^B)]
 ```
