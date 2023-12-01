@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "charlib"
+version = "0.9.4"
+description = "An open-source standard cell library characterizer"
+repository = "https://github.com/stineje/CharLib"
+authors = [
+	"Marcus Mellor <infinitymdm@gmail.com>",
+	"James Stine <james.stine@okstate.edu",
+]
+license = "GPL-2.0"
+readme = "README.md"
+packages = [{include = "charlib"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+#pyspice = {git = "https://github.com/infinitymdm/PySpice.git"}
+liberty-parser = "^0.0.16"
+pyyaml = "^6.0.1"
+numpy = "^1.26.2"
+matplotlib = "^3.8.2"
+
+[tool.poetry.scripts]
+charlib = "charlib.characterizer.run:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

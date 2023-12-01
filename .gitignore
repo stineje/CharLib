@@ -3,6 +3,10 @@ __pycache__
 *_temp
 work
 debug
+results
+dist
+.venv
+.vscode
 
 # Ignored files
 b3v3_1check.log
