@@ -17,12 +17,12 @@ CharLib can be installed from [PyPI](https://test.pypi.org/project/charlib) usin
 pip install git+https://github.com/infinitymdm/PySpice
 
 # Install CharLib
-pip install charlib
+pip install -i https://test.pypi.org/simple --extra-index-url https://pypi.org/simple charlib
 ```
 Make sure you also have a compatible circuit simulator. [ngspice](https://ngspice.sourceforge.io/) and [xyce](https://xyce.sandia.gov/) are currently supported.
 
 ## Usage
-`charlib path/to/library/config/`
+`charlib run path/to/library/config/`
 
 CharLib searches the specified directory for a YAML file containing a valid cell library configuration, then characterizes the specified cells. See [yaml.md](https://github.com/stineje/CharLib/blob/main/docs/yaml.md) for information on constructing a config file.
 
