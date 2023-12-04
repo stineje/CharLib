@@ -10,14 +10,14 @@
 CharLib is an open cell library characterizer originally based on [libretto](https://github.com/snishizawa/libretto). The current version supports timing characterization of combinational and sequential cells.
 
 ## Installation
-CharLib can be installed from [PyPI](https://test.pypi.org/project/charlib) using pip:
+CharLib can be installed from [PyPI](https://pypi.org/project/charlib) using pip:
 
 ```
 # Install our customized version of PySpice
 pip install git+https://github.com/infinitymdm/PySpice
 
 # Install CharLib
-pip install -i https://test.pypi.org/simple --extra-index-url https://pypi.org/simple charlib
+pip install charlib
 ```
 Make sure you also have a compatible circuit simulator. [ngspice](https://ngspice.sourceforge.io/) and [xyce](https://xyce.sandia.gov/) are currently supported.
 
