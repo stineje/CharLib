@@ -1,0 +1,5 @@
+netlist:    osu350_spice_temp/INVX1.sp
+area:       64
+inputs:     [A]
+outputs:    ['Y']
+functions:  [Y=!A]
