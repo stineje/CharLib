@@ -1,6 +1,6 @@
 # CharLib YAML Configuration
 
-When running in automatic mode, CharLib requires a YAML file with configuration settings to be present in the specified library directory. This document describes the key-value pairs that CharLib expects to find in that file.
+CharLib requires a YAML file with configuration settings to be present in the specified library directory. This document describes the key-value pairs that CharLib expects to find in that file.
 
 ## Library and Simulation Settings
 Library and characterization settings are specified as key-value pairs under the `settings` key.
@@ -45,6 +45,8 @@ These keys may optionally be included to adjust CharLib behavior:
 
 * `multithreaded`: A boolean which tells CharLib whether to dispatch jobs to multiple threads for asynchronous execution. Defaults to True.
 * `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
+* `debug`: A boolean which tells CharLib to display debug messages and store simulation SPICE files. Defaults to False.
+* `debug_dir`: The directory to use when storing simulation debug SPICE files. Defaults to `debug`.
 
 ## Cells
 Specific cells to characterize are specified as entries under the `cells` key.
@@ -65,6 +67,8 @@ Each cell entry is a dictionary with (at minimum) the following required keys:
 * `simulation_timestep`: The simulation timestep.
 
 Several of these keys can easily be omitted from cell entries by instead specifying them in the `settings.cell_defaults` dictionary. Any key-value pairs in `settings.cell_defaults` are automatically merged into each cell entry when adding the cell to the characterizer. If a key appears in a cell's entry and in `cell_defaults`, the value in the cell entry overrides the value from `cell_defaults`.
+
+> If you prefer to keep individual cell configurations separate from your toplevel CharLib configuration file, YAML files for individual cells may be specified using the syntax `cell_name: relative/path/to/cell/from/current/dir`. This gives you the option of, for example, storing your cell YAML files in the same place as your cell SPICE models.
 
 ### Additional Required Keys for Sequential Cell Entries
 Sequential Cell entries must specify the following key-value pairs in addition to the above:
@@ -176,7 +180,7 @@ cells:
 ```
 
 ### Example 3: OSU350 DFFSR Characterization
-```
+``` YAML
 settings:
     lib_name:           test_OSU350
     units:
@@ -221,7 +225,7 @@ cells:
 ```
 
 ### Example 4: Characterizing Multiple GF180 Cells
-```
+``` YAML
 settings:
     lib_name:           test_GF180
     units:
