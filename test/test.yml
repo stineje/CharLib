@@ -40,6 +40,16 @@ cells:
         inputs:     [A]
         outputs:    ['Y']
         functions:  [Y=A]
+    DFFSR:
+        netlist:    osu350_spice_temp/DFFSR.sp
+        area:       704
+        clock:      posedge CLK
+        set:        negedge S
+        reset:      negedge R
+        inputs:     [D]
+        outputs:    [Q]
+        flops:      [P0002,P0003]
+        functions:  [Q<=D]
     INVX1:
         netlist:    osu350_spice_temp/INVX1.sp
         area:       64
