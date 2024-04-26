@@ -82,14 +82,14 @@ def run_charlib(args):
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
     print(f'Reading configuration found in "{str(file)}"')
 
-    # Override settings with command line settings
+    # OR settings with command line options
     settings = config['settings']
-    settings['debug'] = args.debug
-    settings['multithreaded'] = args.multithreaded
     cells = config['cells']
 
     # Read in library settings
     characterizer = Characterizer(**settings)
+    characterizer.settings.debug = characterizer.settings.debug or args.debug
+    characterizer.settings.use_multithreaded = characterizer.settings.use_multithreaded or args.multithreaded
     logger = Logging.setup_logging(logging_level='ERROR')
 
     # Read cells
