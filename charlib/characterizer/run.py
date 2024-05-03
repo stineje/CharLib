@@ -67,7 +67,7 @@ def run_charlib(args):
     # Search for a YAML file with the required config information
     print(f'Searching for YAML files in {str(library_dir)}')
     config = None
-    if os.path.isfile(library_dir):
+    if Path(library_dir).is_file():
         filelist=[library_dir]
     else:
         filelist=Path(library_dir).rglob('*.yml')
