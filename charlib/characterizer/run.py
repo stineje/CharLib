@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import argparse, os, yaml
+import argparse, os, re, yaml
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -37,6 +37,8 @@ def main():
             help='Enable multithreaded execution')
     parser_characterize.add_argument('--comparewith', type=str, default='',
             help='A liberty file to compare results with.')
+    parser_characterize.add_argument('-f', '--filters', nargs='*',
+            help='A list of one or more regex strings. charlib will only characterize cells matching one or more of the filters.')
     parser_characterize.set_defaults(func=run_charlib)
 
     # Set up charlib compare arguments
@@ -101,6 +103,21 @@ def run_charlib(args):
     characterizer.settings.debug = characterizer.settings.debug or args.debug
     characterizer.settings.quiet = characterizer.settings.quiet or args.quiet
     characterizer.settings.use_multithreaded = characterizer.settings.use_multithreaded or args.multithreaded
+
+    # Filter list of cells based on cell_filters
+    if args.filters:
+        filtered_cells = {}
+        for name in cells:
+            # Check cell name against filters until we get a match
+            for regex_string in args.filters:
+                if re.search(regex_string, name):
+                    # If we have a match, add to our new set of cells and quit searching
+                    filtered_cells[name] = cells[name]
+                    break
+        # Make sure we didn't filter out all cells
+        if not filtered_cells:
+            raise ValueError(f'Filtering with "{args.filters}" leaves no cells to characterize!')
+        cells = filtered_cells
 
     # Read cells
     for name, properties in cells.items():
