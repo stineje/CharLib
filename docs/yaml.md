@@ -47,6 +47,7 @@ These keys may optionally be included to adjust CharLib behavior:
 * `results_dir`: The directory to use for exporting characterization results. If omitted, CharLib creates a `results` directory in the current folder.
 * `debug`: A boolean which tells CharLib to display debug messages and store simulation SPICE files. Defaults to False.
 * `debug_dir`: The directory to use when storing simulation debug SPICE files. Defaults to `debug`.
+* `quiet`: A boolean which tells CharLib to minimize the number of messages and data displayed to the console. Defaults to False.
 
 ## Cells
 Specific cells to characterize are specified as entries under the `cells` key.
