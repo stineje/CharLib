@@ -58,6 +58,7 @@ class CharacterizationSettings:
         self.results_dir = Path(kwargs.pop('results_dir', 'results'))
         self.debug = kwargs.pop('debug', False)
         self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))
+        self.quiet = kwargs.pop('quiet', False)
         self.cell_defaults = kwargs.get('cell_defaults', {})
 
         # Units and important voltages

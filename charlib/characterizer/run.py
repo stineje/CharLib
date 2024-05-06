@@ -21,6 +21,8 @@ def main():
             description='Characterize combinational and sequential standard cells.')
     parser.add_argument('--debug', action='store_true',
             help='Display extra information useful for debugging')
+    parser.add_argument('-q', '--quiet', action='store_true',
+            help='Reduce the amount of information displayed')
             
     # Set up run, compare, and generate_functions subcommands
     subparser = parser.add_subparsers(title='subcomamands', required=True)
@@ -52,7 +54,7 @@ def main():
     def genfunctions_helper(args):
         """Helper function for generate_functions subcommand"""
         generate_yml()
-    # TOOD: Add argument for expression map
+    # TODO: Add argument for expression map
     parser_genfunctions.set_defaults(func=genfunctions_helper)
 
     # Parse args and execute
@@ -65,7 +67,8 @@ def run_charlib(args):
     library_dir = args.library
     
     # Search for a YAML file with the required config information
-    print(f'Searching for YAML files in {str(library_dir)}')
+    if not args.quiet: 
+        print(f'Searching for YAML files in {str(library_dir)}')
     config = None
     if Path(library_dir).is_file():
         filelist=[library_dir]
@@ -77,24 +80,27 @@ def run_charlib(args):
                 config = yaml.safe_load(f)
                 f.close()
         except yaml.YAMLError as e:
-            print(e)
-            print(f'Skipping "{str(file)}": file contains invalid YAML')
+            if not args.quiet:
+                print(e)
+                print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
         if config.keys() >= {'settings', 'cells'}:
             break # We have found a YAML file with config information
     if not config:
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
-    print(f'Reading configuration found in "{str(file)}"')
-
-    # OR settings with command line options
-    settings = config['settings']
-    cells = config['cells']
+    if not args.quiet:
+        print(f'Reading configuration found in "{str(file)}"')
 
     # Read in library settings
+    settings = config['settings']
+    cells = config['cells']
     characterizer = Characterizer(**settings)
+    logger = Logging.setup_logging(logging_level='ERROR') # TODO: This should be configurable
+
+    # OR settings with command line flags
     characterizer.settings.debug = characterizer.settings.debug or args.debug
+    characterizer.settings.quiet = characterizer.settings.quiet or args.quiet
     characterizer.settings.use_multithreaded = characterizer.settings.use_multithreaded or args.multithreaded
-    logger = Logging.setup_logging(logging_level='ERROR')
 
     # Read cells
     for name, properties in cells.items():
@@ -136,7 +142,8 @@ def run_charlib(args):
     libfile_name = results_dir / f'{library.name}.lib'
     with open(libfile_name, 'w') as libfile:
         libfile.write(str(library))
-        print(f'Results written to {str(libfile_name.resolve())}')
+        if not characterizer.settings.quiet:
+             print(f'Results written to {str(libfile_name.resolve())}')
 
     # Run any post-characterization analysis
     if args.comparewith:
