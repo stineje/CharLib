@@ -32,11 +32,13 @@ def main():
 
     # Set up charlib run arguments
     parser_characterize.add_argument('library', type=str,
-            help='The directory containing the library characterization configuration file')
+            help='The directory containing the library characterization configuration file, or the full path to the file')
+    parser_characterize.add_argument('-o', '--output', type=str, default='',
+            help='Place the characterization results in the specified file')
     parser_characterize.add_argument('--multithreaded', action='store_true',
             help='Enable multithreaded execution')
     parser_characterize.add_argument('--comparewith', type=str, default='',
-            help='A liberty file to compare results with.')
+            help='A liberty file to compare results with')
     parser_characterize.add_argument('-f', '--filters', nargs='*',
             help='A list of one or more regex strings. charlib will only characterize cells matching one or more of the filters.')
     parser_characterize.set_defaults(func=run_charlib)
@@ -154,9 +156,13 @@ def run_charlib(args):
     library = characterizer.characterize()
 
     # Export
-    results_dir = characterizer.settings.results_dir
-    results_dir.mkdir(parents=True, exist_ok=True)
-    libfile_name = results_dir / f'{library.name}.lib'
+    if args.output:
+        # Make directory if needed
+        libfile_name = Path(args.output)
+    else:
+        results_dir = characterizer.settings.results_dir
+        libfile_name = results_dir / f'{library.name}.lib'
+    libfile_name.parent.mkdir(parents=True, exist_ok=True)
     with open(libfile_name, 'w') as libfile:
         libfile.write(str(library))
         if not characterizer.settings.quiet:
