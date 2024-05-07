@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import argparse, os, yaml
+import argparse, os, re, yaml
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -21,6 +21,8 @@ def main():
             description='Characterize combinational and sequential standard cells.')
     parser.add_argument('--debug', action='store_true',
             help='Display extra information useful for debugging')
+    parser.add_argument('-q', '--quiet', action='store_true',
+            help='Reduce the amount of information displayed')
             
     # Set up run, compare, and generate_functions subcommands
     subparser = parser.add_subparsers(title='subcomamands', required=True)
@@ -30,11 +32,15 @@ def main():
 
     # Set up charlib run arguments
     parser_characterize.add_argument('library', type=str,
-            help='The directory containing the library characterization configuration file')
+            help='The directory containing the library characterization configuration file, or the full path to the file')
+    parser_characterize.add_argument('-o', '--output', type=str, default='',
+            help='Place the characterization results in the specified file')
     parser_characterize.add_argument('--multithreaded', action='store_true',
             help='Enable multithreaded execution')
     parser_characterize.add_argument('--comparewith', type=str, default='',
-            help='A liberty file to compare results with.')
+            help='A liberty file to compare results with')
+    parser_characterize.add_argument('-f', '--filters', nargs='*',
+            help='A list of one or more regex strings. charlib will only characterize cells matching one or more of the filters.')
     parser_characterize.set_defaults(func=run_charlib)
 
     # Set up charlib compare arguments
@@ -52,7 +58,7 @@ def main():
     def genfunctions_helper(args):
         """Helper function for generate_functions subcommand"""
         generate_yml()
-    # TOOD: Add argument for expression map
+    # TODO: Add argument for expression map
     parser_genfunctions.set_defaults(func=genfunctions_helper)
 
     # Parse args and execute
@@ -65,7 +71,8 @@ def run_charlib(args):
     library_dir = args.library
     
     # Search for a YAML file with the required config information
-    print(f'Searching for YAML files in {str(library_dir)}')
+    if not args.quiet: 
+        print(f'Searching for YAML files in {str(library_dir)}')
     config = None
     if Path(library_dir).is_file():
         filelist=[library_dir]
@@ -77,24 +84,42 @@ def run_charlib(args):
                 config = yaml.safe_load(f)
                 f.close()
         except yaml.YAMLError as e:
-            print(e)
-            print(f'Skipping "{str(file)}": file contains invalid YAML')
+            if not args.quiet:
+                print(e)
+                print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
         if config.keys() >= {'settings', 'cells'}:
             break # We have found a YAML file with config information
     if not config:
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
-    print(f'Reading configuration found in "{str(file)}"')
-
-    # OR settings with command line options
-    settings = config['settings']
-    cells = config['cells']
+    if not args.quiet:
+        print(f'Reading configuration found in "{str(file)}"')
 
     # Read in library settings
+    settings = config['settings']
+    cells = config['cells']
     characterizer = Characterizer(**settings)
+    logger = Logging.setup_logging(logging_level='ERROR') # TODO: This should be configurable
+
+    # OR settings with command line flags
     characterizer.settings.debug = characterizer.settings.debug or args.debug
+    characterizer.settings.quiet = characterizer.settings.quiet or args.quiet
     characterizer.settings.use_multithreaded = characterizer.settings.use_multithreaded or args.multithreaded
-    logger = Logging.setup_logging(logging_level='ERROR')
+
+    # Filter list of cells based on cell_filters
+    if args.filters:
+        filtered_cells = {}
+        for name in cells:
+            # Check cell name against filters until we get a match
+            for regex_string in args.filters:
+                if re.search(regex_string, name):
+                    # If we have a match, add to our new set of cells and quit searching
+                    filtered_cells[name] = cells[name]
+                    break
+        # Make sure we didn't filter out all cells
+        if not filtered_cells:
+            raise ValueError(f'Filtering with "{args.filters}" leaves no cells to characterize!')
+        cells = filtered_cells
 
     # Read cells
     for name, properties in cells.items():
@@ -131,12 +156,17 @@ def run_charlib(args):
     library = characterizer.characterize()
 
     # Export
-    results_dir = characterizer.settings.results_dir
-    results_dir.mkdir(parents=True, exist_ok=True)
-    libfile_name = results_dir / f'{library.name}.lib'
+    if args.output:
+        # Make directory if needed
+        libfile_name = Path(args.output)
+    else:
+        results_dir = characterizer.settings.results_dir
+        libfile_name = results_dir / f'{library.name}.lib'
+    libfile_name.parent.mkdir(parents=True, exist_ok=True)
     with open(libfile_name, 'w') as libfile:
         libfile.write(str(library))
-        print(f'Results written to {str(libfile_name.resolve())}')
+        if not characterizer.settings.quiet:
+             print(f'Results written to {str(libfile_name.resolve())}')
 
     # Run any post-characterization analysis
     if args.comparewith:

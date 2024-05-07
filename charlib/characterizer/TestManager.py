@@ -60,7 +60,7 @@ class TestManager:
                                 for reg_name, reg_func in registered_functions.items():
                                     if reg_func == function:
                                         # Copy test vectors
-                                        print(f'Recognized {self.cell.name} pin {pin_name} function as {reg_name}')
+                                        # print(f'Recognized {self.cell.name} pin {pin_name} function as {reg_name}')
                                         function.stored_test_vectors = reg_func.test_vectors
                                 self.cell[pin_name].function = function
                             else:
@@ -240,7 +240,8 @@ class TestManager:
 
         Assuming a black-box model, treat the cell as a grounded capacitor with fixed capacitance.
         Perform an AC sweep on the circuit and evaluate the capacitance as d/ds(i(s)/v(s))."""
-        print(f'Running input_capacitance for pin {target_pin} of cell {self.cell.name}')
+        if not settings.quiet:
+            print(f'Running input_capacitance for pin {target_pin} of cell {self.cell.name}')
         vdd = settings.vdd.voltage * settings.units.voltage
         vss = settings.vss.voltage * settings.units.voltage
         # TODO: Make these values configurable from settings
@@ -380,7 +381,8 @@ class CombinationalTestManager(TestManager):
         return self.cell
 
     def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
-        print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
+        if not settings.quiet:
+            print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
         harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load)
 
     def _run_delay_trial(self, settings, harness: CombinationalHarness, slew, load):
@@ -740,7 +742,8 @@ class SequentialTestManager(TestManager):
         debug_path = settings.debug_dir / self.cell.name / 'delay' / harness.debug_path / \
                      f'slew_{slew}' / f'load_{load}'
     
-        print(f'Running sequential {trial_name} with slew={str(t_slew)}, load={str(c_load)}')
+        if not settings.quiet:
+            print(f'Running sequential {trial_name} with slew={str(t_slew)}, load={str(c_load)}')
         t_stab = self._find_stabilizing_time(settings, harness, t_slew, c_load, debug_path)
         (t_setup, t_hold) = self._find_setup_hold_delay(settings, harness, t_slew, c_load, t_stab, debug_path)
 
