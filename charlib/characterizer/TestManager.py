@@ -295,7 +295,6 @@ class TestManager:
 
         # Measure capacitance as the slope of the conductance
         analysis = simulation.ac('dec', 100, f_start, f_stop)
-        # [print(str(node), node) for node in analysis.nodes.values()]
         impedance = np.abs(analysis.vin)/i_in
         [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
 
