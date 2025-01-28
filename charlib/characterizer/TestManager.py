@@ -786,9 +786,12 @@ class SequentialTestManager(TestManager):
             case 'fall':
                 v_start = 0.99 * settings.vdd.voltage
                 v_end = 0.01 * settings.vdd.voltage
-        sim.measure('tran', 't_stabilizing',
+        sim.measure(
+            'tran', 't_stabilizing',
             f'trig v(vout) val={v_start} {harness.out_direction}=1',
-            f'targ v(vout) val={v_end} {harness.out_direction}=1')
+            f'targ v(vout) val={v_end} {harness.out_direction}=1',
+            run=False
+        )
 
         # Log simulation
         if settings.debug:

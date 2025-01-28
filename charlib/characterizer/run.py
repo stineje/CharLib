@@ -23,7 +23,7 @@ def main():
             help='Display extra information useful for debugging')
     parser.add_argument('-q', '--quiet', action='store_true',
             help='Reduce the amount of information displayed')
-            
+
     # Set up run, compare, and generate_functions subcommands
     subparser = parser.add_subparsers(title='subcomamands', required=True)
     parser_characterize = subparser.add_parser('run', help='Characterize a cell library')
@@ -69,9 +69,9 @@ def main():
 def run_charlib(args):
     """Run characterization and return the library"""
     library_dir = args.library
-    
+
     # Search for a YAML file with the required config information
-    if not args.quiet: 
+    if not args.quiet:
         print(f'Searching for YAML files in {str(library_dir)}')
     config = None
     if Path(library_dir).is_file():
@@ -99,7 +99,8 @@ def run_charlib(args):
     settings = config['settings']
     cells = config['cells']
     characterizer = Characterizer(**settings)
-    logger = Logging.setup_logging(logging_level='ERROR') # TODO: This should be configurable
+    # The next line is commented out because of an issue in PySpice, but should be uncommented once that's fixed
+    # logger = Logging.setup_logging(logging_level='ERROR') # TODO: logging level should be configurable
 
     # OR settings with command line flags
     characterizer.settings.debug = characterizer.settings.debug or args.debug
@@ -183,7 +184,7 @@ def compare(benchmark, characterized):
     benchmark_rise_trans_data = []
     charlib_fall_trans_data = []
     benchmark_fall_trans_data = []
-    
+
     benchmark_lib = parse_liberty(open(Path(benchmark), 'r').read())
     characterized_lib = parse_liberty(str(characterized))
 
@@ -293,4 +294,4 @@ def compare(benchmark, characterized):
 
 if __name__ == '__main__':
     main()
-    
+
