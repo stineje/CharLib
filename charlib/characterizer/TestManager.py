@@ -6,9 +6,8 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PySpice.Spice.Library import SpiceLibrary
-from PySpice.Spice.Netlist import Circuit
-from PySpice.Tools.StringTools import str_spice
+from PySpice import Circuit, Simulator, SpiceLibrary
+from PySpice.Spice.unit import str_spice
 from PySpice.Unit import *
 
 from charlib.characterizer.functions import Function, registered_functions
@@ -23,7 +22,7 @@ class TestManager:
 
         A TestManager manages cell data, runs simulations on cells, and stores results
         on the cell.
-        
+
         :param name: cell name
         :param in_ports: a list of input pin names
         :param out_ports: a list of output pin names
@@ -211,7 +210,7 @@ class TestManager:
     def plots(self) -> list:
         """Return plotting configuration."""
         return self._plots
-    
+
     @plots.setter
     def plots(self, value):
         """Set plot configuration
@@ -278,9 +277,13 @@ class TestManager:
                 circuit.R(port, f'v{port}', circuit.gnd, r_out)
                 connections.append(f'v{port}')
         circuit.X('dut', subcircuit_name, *connections)
-        simulator = circuit.simulator(temperature=settings.temperature,
-                                      nominal_temperature=settings.temperature,
-                                      simulator=settings.simulator)
+
+        simulator = Simulator.factory(simulator=settings.simulator)
+        simulation = simulator.simulation(
+            circuit,
+            temperature=settings.temperature,
+            nominal_temperature=settings.temperature
+        )
 
         # Log simulation
         # Path should be debug_dir/cell_name/input_capacitance/pin
@@ -288,10 +291,10 @@ class TestManager:
             debug_path = settings.debug_dir / self.cell.name / 'input_capacitance'
             debug_path.mkdir(parents=True, exist_ok=True)
             with open(debug_path/f'{target_pin}.sp', 'w') as spice_file:
-                spice_file.write(str(simulator))
+                spice_file.write(str(simulation))
 
         # Measure capacitance as the slope of the conductance
-        analysis = simulator.ac('dec', 100, f_start, f_stop)
+        analysis = simulation.ac('dec', 100, f_start, f_stop)
         impedance = np.abs(analysis.vin)/i_in
         [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
 
@@ -437,11 +440,14 @@ class CombinationalTestManager(TestManager):
             raise ValueError(f'Failed to match all ports identified in definition "{self.definition().strip()}"')
         circuit.X('dut', subcircuit_name, *connections)
 
-        # Initialize simulator
-        simulator = circuit.simulator(temperature=settings.temperature,
-                                      nominal_temperature=settings.temperature,
-                                      simulator=settings.simulator)
-        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
+        # Initialize simulation
+        simulator = Simulator.factory(simulator=settings.simulator)
+        simulation = simulator.simulation(
+            circuit,
+            temperature=settings.temperature,
+            nominal_temperature=settings.temperature
+        )
+        simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
 
         # Measure delay
         pct_vdd = lambda x : x * settings.vdd.voltage
@@ -459,12 +465,18 @@ class CombinationalTestManager(TestManager):
                 v_prop_end = settings.logic_threshold_high_to_low
                 v_trans_start = settings.logic_threshold_high
                 v_trans_end = settings.logic_threshold_low
-        simulator.measure('tran', 'prop_in_out',
-                        f'trig v(vin) val={pct_vdd(v_prop_start)} {harness.in_direction}=1',
-                        f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=1')
-        simulator.measure('tran', 'trans_out',
-                        f'trig v(vout) val={pct_vdd(v_trans_start)} {harness.out_direction}=1',
-                        f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1')
+        simulation.measure(
+            'tran', 'prop_in_out',
+            f'trig v(vin) val={pct_vdd(v_prop_start)} {harness.in_direction}=1',
+            f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=1',
+            run=False
+        )
+        simulation.measure(
+            'tran', 'trans_out',
+            f'trig v(vout) val={pct_vdd(v_trans_start)} {harness.out_direction}=1',
+            f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1',
+            run=False
+        )
 
         # Log simulation
         # Path should be debug_dir/cell_name/delay/arc/slew/load/
@@ -473,11 +485,12 @@ class CombinationalTestManager(TestManager):
                          f'slew_{slew}' / f'load_{load}'
             debug_path.mkdir(parents=True, exist_ok=True)
             with open(debug_path/'delay.sp', 'w') as spice_file:
-                spice_file.write(str(simulator))
+                spice_file.write(str(simulation))
 
         # Run transient analysis
+        # TODO: May need to add probes before running?
         step_time = min(self.sim_timestep*settings.units.time, t_simend/1000)
-        return simulator.transient(step_time=step_time, end_time=t_simend)
+        return simulation.transient(step_time=step_time, end_time=t_simend)
 
     def plot_io(self, settings, harness):
         """Plot I/O voltages vs time"""
@@ -517,7 +530,7 @@ class CombinationalTestManager(TestManager):
 
             figures.append(figure)
         return figures
-        
+
 
 class SequentialTestManager(TestManager):
     """A sequential cell test manager"""
@@ -599,7 +612,7 @@ class SequentialTestManager(TestManager):
     def reset_name(self) -> str:
         """Return reset pin name"""
         return self._reset_name
-    
+
     @property
     def reset_trigger(self) -> str:
         """Return reset trigger type"""
@@ -741,15 +754,15 @@ class SequentialTestManager(TestManager):
         c_load = load * settings.units.capacitance
         debug_path = settings.debug_dir / self.cell.name / 'delay' / harness.debug_path / \
                      f'slew_{slew}' / f'load_{load}'
-    
+
         if not settings.quiet:
             print(f'Running sequential {trial_name} with slew={str(t_slew)}, load={str(c_load)}')
         t_stab = self._find_stabilizing_time(settings, harness, t_slew, c_load, debug_path)
         (t_setup, t_hold) = self._find_setup_hold_delay(settings, harness, t_slew, c_load, t_stab, debug_path)
 
         # Characterize using identified setup and hold time
-        simulator, timings = self._build_test_circuit('delay', settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
-        return self._measure_cell_delays(settings, harness, simulator, timings, debug_path)
+        simulation, timings = self._build_test_circuit('delay', settings, harness, t_slew, c_load, t_setup, t_hold, t_stab)
+        return self._measure_cell_delays(settings, harness, simulation, timings, debug_path)
 
     def _find_stabilizing_time(self, settings, harness, t_slew, c_load, debug_path):
         """Find a reasonable stablilizing time for the current configuration.
@@ -773,16 +786,19 @@ class SequentialTestManager(TestManager):
             case 'fall':
                 v_start = 0.99 * settings.vdd.voltage
                 v_end = 0.01 * settings.vdd.voltage
-        sim.measure('tran', 't_stabilizing',
+        sim.measure(
+            'tran', 't_stabilizing',
             f'trig v(vout) val={v_start} {harness.out_direction}=1',
-            f'targ v(vout) val={v_end} {harness.out_direction}=1')
+            f'targ v(vout) val={v_end} {harness.out_direction}=1',
+            run=False
+        )
 
         # Log simulation
         if settings.debug:
             debug_path.mkdir(parents=True, exist_ok=True)
             with open(debug_path/'stabilizing.sp', 'w') as spice_file:
                 spice_file.write(str(sim))
-            
+
         step_time = t['sim_end']/5000 # Run with low precision
         results = sim.transient(step_time=step_time, end_time=t['sim_end'])
         return results['t_stabilizing'] @ u_s
@@ -850,7 +866,7 @@ class SequentialTestManager(TestManager):
         return th_max
 
     def _build_test_circuit(self, title, settings, harness, t_slew, c_load, t_setup, t_hold, t_stabilizing):
-        """Construct the circuit simulator object with the provided test parameters"""
+        """Construct the circuit simulation object with the provided test parameters"""
         # Set up parameters
         clk_slew = self.clock_slew * settings.units.time
         vdd = settings.vdd.voltage * settings.units.voltage
@@ -945,13 +961,17 @@ class SequentialTestManager(TestManager):
             raise ValueError(f'Failed to match all ports identified in definition "{self.definition().strip()}"')
         circuit.X('dut', *connections)
 
-        # Initialize simulator
-        simulator = circuit.simulator(temperature=settings.temperature,
-                                      nominal_temperature=settings.temperature,
-                                      simulator=settings.simulator)
-        return simulator, t
+        # Initialize simulation
+        simulator = Simulator.factory(simulator=settings.simulator)
+        simulation = simulator.simulation(
+            circuit,
+            temperature=settings.temperature,
+            nominal_temperature=settings.temperature
+        )
 
-    def _measure_cell_delays(self, settings, harness, simulator, timings, debug_path):
+        return simulation, t
+
+    def _measure_cell_delays(self, settings, harness, simulation, timings, debug_path):
         """Run delay measurement for a single test circuit."""
 
         # Set up voltage bounds for measurements
@@ -979,36 +999,48 @@ class SequentialTestManager(TestManager):
                 v_clk_transition = settings.logic_threshold_high_to_low
 
         # Measure propagation delay from first data edge to last output edge
-        simulator.measure('tran', 'prop_in_out',
+        simulation.measure(
+            'tran', 'prop_in_out',
             f'trig v(vin) val={pct_vdd(v_prop_start)} td={float(timings["removal"])} {harness.in_direction}=1',
-            f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=last')
+            f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=last',
+            run=False
+        )
 
         # Measure transient delay from first data edge to first output edge
-        simulator.measure('tran', 'trans_out',
+        simulation.measure(
+            'tran', 'trans_out',
             f'trig v(vout) val={pct_vdd(v_trans_start)} td={float(timings["removal"])} {harness.out_direction}=1',
-            f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1')
+            f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1',
+            run=False
+        )
 
         # Measure setup delay from first data edge to last clock edge
-        simulator.measure('tran', 't_setup',
+        simulation.measure(
+            'tran', 't_setup',
             f'trig v(vin) val={pct_vdd(v_prop_start)} td={float(timings["removal"])} {harness.in_direction}=1',
-            f'targ v(vcin) val={pct_vdd(v_clk_transition)} {clk_direction}=last')
+            f'targ v(vcin) val={pct_vdd(v_clk_transition)} {clk_direction}=last',
+            run=False
+        )
 
         # Measure hold delay from last clock edge to last data edge
-        simulator.measure('tran', 't_hold',
+        simulation.measure(
+            'tran', 't_hold',
             f'trig v(vcin) val={pct_vdd(v_clk_transition)} td={float(timings["removal"])} {clk_direction}=last',
-            f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=last')
+            f'targ v(vin) val={pct_vdd(v_prop_end)} {_flip_direction(harness.in_direction)}=last',
+            run=False
+        )
 
         # Log simulation
         if settings.debug:
             debug_path.mkdir(parents=True, exist_ok=True)
             with open(debug_path/'delay.sp', 'w') as spice_file:
-                spice_file.write(str(simulator))
+                spice_file.write(str(simulation))
 
         step_time = min(self.sim_timestep*settings.units.time, timings['sim_end']/1000)
-        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
-        return simulator.transient(step_time=step_time, end_time=timings['sim_end'])
+        simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
+        return simulation.transient(step_time=step_time, end_time=timings['sim_end'])
 
-    def _measure_c2q(self, settings, harness, simulator, timings, debug_path):
+    def _measure_c2q(self, settings, harness, simulation, timings, debug_path):
         """Measure Clock-to-Q delay."""
 
         # Measure clock-to-latch time
@@ -1024,20 +1056,22 @@ class SequentialTestManager(TestManager):
                 v_prop_end = settings.logic_threshold_low_to_high * settings.vdd.voltage
             case 'fall':
                 v_prop_end = settings.logic_threshold_high_to_low * settings.vdd.voltage
-        simulator.measure('tran', 't_c2q',
+        simulation.measure('tran', 't_c2q',
             f'trig v(vcin) val={v_clk_transition} td={float(timings["removal"])} {clk_direction}=last',
-            f'targ v(vout) val={v_prop_end} {harness.out_direction}=last')
+            f'targ v(vout) val={v_prop_end} {harness.out_direction}=last',
+            run=False
+        )
 
         # Log simulation
         if settings.debug:
             debug_path = debug_path / 'c2q'
             debug_path.mkdir(parents=True, exist_ok=True)
-            with open(debug_path/f'{simulator.circuit.title}.sp', 'w') as spice_file:
-                spice_file.write(str(simulator))
+            with open(debug_path/f'{simulation.circuit.title}.sp', 'w') as spice_file:
+                spice_file.write(str(simulation))
 
         step_time = min(self.sim_timestep*settings.units.time, t['sim_end']/1000)
-        simulator.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
-        return simulator.transient(step_time=step_time, end_time=timings['sim_end'])
+        simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2)
+        return simulation.transient(step_time=step_time, end_time=timings['sim_end'])
 
     def plot_io(self, settings, harness):
         """Plot I/O voltages vs time"""
