@@ -71,10 +71,10 @@ class CharacterizationSettings:
         # Units and important voltages
         self.units = UnitsSettings(**kwargs.get('units', {}))
         nodes = kwargs.pop('named_nodes', {})
-        self.vdd = NamedNode(**nodes.get('vdd', {'name':'VDD'}))
-        self.vss = NamedNode(**nodes.get('vss', {'name':'VSS'}))
-        self.pwell = NamedNode(**nodes.get('pwell', {'name':'VPW'}))
-        self.nwell = NamedNode(**nodes.get('nwell', {'name':'VNW'}))
+        self.vdd = NamedNode(**nodes.get('vdd', {'name':'VDD', 'voltage': 3.3}))
+        self.vss = NamedNode(**nodes.get('vss', {'name':'VSS', 'voltage': 0}))
+        self.pwell = NamedNode(**nodes.get('pwell', {'name':'VPW', 'voltage': 0}))
+        self.nwell = NamedNode(**nodes.get('nwell', {'name':'VNW', 'voltage': 3.3}))
 
         # Logic thresholds
         logic_thresholds = kwargs.get('logic_thresholds', {})
