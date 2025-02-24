@@ -45,8 +45,14 @@ class Characterizer:
 
     def characterize_cell(self, cell):
         """Characterize a single cell. Helper for multiprocessing"""
-        return cell.characterize(self.settings)
-
+        try:
+            return cell.characterize(self.settings)
+        except Exception as e:
+            print(f"Error characterizing cell {cell}: {e}")
+            if (self.cell_omssion):
+                pass
+            else:
+                raise e
 
 class CharacterizationSettings:
     """Container for characterization settings"""
@@ -60,6 +66,7 @@ class CharacterizationSettings:
         self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))
         self.quiet = kwargs.pop('quiet', False)
         self.cell_defaults = kwargs.get('cell_defaults', {})
+        self.cell_omission = kwargs.get('cell_omission', False)
 
         # Units and important voltages
         self.units = UnitsSettings(**kwargs.get('units', {}))
