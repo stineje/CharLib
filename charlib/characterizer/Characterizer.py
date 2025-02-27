@@ -48,9 +48,8 @@ class Characterizer:
         try:
             return cell.characterize(self.settings)
         except Exception as e:
-            print(f"Error characterizing cell {cell}: {e}")
-            if (self.cell_omssion):
-                pass
+            if self.omit_on_failure:
+                print(f"Error characterizing cell {cell.name}: {e}")
             else:
                 raise e
 
@@ -66,7 +65,7 @@ class CharacterizationSettings:
         self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))
         self.quiet = kwargs.pop('quiet', False)
         self.cell_defaults = kwargs.get('cell_defaults', {})
-        self.cell_omission = kwargs.get('cell_omission', False)
+        self.omit_on_failure = kwargs.get('omit_on_failure', False)
 
         # Units and important voltages
         self.units = UnitsSettings(**kwargs.get('units', {}))

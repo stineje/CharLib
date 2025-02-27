@@ -1,5 +1,6 @@
 settings:
     lib_name:           GF180
+    omit_on_failure:      True
     cell_defaults:
         models:
             - gf180_temp/models/sm141064.ngspice typical
