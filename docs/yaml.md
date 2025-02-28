@@ -48,6 +48,7 @@ These keys may optionally be included to adjust CharLib behavior:
 * `debug`: A boolean which tells CharLib to display debug messages and store simulation SPICE files. Defaults to False.
 * `debug_dir`: The directory to use when storing simulation debug SPICE files. Defaults to `debug`.
 * `quiet`: A boolean which tells CharLib to minimize the number of messages and data displayed to the console. Defaults to False.
+* `omit_on_failure`: A boolean which tells CharLib what to do if a cell fails to characterize. Will either skip failed cell and continue with the rest or terminate program entirely depending on what a user selects. Defaults to False (terminate program).
 
 ## Cells
 Specific cells to characterize are specified as entries under the `cells` key.
@@ -161,6 +162,7 @@ settings:
         models: [test/osu350/model.sp]
         slews: [0.015, 0.04, 0.08, 0.2, 0.4]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+    
 cells:
     FAX1:
         netlist:    osu350_spice_temp/FAX1.sp
@@ -184,7 +186,7 @@ cells:
 ``` YAML
 settings:
     lib_name:           test_OSU350
-    units:
+        units:
         time:               ns
         voltage:            V
         current:            uA
@@ -229,6 +231,7 @@ cells:
 ``` YAML
 settings:
     lib_name:           test_GF180
+    omit_on_failure:      True
     units:
         time:               ns
         voltage:            V

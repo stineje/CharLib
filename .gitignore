@@ -10,6 +10,7 @@ dist
 
 # Ignored files
 b3v3_1check.log
+venv
 *.cmd
 *.lib
 *.txt
