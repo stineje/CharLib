@@ -13,19 +13,47 @@ If you still need additional help, [reach out to one of us](#points-of-contact).
 ### Things to Know
 CharLib is composed of three main components:
 
-* liberty: An object-based Python interface for writing standard cell libraries to liberty files. This includes objects to manage standard cell libraries and represent individual combinational and sequential cells.
-* characterizer: A set of tools for running spice simulations against standard cells. This includes tools for managing collections of standard cells and dispatching simulation jobs, as well as simulation procedures for characterizing cells.
-* CharLib.py: A command-line tool that facilitates interaction with the `characterizer` and `liberty` components. This is the primary user interface for CharLib.
+* The `liberty` module: An object-based Python interface for writing standard cell libraries to liberty files. This includes objects to manage standard cell libraries and represent individual combinational and sequential cells.
+* The `characterizer` module: A set of tools for running spice simulations against standard cells. This includes tools for managing collections of standard cells and dispatching simulation jobs, as well as simulation procedures for characterizing cells.
+* `charlib`: A command-line tool that facilitates interaction with the `characterizer` and `liberty` components. This is the primary user interface for CharLib.
 
-If you have questions about where to direct your efforts for a particular task, please reach out to one of the contacts listed [here](#points-of-contact).
+If you have questions about where to direct your efforts for a particular task, please reach out to one of the contacts listed [here](#points-of-contact) or [open an issue](https://github.com/stineje/CharLib/issues/new/).
 
 ### Setting up your Development Environment
 To get started, you'll need to install a few prerequisites:
 
 * Python version 3.10 or later
-* ngspice version 36 or later
+* ngspice version 48 or later
 
-After installing those, you should fork the CharLib repository and clone your fork. To make sure everything is set up correctly, run `make` to test CharLib with a simple OSU350 characterization task.
+After installing those, you should fork the CharLib repository and clone your fork:
+
+```sh
+git clone https://github.com/your-username-here/CharLib
+cd CharLib
+```
+
+We recommend creating a virtual Python environment at this stage to keep development packages
+separated from the rest of your system. This is optional, but may save you a lot of headache
+later. The following commands create and activate a virtual environment named ".venv".
+
+```sh
+python -m venv .venv
+source .venv/bin/activate # Or .venv/Scripts/Activate.ps1 for Windows Powershell. See https://docs.python.org/3/library/venv.html#how-venvs-work
+```
+
+Now you can install CharLib. Using the `-e` flag will let you see any edits you make without reinstalling.
+
+```sh
+# Install our customized version of PySpice
+pip install git+https://github.com/infinitymdm/PySpice
+
+# Install your forked version of CharLib
+pip install -e .
+```
+
+To make sure everything is set up correctly, run `make osu350` to test CharLib with a simple OSU350
+characterization task. This will download the OSU350 cells and run characterization on several of
+them.
 
 ### Procedure for Code Contributions
 1. Identify an existing issue that you want to solve, or [create a new issue](https://github.com/stineje/CharLib/issues/new/).
@@ -59,5 +87,5 @@ Python code submissions should adhere to the guidelines in [PEP 8](https://peps.
 
 ## Points of Contact
 If you have any other questions, please reach out to one of us:
-* Marcus Mellor: infinitymdm@gmail.com
+* Marcus Mellor: marcus@infinitymdm.dev
 * Dr. James Stine: james.stine@okstate.edu
