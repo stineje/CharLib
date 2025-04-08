@@ -23,7 +23,7 @@ If you have questions about where to direct your efforts for a particular task, 
 To get started, you'll need to install a few prerequisites:
 
 * Python version 3.10 or later
-* ngspice version 48 or later
+* ngspice version 44.0 or later
 
 After installing those, you should fork the CharLib repository and clone your fork:
 
@@ -54,6 +54,11 @@ pip install -e .
 To make sure everything is set up correctly, run `make osu350` to test CharLib with a simple OSU350
 characterization task. This will download the OSU350 cells and run characterization on several of
 them.
+
+> Note: If you get PySpice errors in the file "PySpice/Spice/NgSpice/SimulationType.py", the most
+likely culprit is that PySpice hasn't yet been validated against the version of NgSpice that you
+have installed. The latest valiated version is listed at
+https://github.com/infinitymdm/PySpice/blob/master/PySpice/Spice/NgSpice/SimulationType.py#L85.
 
 ### Procedure for Code Contributions
 1. Identify an existing issue that you want to solve, or [create a new issue](https://github.com/stineje/CharLib/issues/new/).
