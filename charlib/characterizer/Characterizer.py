@@ -48,7 +48,7 @@ class Characterizer:
         try:
             return cell.characterize(self.settings)
         except Exception as e:
-            if self.omit_on_failure:
+            if self.settings.omit_on_failure:
                 print(f"Error characterizing cell {cell.name}: {e}")
             else:
                 raise e
