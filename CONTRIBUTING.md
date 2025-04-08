@@ -22,7 +22,7 @@ If you have questions about where to direct your efforts for a particular task, 
 ### Setting up your Development Environment
 To get started, you'll need to install a few prerequisites:
 
-* Python version 3.10 or later
+* Python version 3.12 or later
 * ngspice version 44.0 or later
 
 After installing those, you should fork the CharLib repository and clone your fork:
