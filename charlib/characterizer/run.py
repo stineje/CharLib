@@ -77,7 +77,7 @@ def run_charlib(args):
     if Path(library_dir).is_file():
         filelist=[library_dir]
     else:
-        filelist=Path(library_dir).rglob('*.yml')
+        filelist=list(Path(library_dir).rglob('*.yml')) + list(Path(library_dir).rglob('*.yaml'))
     for file in filelist:
         try:
             with open(file, 'r') as f:
