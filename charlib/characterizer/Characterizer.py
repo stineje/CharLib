@@ -39,7 +39,7 @@ class Characterizer:
             cells = [self.characterize_cell(cell) for cell in self.tests]
 
         # Add cells to the library
-        [self.library.add_cell(cell) for cell in cells]
+        [self.library.add_cell(cell) for cell in cells if cell]
 
         return self.library
 
@@ -48,7 +48,7 @@ class Characterizer:
         try:
             return cell.characterize(self.settings)
         except Exception as e:
-            if self.omit_on_failure:
+            if self.settings.omit_on_failure:
                 print(f"Error characterizing cell {cell.name}: {e}")
             else:
                 raise e

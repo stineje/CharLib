@@ -34,6 +34,8 @@ class TestManager:
             - loads: output capacitave loads to test
             - simulation_timestep: the time increment to use during simulation"""
         # Initialize the cell under test
+        self.name = name
+        
         self._cell = Cell(name, kwargs.get('area', 0))
         for pin_name in in_ports:
             self.cell.add_pin(pin_name, 'input')
