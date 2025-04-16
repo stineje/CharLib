@@ -39,7 +39,7 @@ class Characterizer:
             cells = [self.characterize_cell(cell) for cell in self.tests]
 
         # Add cells to the library
-        [self.library.add_cell(cell) for cell in cells]
+        [self.library.add_cell(cell) for cell in cells if cell]
 
         return self.library
 
