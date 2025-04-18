@@ -36,10 +36,13 @@ Running `charlib --help` will display lots of useful information.
 ## Contributing
 We're glad you're interested in contributing to CharLib! See [CONTRIBUTING.md](https://github.com/stineje/CharLib/blob/main/CONTRIBUTING.md) for details on how to get involved.
 
+## Troubleshooting
+If you're having problems using CharLib, please [open a new issue](https://github.com/stineje/CharLib/issues/new/choose)
+
 ## Citing
 If you use this work in your research, please cite as follows:
 
-```tex
+```bibtex
 @inproceedings{mellor_charlib_2024,
     title = {{CharLib}: {An} {Open} {Source} {Standard} {Cell} {Library} {Characterizer}},
     shorttitle = {{CharLib}},
