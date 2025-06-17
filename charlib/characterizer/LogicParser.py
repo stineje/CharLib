@@ -1,4 +1,4 @@
-# Token definitions 
+# Token definitions
 T_NOT = 0
 T_GROUP = 1
 T_GROUP_END = 2
@@ -14,13 +14,13 @@ class Token:
 
     def __str__(self) -> str:
         return self.symbol
-    
+
     def __repr__(self) -> str:
         return f'Token("{self.symbol}")'
-    
+
     def __eq__(self, other) -> bool:
         return isinstance(other, self.__class__) and self.symbol == other.symbol
-    
+
     @property
     def type(self) -> int:
         return self._type
@@ -107,7 +107,7 @@ def _parse(tokens: list) -> list:
             except IndexError: # Error due to nonexistent rule
                 raise ValueError(f'Failed to parse logic string "{"".join([str(t) for t in tokens])}". Parsing failed at position {position}')
             rule_sequence.append(rule)
-    
+
     # Now that we know the production rules, produce an AST in prefix format
     syntax_tree = []
     named_tokens = [n for n in tokens if n.type == T_OTHER]
@@ -155,12 +155,12 @@ def _lex(expression: str) -> list:
 
 def parse_logic(expression: str) -> list:
     """Parse a logic string and return the result in Polish prefix notation.
-    
+
     This parser supports parentheses, NOT (~), AND (&), OR (|), and XOR (^) operations.
     The return value is a list of tokens in Polish prefix notation.
 
     Note that this parser does not currently support operator precedence. If you want
-    operations to happen in a particular order, make sure to use parentheses. 
+    operations to happen in a particular order, make sure to use parentheses.
     """
     return _parse(_lex(expression))
 
@@ -239,4 +239,6 @@ if __name__ == '__main__':
         pass # Pass if we catch a ValueError
     assert parse_logic('b&a&a') == ['&', 'b', '&', 'a', 'a']
     assert parse_logic('(C&(A^B))|(A&B)') == ['|','&','C','^','A','B','&','A','B']
+    print(parse_logic('(~(~A&C)) ^ B'))
+    assert parse_logic('(~(~A&C)) ^ B') == ['^', '~', '&', '~', 'A', 'C', 'B']
     print(generate_test_vectors('~A', ['A']))
