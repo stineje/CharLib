@@ -1,11 +1,12 @@
-# Token definitions
+# Global Token definitions
 T_NOT = 0
 T_GROUP = 1
 T_GROUP_END = 2
 T_AND = 3
 T_XOR = 4
-T_OR = 5
-T_OTHER = 6
+T_XNOR = 5
+T_OR = 6
+T_OTHER = 7
 
 class Token:
     def __init__(self, symbol: str) -> None:
@@ -37,53 +38,65 @@ class Token:
             self._type = T_AND
         elif value == '^':
             self._type = T_XOR
+        elif value == '^~' or value == '~^'
+            self._type = T_XNOR
         elif value == '|':
             self._type = T_OR
         else:
             self._type = T_OTHER
 
+    @property
+    def is_binary_operator(self) -> bool:
+        return self.type in range(T_AND, T_OR+1)
+
 # Rules
+# E = expression
+# U = unary operator
+# B = binary operator
 RULES = lambda S : [
-    [Token('~'), 'E', 'O'],             # 0: E -> ~EO
-    [Token('('), 'E', Token(')'), 'O'], # 1: E -> (E)O
-    [S, 'O'],                           # 2: E -> [A-z,0-9,_]*O
-    [Token('&'), 'E', 'O'],             # 3: O -> &EO
-    [Token('^'), 'E', 'O'],             # 4: O -> ^EO
-    [Token('|'), 'E', 'O'],             # 5: O -> |EO
-    [],                                 # 6: O -> null
+    [S],                            # 0: E -> [A-z,0-9,_]*
+    [Token('('), 'E', Token(')')],  # 1: E -> (E)
+    ['U', 'E'],                     # 2: E -> UE
+    ['E', 'B', 'E'],                # 3: E -> EBE
+    [Token(S)],                     # 4: U -> ((~)|(!)) or B -> (\|)|((~\^)|(\^~)|(\^))|(&)
 ]
 
-def _get_rule(stack_token, input_token) -> int:
-    """Look up a rule by the current stack token and input token"""
-    # The left column is the current stack token and the top row is the
-    # current input token. The cell selected by these two tokens is the
-    # rule we will use to resolve the stack token. Empty cells should
-    # result in errors.
-    # |     | '~' | '(' | '&' | '^' | '|' | anything else |
-    # | --- | --- | --- | --- | --- | --- | ------------- |
-    # | 'E' |  0  |  1  |     |     |     |       2       |
-    # | 'O' |     |     |  3  |  4  |  5  |       6       |
-    rule = 999 # Default to invalid rule
+def _get_rule(stack_token, input_sequence) -> int:
+    """Look up a rule by the current stack token and input sequence"""
+    # 3 If the sequence contains any B not in grouping symbols
+    #   | On Stack: | Condition:
+    # --|-----------|
+    #   | E | U | B |
+    # --|---|---|---|------------
+    #   | 3 |   |   | Binary operator in input sequence (not within matched grouping symbols)
+    # R | 2 |   |   | Input sequence starts with unary operator ('~' or '!')
+    # u | 1 |   |   | Input sequence starts with grouping symbol
+    # l | 0 |   |   | Input sequence contains no operators
+    # e |   | 4 |   | Input sequence contains a unary operator
+    #   |   |   | 4 | Input sequence contains a binary operator
+    rule = -1 # Default to invalid rule
     if stack_token == 'E':
-        if input_token.type == T_NOT:
-            rule = 0
-        elif input_token.type == T_GROUP:
-            rule = 1
-        elif input_token.type == T_OTHER:
-            rule = 2
-    elif stack_token == 'O':
-        if input_token.type == T_AND:
+        if any([token.is_binary_operator for token in input_sequence]):
+            # TODO: Figure out how to tell if the binary op is within grouping symbols
+            # Idea:
+            # 1. Split sequence on the leftmost lowest-precedence binary op we haven't tried yet.
+            # 2. Check if left side has matched grouping symbols. If not, try the next binary op (if any)
+            #    - Note we don't need to check the right side for matched grouping symbols; it must if the left side does
             rule = 3
-        elif input_token.type == T_XOR:
-            rule = 4
-        elif input_token.type == T_OR:
-            rule = 5
-        elif input_token.type == T_OTHER or input_token.type == T_GROUP_END:
-            rule = 6
-    return rule
+        elif input_sequence[0] == Token('~'):
+            rule = 2
+        elif input_sequence[0] == Token('('):
+            rule = 1
+        else:
+            rule = 0
+    elif stack_token == 'U' and input_sequence[0] == Token('~'):
+        rule = 4
+    elif stack_token == 'B' and input_sequence[0].is_binary_operator:
+        rule = 4
+
 
 def _parse(tokens: list) -> list:
-    stack = ['O', 'E']
+    stack = ['E']
     position = 0
     rule_sequence = []
     while stack:
@@ -112,27 +125,7 @@ def _parse(tokens: list) -> list:
     syntax_tree = []
     named_tokens = [n for n in tokens if n.type == T_OTHER]
     for rule in rule_sequence:
-        if rule == 0:
-            syntax_tree.extend(['O', '~'])
-        elif rule == 1:
-            syntax_tree.append('O')
-        elif rule == 2:
-            syntax_tree.extend(['O', named_tokens.pop(0).symbol])
-        elif rule == 3:
-            last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
-            syntax_tree.insert(last_O_index+1, '&')
-        elif rule == 4:
-            last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
-            syntax_tree.insert(last_O_index+1, '^')
-        elif rule == 5:
-            last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
-            syntax_tree.insert(last_O_index+1, '|')
-        elif rule == 6:
-            try:
-                last_O_index = -1 - [t for t in reversed(syntax_tree)].index('O')
-                syntax_tree.pop(last_O_index)
-            except ValueError:
-                pass # We don't add O as aggressively in tree generation, so it's ok if it isn't present
+        print(rule)
     return syntax_tree
 
 def _lex(expression: str) -> list:
@@ -140,11 +133,16 @@ def _lex(expression: str) -> list:
     tokens = []
     temp = ''
     for c in ''.join(expression.split()):
-        if c in ['~', '!', '(', ')', '|', '&', '^']:
+        if c in ['!', '(', ')', '|', '&', '~', '^']:
             if temp:
-                tokens.append(Token(temp))
-                temp = ''
-            tokens.append(Token(c))
+                if temp not in ['~', '^']:
+                    tokens.append(Token(temp))
+                    temp = ''
+                tokens.append(Token(c))
+                elif c in ['~', '^'] and not c == temp:
+                    temp += c
+            else:
+                tokens.append(Token(c))
         elif c.isalnum() or c == '_':
             temp += c
         else:
@@ -156,15 +154,22 @@ def _lex(expression: str) -> list:
 def parse_logic(expression: str) -> list:
     """Parse a logic string and return the result in Polish prefix notation.
 
-    This parser supports parentheses, NOT (~), AND (&), OR (|), and XOR (^) operations.
-    The return value is a list of tokens in Polish prefix notation.
+    This parser supports the following standard SystemVerilog operations:
+        - Grouping symbols: (, )
+        - Unary negation: ~, !
+        - Bitwise binary operations: &, ^, ~^, ^~, |
 
-    Note that this parser does not currently support operator precedence. If you want
-    operations to happen in a particular order, make sure to use parentheses.
+    The return value is a list of tokens in Polish prefix notation.
     """
-    return _parse(_lex(expression))
+    l = _lex(expression)
+    print(l)
+    p = _parse(l)
+    print(p)
+    # return _parse(_lex(expression))
+    return p
 
 def _resolve_unates(syntax_tree: list, target: str):
+    """Determine the 'unateness' of the function with respect to the target input."""
     op = syntax_tree.pop(0)
     if op == '~':
         unate_l = -1
@@ -172,7 +177,7 @@ def _resolve_unates(syntax_tree: list, target: str):
     elif op == '&':
         unate_l = 1
         unate_r = 1
-    elif op == '|' or op == '^':
+    elif str(op) in ['|', '^', '~^', '^~']:
         # can't determine these yet - have to check which side contains the target
         unate_l = 0
         unate_r = 0
@@ -239,6 +244,6 @@ if __name__ == '__main__':
         pass # Pass if we catch a ValueError
     assert parse_logic('b&a&a') == ['&', 'b', '&', 'a', 'a']
     assert parse_logic('(C&(A^B))|(A&B)') == ['|','&','C','^','A','B','&','A','B']
-    print(parse_logic('(~(~A&C)) ^ B'))
+    print(parse_logic('(~(~A&C)) ^ B')) # Should give ['^', '~', '&', '~', 'A', 'C', 'B']
     assert parse_logic('(~(~A&C)) ^ B') == ['^', '~', '&', '~', 'A', 'C', 'B']
     print(generate_test_vectors('~A', ['A']))
