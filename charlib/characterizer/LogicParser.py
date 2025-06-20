@@ -38,7 +38,7 @@ class Token:
             self._type = T_AND
         elif value == '^':
             self._type = T_XOR
-        elif value == '^~' or value == '~^'
+        elif value == '~^':
             self._type = T_XNOR
         elif value == '|':
             self._type = T_OR
@@ -76,13 +76,15 @@ def _get_rule(stack_token, input_sequence) -> int:
     #   |   |   | 4 | Input sequence contains a binary operator
     rule = -1 # Default to invalid rule
     if stack_token == 'E':
-        if any([token.is_binary_operator for token in input_sequence]):
+        op_mask = [token.is_binary_operator for token in input_sequence]
+        if any(op_mask):
             # TODO: Figure out how to tell if the binary op is within grouping symbols
             # Idea:
             # 1. Split sequence on the leftmost lowest-precedence binary op we haven't tried yet.
             # 2. Check if left side has matched grouping symbols. If not, try the next binary op (if any)
             #    - Note we don't need to check the right side for matched grouping symbols; it must if the left side does
-            rule = 3
+            for op_types in [(Token('|')), (Token('^~'), Token('~^')), (Token('&'))]:
+                print([op in op_types for op in input_sequence[op_mask]])
         elif input_sequence[0] == Token('~'):
             rule = 2
         elif input_sequence[0] == Token('('):
@@ -133,17 +135,30 @@ def _lex(expression: str) -> list:
     tokens = []
     temp = ''
     for c in ''.join(expression.split()):
-        if c in ['!', '(', ')', '|', '&', '~', '^']:
+        if c == '~':
             if temp:
-                if temp not in ['~', '^']:
+                tokens.append(Token(temp))
+                temp = ''
+            temp += c
+        elif c == '^':
+            if temp == '~':
+                temp += c
+                tokens.append(Token(temp))
+                temp = ''
+            else:
+                if temp:
                     tokens.append(Token(temp))
                     temp = ''
                 tokens.append(Token(c))
-                elif c in ['~', '^'] and not c == temp:
-                    temp += c
-            else:
-                tokens.append(Token(c))
+        elif c in ['!', '(', ')', '|', '&']:
+            if temp:
+                tokens.append(Token(temp))
+                temp = ''
+            tokens.append(Token(c))
         elif c.isalnum() or c == '_':
+            if temp == '~':
+                tokens.append(Token(temp))
+                temp = ''
             temp += c
         else:
             raise ValueError(f'Invalid character in boolean expression: {c}')
@@ -157,7 +172,7 @@ def parse_logic(expression: str) -> list:
     This parser supports the following standard SystemVerilog operations:
         - Grouping symbols: (, )
         - Unary negation: ~, !
-        - Bitwise binary operations: &, ^, ~^, ^~, |
+        - Bitwise binary operations: &, ^, ~^, |
 
     The return value is a list of tokens in Polish prefix notation.
     """
