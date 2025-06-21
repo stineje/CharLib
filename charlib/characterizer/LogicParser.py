@@ -83,45 +83,37 @@ def _get_rule(stack_token, input_sequence) -> int:
             # 1. Split sequence on the leftmost lowest-precedence binary op we haven't tried yet.
             # 2. Check if left side has matched grouping symbols. If not, try the next binary op (if any)
             #    - Note we don't need to check the right side for matched grouping symbols; it must if the left side does
-            for op_types in [(Token('|')), (Token('^~'), Token('~^')), (Token('&'))]:
-                print([op in op_types for op in input_sequence[op_mask]])
+            for op_types in [[T_OR], [T_XOR, T_XNOR], [T_AND]]:
+                matching_ops = [op.type in op_types for op in input_sequence]
+                for matching_op in matching_ops if matching_op:
+                    op_index = matching_ops.index(matching_op)
+                    if _has_matching_parentheses(input_sequence[:op_index]):
+                        return 3
+                # TODO: Handle the case where there were no matching ops
         elif input_sequence[0] == Token('~'):
-            rule = 2
+            return 2
         elif input_sequence[0] == Token('('):
-            rule = 1
+            return 1
         else:
-            rule = 0
+            return 0
     elif stack_token == 'U' and input_sequence[0] == Token('~'):
-        rule = 4
+        return 4
     elif stack_token == 'B' and input_sequence[0].is_binary_operator:
-        rule = 4
+        return 4
 
+def _has_matching_parentheses(tokens: list) -> bool:
+    # Check if the list of tokens has matching grouping symbols
+    unmatched_parentheses = 0
+    for token in tokens:
+        if token.type == T_GROUP:
+            unmatched_parentheses += 1
+        elif token.type == T_GROUP_END:
+            unmatched_parentheses -= 1
+    return unmatched_parentheses == 0
 
 def _parse(tokens: list) -> list:
     stack = ['E']
-    position = 0
     rule_sequence = []
-    while stack:
-        stack_token = stack.pop()
-        if isinstance(stack_token, Token):
-            # Pop resolved terminals
-            input_token = tokens[position]
-            if stack_token == input_token:
-                position += 1
-            else:
-                raise ValueError(f'Failed to parse logic string "{"".join([str(t) for t in tokens])}". Parsing failed at token "{input_token.symbol}" (position {position})')
-        else:
-            # Resolve rules using lookup table
-            try:
-                input_token = tokens[position]
-            except IndexError:
-                input_token = Token('') # Empty token of type T_OTHER
-            rule = _get_rule(stack_token, input_token)
-            try:
-                stack.extend(reversed(RULES(input_token)[rule]))
-            except IndexError: # Error due to nonexistent rule
-                raise ValueError(f'Failed to parse logic string "{"".join([str(t) for t in tokens])}". Parsing failed at position {position}')
-            rule_sequence.append(rule)
 
     # Now that we know the production rules, produce an AST in prefix format
     syntax_tree = []
@@ -192,7 +184,7 @@ def _resolve_unates(syntax_tree: list, target: str):
     elif op == '&':
         unate_l = 1
         unate_r = 1
-    elif str(op) in ['|', '^', '~^', '^~']:
+    elif str(op) in ['|', '^', '~^']:
         # can't determine these yet - have to check which side contains the target
         unate_l = 0
         unate_r = 0
