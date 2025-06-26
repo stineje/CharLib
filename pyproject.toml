@@ -12,11 +12,11 @@ readme = "README.md"
 packages = [{include = "charlib"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-#pyspice = {git = "https://github.com/infinitymdm/PySpice.git"}
-liberty-parser = "^0.0"
-pyyaml = "^6.0.1"
-numpy = "^1.26.2"
+python = ">=3.11"
+pyspice = {git = "https://github.com/infinitymdm/PySpice.git"}
+liberty-parser = ">=0.0.23"
+pyyaml = ">=6.0.1"
+numpy = ">=2.0.0"
 matplotlib = "^3.8.2"
 
 [tool.poetry.scripts]
