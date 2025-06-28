@@ -1,0 +1,54 @@
+name: CharLib Github Actions
+run-name: ${{ github.actor }} is testing CharLib 🚀
+
+on: [push, pull_request]
+
+jobs:
+
+  Build-Documentation:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: "Install PySpice"
+        run: |
+          pip install git+https://github.com/infinitymdm/PySpice
+
+      - name: "Install CharLib"
+        run: |
+          pip install -e .
+
+      - name: Build HTML manual
+        run: |
+          cd docs/manual
+          make html
+
+      - name: Upload artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: github-pages
+          path: docs/manual/build/html
+
+
+  Deploy-to-Pages:
+    needs: Build-Documentation
+
+    permissions:
+      pages: write      # to deploy to  Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

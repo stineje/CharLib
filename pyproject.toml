@@ -18,6 +18,8 @@ liberty-parser = ">=0.0.23"
 pyyaml = ">=6.0.1"
 numpy = ">=2.0.0"
 matplotlib = "^3.8.2"
+Sphinx = "^8.2.3"
+sphinx-rtd-theme = "^3.0.2"
 
 [tool.poetry.scripts]
 charlib = "charlib.characterizer.run:main"
