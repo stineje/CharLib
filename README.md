@@ -1,40 +1,10 @@
-# CharLib: An open-source standard cell library characterizer
+# CharLib
 
-- 🔩 Supports combinational and sequential cells
-- 📈 Plots timing and I/O voltages
-- 🧑‍💻 Easy-to-use, with YAML-based configuration
-- 🐍 Implemented in Python 3 with a modified PySpice backend
-- 🌶️ Compatible with ngspice and Xyce
+Charlib is an open-source standard cell library characterizer.
 
-## Introduction
-CharLib is an open-source standard cell library characterizer. The current version supports timing characterization of combinational and sequential cells.
+## Documentation
 
-## Installation
-CharLib can be installed from [PyPI](https://pypi.org/project/charlib) using pip:
-
-```
-# Install our customized version of PySpice
-pip install git+https://github.com/infinitymdm/PySpice
-
-# Install CharLib
-pip install charlib
-```
-Make sure you also have a compatible circuit simulator. [ngspice](https://ngspice.sourceforge.io/) and [xyce](https://xyce.sandia.gov/) are currently supported.
-
-## Usage
-`charlib run path/to/library/config/`
-
-CharLib searches the specified directory for a YAML file containing a valid cell library configuration, then characterizes the specified cells. See [yaml.md](https://github.com/stineje/CharLib/blob/main/docs/yaml.md) for information on constructing a config file.
-
-The general process for using CharLib is as follows:
-1. Acquire SPICE files and transistor models for the cells you want to characterize
-2. Write a configuration YAML file for the library
-3. Run CharLib
-
-Running `charlib --help` will display lots of useful information.
-
-## Contributing
-We're glad you're interested in contributing to CharLib! See [CONTRIBUTING.md](https://github.com/stineje/CharLib/blob/main/CONTRIBUTING.md) for details on how to get involved.
+See TODOREF.
 
 ## Troubleshooting
 If you're having problems using CharLib, please [open a new issue](https://github.com/stineje/CharLib/issues/new/choose)
