@@ -20,6 +20,7 @@ numpy = ">=2.0.0"
 matplotlib = "^3.8.2"
 Sphinx = "^8.2.3"
 sphinx-rtd-theme = "^3.0.2"
+pytest = "^8.4.1"
 
 [tool.poetry.scripts]
 charlib = "charlib.characterizer.run:main"
