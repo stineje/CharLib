@@ -7,6 +7,7 @@ results
 dist
 .venv
 .vscode
+docs/manual/build
 
 # Ignored files
 b3v3_1check.log
