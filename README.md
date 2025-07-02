@@ -4,7 +4,7 @@ Charlib is an open-source standard cell library characterizer.
 
 ## Documentation
 
-See [Charlib Documentation](https://blebowski.github.io/CharLib/)
+See [Charlib Documentation](https://stineje.github.io/CharLib/)
 
 ## Troubleshooting
 If you're having problems using CharLib, please [open a new issue](https://github.com/stineje/CharLib/issues/new/choose)
