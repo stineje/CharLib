@@ -11,5 +11,3 @@ Charlib is an open-source standard cell library characterizer with following fea
 - Plots timing and I/O voltages
 - Easy-to-use, with YAML-based configuration
 - Uses NGSPICE or Xyce for analog simulation
-
-
