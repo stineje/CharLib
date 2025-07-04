@@ -1,7 +1,7 @@
 CharLib documentation
 =====================
 
-Welcome to CharLibs documentation.
+Welcome to the documentation for CharLib, an open-source standard cell library characterizer.
 
 
 .. toctree::
