@@ -2,33 +2,33 @@
 Contributing
 ***************************************************************************************************
 
-Thanks for your interest in contributing to CharLib!
-We're always looking for new ideas and ways to improve.
+Thanks for your interest in contributing to CharLib! We're always looking for new ideas and ways to
+improve.
 
-This chapter is a set of guidelines on how to contribute to CharLib.
-These are mostly guidelines, not strict rules; you should use your best judgment,
-and feel free to suggest improvements to this document.
+This chapter is a set of guidelines on how to contribute to CharLib. These are mostly guidelines,
+not strict rules; you should use your best judgment, and feel free to suggest improvements to this
+document.
 
 ====================================================================================================
 Reporting Issues
 ====================================================================================================
 
-Bugs can be reported by `opening a new Issue here <https://github.com/stineje/CharLib/issues/new/>`_.
-Include as much detail as possible. If feasible, attach your CharLib configuration files
-and cells to the Issue so that we can identify what went wrong.
+Bugs can be reported by `opening a new issue here <https://github.com/stineje/CharLib/issues/new?template=problem-report.md>`_.
+Include as much detail as possible. If feasible, attach your CharLib configuration files and cells
+to the issue so that we can identify what went wrong.
 
 ====================================================================================================
 Requesting New Features
 ====================================================================================================
-Feature requests can be made by `opening a new Issue here <https://github.com/stineje/CharLib/issues/new/>`_.
-Include as much detail as possible about how you want to use CharLib and/or how you think it should behave.
-
+Feature requests can be made by `opening a new issue here <https://github.com/stineje/CharLib/issues/new?template=feature_request.md>`_.
+Include as much detail as possible about how you want to use CharLib and/or how you think it should
+behave.
 
 ====================================================================================================
 Code Contributions
 ====================================================================================================
 
-Things to Know
+Things to Know Before Contributing
 ----------------------------------------------------------------------------------------------------
 CharLib is composed of three main components:
 
@@ -41,8 +41,8 @@ CharLib is composed of three main components:
 * ``charlib``: A command-line tool that facilitates interaction with the ``characterizer`` and
   ``liberty`` components. This is the primary user interface for CharLib.
 
-If you have questions about where to direct your efforts for a particular task, please reach out
-to one of the contacts listed :ref:`Points-of-Contact`.
+If you have questions about where to direct your efforts for a particular task, please reply to the
+relevant issue or reach out to one of the contacts listed under:ref:`Points-of-Contact`.
 
 Running tests
 ----------------------------------------------------------------------------------------------------
@@ -53,15 +53,19 @@ To run tests execute
 
     make osu350
 
-to test CharLib with a simple OSU350 characterization task.
-This will download the OSU350 cells and run characterization on several of them.
+to test CharLib with a simple OSU350 characterization task. This will download the OSU350 cells and
+run characterization on several of them.
 
-.. note:: Running tests ensures you have installed CharLib sucesfully from repository.
+.. note::
+    Tests are only available when CharLib is installed from a cloned git repository. If you
+    installed CharLib from a cloned repository, running tests is a great way to make sure you have
+    installed CharLib correctly.
 
-.. note:: If you get PySpice errors in the file "PySpice/Spice/NgSpice/SimulationType.py", the most
-          likely culprit is that PySpice hasn't yet been validated against the version of NgSpice that you
-          have installed. The latest validated version is listed at
-          https://github.com/infinitymdm/PySpice/blob/master/PySpice/Spice/NgSpice/SimulationType.py#L85.
+.. note::
+    If you get PySpice errors in the file "PySpice/Spice/NgSpice/SimulationType.py", the most
+    likely culprit is that PySpice hasn't yet been validated against the version of ngspice that
+    you have installed. The latest validated version is found in the PySpice code
+    `here <https://github.com/infinitymdm/PySpice/blob/master/PySpice/Spice/NgSpice/SimulationType.py#L85>`_.
 
 Procedure for Code Contributions
 ----------------------------------------------------------------------------------------------------
@@ -96,7 +100,7 @@ Pull Request Guidelines
   decision-making process as possible.
 * Add ``Fixes #[issue number]`` to the pull request description or commit message if your PR targets
   a specific issue. See the
-  `[github docs] <https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue>`_
+  `github docs <https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue>`_
   for more information.
 
 Python Code

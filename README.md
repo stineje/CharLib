@@ -7,8 +7,8 @@
 - 🌶️ Compatible with ngspice and Xyce
 
 ## Introduction
-CharLib is an open-source standard cell library characterizer. The current version supports timing
-characterization of combinational and sequential cells.
+CharLib is an open-source standard cell library characterizer. The current version supports NLDM
+timing characterization of combinational and sequential cells.
 
 See the [documentation](https://stineje.github.io/CharLib/) for more details, including:
 - [Installation instructions](https://stineje.github.io/CharLib/chapters/02_installation.html)

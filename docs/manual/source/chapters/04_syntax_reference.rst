@@ -16,8 +16,9 @@ There are two keywords on the top level of the YAML configuration file:
 Settings
 ====================================================================================================
 
-All key-value pairs under ``settings`` keyword are optional. If a configuration value is not present,
-CharLib chooses default value. We recommend including the following keys (at minimum):
+All key-value pairs under ``settings`` keyword are optional. If a configuration value is not
+present, CharLib chooses the default value. These defaults may or may not be reasonable depending
+on your use case. We recommend including the following keys (at minimum):
 
 Recommended Keys
 ----------------------------------------------------------------------------------------------------
@@ -154,19 +155,19 @@ Optional Keys
 
 .. How many cores are used ? Can this be somehow set ?
 
-* ``multithreaded``: Run simulations in parallel.
+* ``multithreaded``: Run simulations in parallel, using as many threads as possible.
 
     - Allowed values: (``True``, ``False``)
     - Default value: ``True``
 
 * ``results_dir``: The directory where Charlib exports characterization results. If omitted, CharLib creates a ``results`` directory in the current folder.
 
-* ``debug``: Display debug messages, and store simulation SPICE files.
+* ``debug``: Display debug messages and store simulation SPICE files.
 
     - Allowed values: (``True``, ``False``)
     - Default value: ``True``
 
-* ``debug_dir``: The directory where to store simulation SPICE files if ``debug`` keyword is set to ``True``.
+* ``debug_dir``: The directory where simulation SPICE files are stored if ``debug`` keyword is set to ``True``.
 
     - Default value: ``debug``.
 
@@ -174,7 +175,7 @@ Optional Keys
 
     - Default value: ``False``.
 
-* ``omit_on_failure``: What to do if a cell fails to characterize.
+* ``omit_on_failure``: Specifies whether to terminate if a cell fails to characterize.
 
     - Allowed values:
 
@@ -187,8 +188,7 @@ Optional Keys
 Cells
 ====================================================================================================
 
-Cells to characterize are specified as entries under the ``cells`` keyword.
-Name of the cell shall be a top-most key of the dictionary. E.g.:
+Cells to characterize are specified as entries under the ``cells`` keyword, organized by cell name:
 
 .. code-block:: YAML
 
@@ -199,8 +199,8 @@ Name of the cell shall be a top-most key of the dictionary. E.g.:
             <configuration of second cell>
 
 
-Name of the cell shall match the ``.subckt`` name in the SPICE netlist that represents the circuit
-of this cell.
+The cell name must match the ``.subckt`` name in the SPICE netlist that represents the circuit of
+this cell.
 
 Required Keys
 ----------------------------------------------------------------------------------------------------
@@ -210,13 +210,13 @@ Each cell entry shall contain at least following keys:
 
 * ``models``: A list of paths to the spice models for transistors used in this cell's netlist. If omitted, CharLib assumes each cell has no dependencies.
 
-	* Using the syntax ``path/to/file`` will result in ``.include path/to/file`` in SPICE simulations.
-	* Using the syntax ``path/to/dir`` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using ``.include path/to/dir/file``.
-	* Using the syntax ``path/to/file section`` will result in ``.lib path/to/file section`` in SPICE simulations.
+    * Using the syntax ``path/to/file`` will result in ``.include path/to/file`` in SPICE simulations.
+    * Using the syntax ``path/to/dir`` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using ``.include path/to/dir/file``.
+    * Using the syntax ``path/to/file section`` will result in ``.lib path/to/file section`` in SPICE simulations.
 
-* ``inputs``: A list of input pin names.
+* ``inputs``: A list of input pin names as they appear in the cell netlist.
 
-* ``outputs``: A list of output pin names.
+* ``outputs``: A list of output pin names as they appear in the cell netlist.
 
 * ``functions``: A list of verilog functions describing each output as logical function of inputs. Shall be in the same order as ``outputs``
 
@@ -256,7 +256,7 @@ To characterize sequential cells, you shall put following additional entries und
 Optional Keys
 ----------------------------------------------------------------------------------------------------
 
-* ``area``: The physical area occupied by the cell layout. The value is in ``um^2``.
+* ``area``: The physical area occupied by the cell layout, specified in ``um^2``.
 
     - Default value: 0
 
@@ -276,8 +276,9 @@ Optional Keys
 
     - Allowed values:
 
-        - ``all`` - Dump all plots
-        - ``none`` - Do not dump any plots
-        - Any subset of: ``io``, ``delay``, ``energy``
+        - ``all`` - Display all I/O voltage and timing surface plots.
+        - ``none`` - Do not display any plots. Useful for scripting.
+        - Any subset of: ``io``, ``delay``, ``energy``. Note that energy simulation is not yet
+            supported; this value is included for forwards compatibility.
 
     - Default value: ``none``
