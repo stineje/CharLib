@@ -7,53 +7,60 @@ Flow of operation
 ====================================================================================================
 
 CharLib runs analog simulation of the cells to be characterized to determine their timing behavior.
-The overal flow of the operation is shown in the following figure:
+The overal flow is shown in the following figure:
 
-.. image:: figures/block_diagram.svg
+.. image:: figures/flow_block_diagram.svg
     :width: 400
     :align: center
 
+To run characterization, you must provide:
 
-To run the characterization, you need to provide:
-
-1. SPICE netlist of the cells to be characterized. For accurate characterization it is recommended
-   to provide netlist with extracted parasistics.
-2. Analog transistor models for your PDK.
+1. SPICE netlist of the cells to be characterized (ideally with extracted parasistics for accuracy)
+2. Analog transistor models for your PDK
 3. YAML configuration file
 
-The netlist, and the transistor models need to be compatible with the syntax of the
-analog simulator CharLib uses.
+The netlist and transistor models need to be compatible with the syntax of the analog simulator
+CharLib uses.
 
-See :ref:`YAML-Examples`  for examples of YAML configuration file.
+See :ref:`_yaml_examples` for examples of YAML configuration file.
 
 ====================================================================================================
 Invoking CharLib
 ====================================================================================================
 
-To run Charlib execute :
-
+To interact with CharLib's command line interface, execute:
 .. code-block:: SHELL
 
     charlib <command>
 
-There are following commands available in CharLib
+CharLib supports the following commands:
 
-    - ``run`` to run the characterization
-    - ``compare`` to compare two Liberty files
+    - ``run`` to characterize cells using an existing configuration file
+    - ``compare`` to compare a liberty file against a benchmark "golden" liberty file
+
+Help
+----------------------------------------------------------------------------------------------------
+
+.. code-block:: SHELL
+
+    charlib --help
+
+will display lots of useful information.
 
 Running characterization
 ----------------------------------------------------------------------------------------------------
 
-To run characterization with CharLib, execute:
+To characterize a standard cell library with CharLib, execute:
 
 .. code-block:: SHELL
 
     charlib run <path_to_library_config>
 
-``<path_to_library_config>`` can be either a path to the YAML configuration file containing, or to
-the directory containing such files. If ``<path_to_library_config>`` is directory, the CharLib
-searches the specified directory for a YAML file containing a valid cell library configuration.
-CharLib then characterizes cells it found in the YAML files.
+``<path_to_library_config>`` may be either a path directly to the YAML configuration file, or to
+a directory containing a configuration file. If ``<path_to_library_config>`` is a directory,
+CharLib searches the specified directory for a YAML file containing a valid cell library
+configuration. Once a configuration is identified, CharLib characterizes each cell included in the
+configuration file.
 
 Comparing Liberty files
 ----------------------------------------------------------------------------------------------------
@@ -66,20 +73,11 @@ To compare two Liberty files with CharLib, execute:
 
 where:
 
-- ``benchmark_lib_file`` is the Liberty file to be benchmarked.
-- ``compared_lib_file`` is the Liberty file to be compared against (golden).
+- ``benchmark_lib_file`` a "golden" reference liberty file to compare against.
+- ``compared_lib_file`` a liberty file, typically produced by CharLib, to be compared against the
+    benchmark file.
 
-Help
-----------------------------------------------------------------------------------------------------
-
-.. code-block:: SHELL
-
-    charlib --help
-
-will display lots of useful information.
-
-.. _YAML-Examples:
-
+.. _yaml_examples:
 ====================================================================================================
 YAML configuration examples
 ====================================================================================================
@@ -87,33 +85,33 @@ YAML configuration examples
 Example 1: OSU350 INVX1 Characterization
 ----------------------------------------------------------------------------------------------------
 
-The example below is a configuration file for characterization of ``INVX1`` inverter cell.
+The example below is a configuration file for characterization of a single ``INVX1`` inverter cell.
 
 .. code-block:: YAML
 
     settings:
-    lib_name:           test_OSU350
-    units:
-        time:               ns
-        voltage:            V
-        current:            uA
-        pulling_resistance: kOhm
-        leakage_power:      nW
-        capacitive_load:    pF
-        energy:             fJ
-    named_nodes:
-        vdd:
-            name:       VDD
-            voltage:    3.3
-        vss:
-            name:       GND
-            voltage:    0
-        pwell:
-            name:       VPW
-            voltage:    0
-        nwell:
-            name:       VNW
-            voltage:    3.3
+        lib_name:           test_OSU350
+        units:
+            time:               ns
+            voltage:            V
+            current:            uA
+            pulling_resistance: kOhm
+            leakage_power:      nW
+            capacitive_load:    pF
+            energy:             fJ
+        named_nodes:
+            vdd:
+                name:       VDD
+                voltage:    3.3
+            vss:
+                name:       GND
+                voltage:    0
+            pwell:
+                name:       VPW
+                voltage:    0
+            nwell:
+                name:       VNW
+                voltage:    3.3
     cells:
         INVX1:
             netlist:    osu350_spice_temp/INVX1.sp
@@ -137,32 +135,32 @@ half adder (``HAX1``) cells.
 .. code-block:: YAML
 
     settings:
-    lib_name:           test_OSU350
-    units:
-        time:               ns
-        voltage:            V
-        current:            uA
-        pulling_resistance: kOhm
-        leakage_power:      nW
-        capacitive_load:    pF
-        energy:             fJ
-    named_nodes:
-        vdd:
-            name:       VDD
-            voltage:    3.3
-        vss:
-            name:       GND
-            voltage:    0
-        pwell:
-            name:       VPW
-            voltage:    0
-        nwell:
-            name:       VNW
-            voltage:    3.3
-    cell_defaults:
-        models: [test/osu350/model.sp]
-        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
-        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+        lib_name:           test_OSU350
+        units:
+            time:               ns
+            voltage:            V
+            current:            uA
+            pulling_resistance: kOhm
+            leakage_power:      nW
+            capacitive_load:    pF
+            energy:             fJ
+        named_nodes:
+            vdd:
+                name:       VDD
+                voltage:    3.3
+            vss:
+                name:       GND
+                voltage:    0
+            pwell:
+                name:       VPW
+                voltage:    0
+            nwell:
+                name:       VNW
+                voltage:    3.3
+        cell_defaults:
+            models: [test/osu350/model.sp]
+            slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+            loads: [0.06, 0.18, 0.42, 0.6, 1.2]
 
     cells:
         FAX1:
@@ -193,34 +191,34 @@ set and reset.
 .. code-block:: YAML
 
     settings:
-    lib_name:           test_OSU350
-        units:
-        time:               ns
-        voltage:            V
-        current:            uA
-        pulling_resistance: kOhm
-        leakage_power:      nW
-        capacitive_load:    pF
-        energy:             fJ
-    named_nodes:
-        vdd:
-            name:       VDD
-            voltage:    3.3
-        vss:
-            name:       GND
-            voltage:    0
-        pwell:
-            name:       VPW
-            voltage:    0
-        nwell:
-            name:       VNW
-            voltage:    3.3
-    cell_defaults:
-        models: [test/osu350/model.sp]
-        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
-        loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-	setup_time_range: [0.001, 1]
-	hold_time_range: [0.001, 1]
+        lib_name:           test_OSU350
+            units:
+            time:               ns
+            voltage:            V
+            current:            uA
+            pulling_resistance: kOhm
+            leakage_power:      nW
+            capacitive_load:    pF
+            energy:             fJ
+        named_nodes:
+            vdd:
+                name:       VDD
+                voltage:    3.3
+            vss:
+                name:       GND
+                voltage:    0
+            pwell:
+                name:       VPW
+                voltage:    0
+            nwell:
+                name:       VNW
+                voltage:    3.3
+        cell_defaults:
+            models: [test/osu350/model.sp]
+            slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+            loads: [0.06, 0.18, 0.42, 0.6, 1.2]
+    	setup_time_range: [0.001, 1]
+    	hold_time_range: [0.001, 1]
     cells:
         DFFSR:
             netlist:    osu350_spice_temp/DFFSR.sp
@@ -231,8 +229,7 @@ set and reset.
             inputs:     [D]
             outputs:    [Q]
             flops:      [P0002,P0003]
-            functions:
-                - Q<=D
+            functions:  [Q<=D]
 
 
 Example 4: Characterizing Multiple GF180 Cells
