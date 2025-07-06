@@ -27,8 +27,8 @@ The example above defines two cells to be characterized:
 - ``last_cell_name``
 
 There may be arbitrary number of cells defined under ``cells`` keyword.
-Name of the cell shall match the ``.subckt`` name in the SPICE netlist
-that represents the circuit of this cell.
+The cell name must match the ``.subckt`` name in the SPICE netlist that
+represents the circuit of this cell.
 
 .. include:: 04_syntax_reference_settings.rst
 

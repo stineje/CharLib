@@ -37,14 +37,14 @@ class ConfigFile:
         Optional(
             Literal(
                 "inputs",
-                description="A list of input pin names."
+                description="A list of input pin names as they appear in the cell netlist."
             )
         ) : [str],
 
         Optional(
             Literal(
                 "outputs",
-                description="A list of output pin names."
+                description="A list of output pin names as they appear in the cell netlist."
             )
         ) : [str],
 
@@ -79,7 +79,7 @@ class ConfigFile:
         Optional(
             Literal(
                 "area",
-                description="The physical area occupied by the cell layout. The value is in ``um^2``."
+                description="The physical area occupied by the cell layout, specified in ``um^2``."
             ),
             default=0
         ) : number_syntax,
@@ -350,7 +350,7 @@ class ConfigFile:
         Optional(
             Literal(
                 "multithreaded",
-                description="Run simulations in parallel on multiple cores."
+                description="Run simulations in parallel, using as many threads as possible."
             ),
             default=True
         ) : bool,
@@ -391,9 +391,7 @@ class ConfigFile:
         Optional(
             Literal(
                 "omit_on_failure",
-                description="What to do if a cell fails to characterize \
-                             If ``True``, then skip failed cell and continue with the rest. \
-                             If ``False``, then terminate CharLib"
+                description="Specifies whether to terminate if a cell fails to characterize (``False``), or continue with next cells (``True``)."
             ),
             default=False
         ) : bool,
