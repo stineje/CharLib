@@ -1,5 +1,5 @@
-name: CharLib Github Actions
-run-name: ${{ github.actor }} is testing CharLib 🚀
+name: Documenation build
+run-name: ${{ github.actor }} is building CharLib documentation
 
 on: [push, pull_request]
 

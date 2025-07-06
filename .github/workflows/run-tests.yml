@@ -1,0 +1,29 @@
+name: CharLib Tests
+run-name: ${{ github.actor }} is testing CharLib
+
+on: [push, pull_request]
+
+jobs:
+
+  Build-Documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: "Install PySpice"
+        run: |
+          pip install git+https://github.com/infinitymdm/PySpice
+
+      - name: "Install CharLib"
+        run: |
+          pip install -e .
+
+      - name: "Run Tests"
+        run: |
+          pytest
+
+
