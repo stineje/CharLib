@@ -1,0 +1,52 @@
+settings:
+    lib_name:               test_pdk
+
+    units:
+        time:               fs
+        voltage:            mV
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      pW
+        capacitive_load:    pF
+        energy:             aJ
+
+    temperature:            74.2
+
+    logic_thresholds:
+        low:  0.3
+        high: 0.7
+
+    named_nodes:
+        vdd:
+            name:       VCC
+            voltage:    1.8
+        vss:
+            name:       VEE
+            voltage:    0
+        pwell:
+            name:       VEE
+            voltage:    0
+        nwell:
+            name:       VCC
+            voltage:    1.8
+
+    simulator: ngspice-subprocess
+
+    logic_thresholds:
+        low: 0.3
+        high: 0.7
+        low_to_high: 0.55
+        high_to_low: 0.45
+
+    process: fast
+    operating_conditions: tst_ff_25c
+    multithreaded: False
+    results_dir: test_pdk_lib
+    debug: True
+    quiet: False
+    omit_on_failure: False
+
+    # We don't test cell_defaults here intentionally
+
+cells:
+

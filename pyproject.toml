@@ -30,3 +30,8 @@ charlib = "charlib.characterizer.run:main"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "test/syntax",
+]
