@@ -6,8 +6,8 @@ set_voltage_unit V
 set_capacitance_unit pF
 set_resistance_unit kOhm
 set_current_unit uA
-set_leakage_power_unit nW 
-set_energy_unit fJ 
+set_leakage_power_unit nW
+set_energy_unit fJ
 set_time_unit ns
 set_vdd_name VDD
 set_vss_name GND

@@ -1,5 +1,5 @@
-name: CharLib Github Actions
-run-name: ${{ github.actor }} is testing CharLib 🚀
+name: Documenation build
+run-name: ${{ github.actor }} is building CharLib documentation
 
 on: [push, pull_request]
 
@@ -37,6 +37,9 @@ jobs:
 
   Deploy-to-Pages:
     needs: Build-Documentation
+
+    # Run only on main branch -> It has rights to push to the pages
+    if: ${{ github.ref == 'refs/heads/main' }}
 
     permissions:
       pages: write      # to deploy to  Pages
