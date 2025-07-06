@@ -38,6 +38,9 @@ jobs:
   Deploy-to-Pages:
     needs: Build-Documentation
 
+    # Run only on main branch -> It has rights to push to the pages
+    if: ${{ github.ref == 'refs/heads/main' }}
+
     permissions:
       pages: write      # to deploy to  Pages
       id-token: write   # to verify the deployment originates from an appropriate source
