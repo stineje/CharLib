@@ -12,6 +12,8 @@ from PySpice.Logging import Logging
 from charlib.characterizer.Characterizer import Characterizer
 from charlib.characterizer.functions.functions import generate_yml
 
+from charlib.config.Syntax import ConfigFile
+
 
 def main():
     """Run CharLib"""
@@ -48,6 +50,7 @@ def main():
         """Helper function for compare subcommand"""
         with open(Path(args.compared), 'r') as compared:
             compare(args.benchmark, compared.read())
+
     parser_compare.add_argument('benchmark',  type=str,
             help='A liberty file to use as a benchmark for comparison')
     parser_compare.add_argument('compared', type=str,
@@ -58,6 +61,7 @@ def main():
     def genfunctions_helper(args):
         """Helper function for generate_functions subcommand"""
         generate_yml()
+
     # TODO: Add argument for expression map
     parser_genfunctions.set_defaults(func=genfunctions_helper)
 
@@ -73,11 +77,14 @@ def run_charlib(args):
     # Search for a YAML file with the required config information
     if not args.quiet:
         print(f'Searching for YAML files in {str(library_dir)}')
+
     config = None
+
     if Path(library_dir).is_file():
         filelist=[library_dir]
     else:
         filelist=list(Path(library_dir).rglob('*.yml')) + list(Path(library_dir).rglob('*.yaml'))
+
     for file in filelist:
         try:
             with open(file, 'r') as f:
@@ -90,10 +97,15 @@ def run_charlib(args):
             continue
         if config.keys() >= {'settings', 'cells'}:
             break # We have found a YAML file with config information
+
     if not config:
         raise FileNotFoundError(f'Unable to locate a YAML file containing configuration settings in {library_dir} or its subdirectories.')
+
     if not args.quiet:
         print(f'Reading configuration found in "{str(file)}"')
+
+    # Check grammar
+    ConfigFile.check_syntax(config)
 
     # Read in library settings
     settings = config['settings']
@@ -163,7 +175,9 @@ def run_charlib(args):
     else:
         results_dir = characterizer.settings.results_dir
         libfile_name = results_dir / f'{library.name}.lib'
+
     libfile_name.parent.mkdir(parents=True, exist_ok=True)
+
     with open(libfile_name, 'w') as libfile:
         libfile.write(str(library))
         if not characterizer.settings.quiet:
