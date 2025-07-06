@@ -104,8 +104,8 @@ def run_charlib(args):
     if not args.quiet:
         print(f'Reading configuration found in "{str(file)}"')
 
-    # Check grammar
-    ConfigFile.check_syntax(config)
+    # Check grammar and fill
+    config = ConfigFile.validate(config)
 
     # Read in library settings
     settings = config['settings']

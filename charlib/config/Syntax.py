@@ -404,14 +404,14 @@ class ConfigFile:
 
     config_file_syntax = Schema({
         "settings": settings_syntax,
-        "cells" : {
+        "cells" : Or({
             str : cell_syntax
-        }
+        }, None)
     })
 
     @classmethod
-    def check_syntax(cls, config):
-        Schema(cls.config_file_syntax).validate(config)
+    def validate(cls, config):
+        return cls.config_file_syntax.validate(config)
 
         # TODO: need following additional checks above schema:
         #       - check required keys for cell are present after merging "global" and "per-cell" definitions.
