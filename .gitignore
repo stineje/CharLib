@@ -12,7 +12,7 @@ docs/manual/build
 # Ignored files
 b3v3_1check.log
 venv
-*.cmd
-*.lib
+#*.cmd
+#*.lib
 *.txt
 *.v
