@@ -1,0 +1,27 @@
+settings:
+    lib_name:           GF180
+    omit_on_failure:      True
+    cell_defaults:
+        models:
+            - gf180_temp/models/sm141064.ngspice typical
+            - gf180_temp/models/design.ngspice
+        slews:  [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
+        loads:  [0.005, 0.01, 0.025, 0.05, 0.1]
+        setup_time_range: [0.01, 5]
+        hold_time_range: [0.01, 5]
+
+cells:
+    gf180mcu_osu_sc_gp12t3v3__inv_1:
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__inv_1.spice
+        inputs:     [A]
+        outputs:    ['Y']
+        functions:  [Y=~A]
+    gf180mcu_osu_sc_gp12t3v3__dff_1:
+        netlist:    gf180_temp/cells/gf180mcu_osu_sc_gp12t3v3__dff_1.spice
+        inputs:     [D]
+        outputs:    [Q,QN]
+        clock:      posedge CLK
+        flops:      [P0002,P0003]
+        functions:
+            - Q<=D
+            - QN<=~D
