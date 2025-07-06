@@ -374,6 +374,14 @@ class ConfigFile:
 
         Optional(
             Literal(
+                "debug_dir",
+                description="The directory where simulation SPICE files are stored if ``debug`` keyword is set to ``True``"
+            ),
+            default="debug"
+        ) : str,
+
+        Optional(
+            Literal(
                 "quiet",
                 description="Minimize the number of messages and data Charlib displays to the console."
             ),
