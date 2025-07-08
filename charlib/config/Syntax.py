@@ -15,65 +15,50 @@ class ConfigFile:
     )
 
     cell_syntax = Schema({
-        Optional(
-            Literal(
-                "netlist",
-                description="The path to the spice file containing the netlist for this cell."
-            )
+        Literal(
+            "netlist",
+            description="The path to the spice file containing the netlist for this cell."
         ) : str,
 
-        Optional(
-            Literal(
-                "models",
-                description="A list of paths to the spice models for transistors used in this \
-                             cell's netlist. If omitted, CharLib assumes each cell has no \
-                             dependencies. \n \
-                                * Using the syntax ``path/to/file`` will result in ``.include path/to/file`` in SPICE simulations. \n \
-                                * Using the syntax ``path/to/dir`` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using ``.include path/to/dir/file``.\n \
-                                * Using the syntax ``path/to/file section`` will result in ``.lib path/to/file section`` in SPICE simulations."
-            )
+        Literal(
+            "models",
+            description="A list of paths to the spice models for transistors used in this \
+                            cell's netlist. If omitted, CharLib assumes each cell has no \
+                            dependencies. \n \
+                            * Using the syntax ``path/to/file`` will result in ``.include path/to/file`` in SPICE simulations. \n \
+                            * Using the syntax ``path/to/dir`` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using ``.include path/to/dir/file``.\n \
+                            * Using the syntax ``path/to/file section`` will result in ``.lib path/to/file section`` in SPICE simulations."
         ) : [str],
 
-        Optional(
-            Literal(
+        Literal(
                 "inputs",
                 description="A list of input pin names as they appear in the cell netlist."
-            )
         ) : [str],
 
-        Optional(
-            Literal(
+        Literal(
                 "outputs",
                 description="A list of output pin names as they appear in the cell netlist."
-            )
         ) : [str],
 
-        Optional(
-            Literal(
-                "functions",
-                description="A list of verilog functions describing each output as logical function of inputs. Shall be in the same order as ``outputs``"
-            )
+
+        Literal(
+            "functions",
+            description="A list of verilog functions describing each output as logical function of inputs. Shall be in the same order as ``outputs``"
         ) : [str],
 
-        Optional(
-            Literal(
+        Literal(
                 "slews",
                 description="A list of input pin slew rates to characterize. Unit is specified by ``settings.units.time``."
-            )
         ) : [Or(float, int)],
 
-        Optional(
-            Literal(
-                "loads",
-                description="A list of output capacitive loads to characterize. Unit is specified by ``settings.units.capacitive_load``."
-            )
-        ) : [Or(float, int)],
+        Literal(
+            "loads",
+            description="A list of output capacitive loads to characterize. Unit is specified by ``settings.units.capacitive_load``."
+        ) : [number_syntax],
 
-        Optional(
-            Literal(
-                "simulation_timestep",
-                description="The simulation timestep. Relative value to ``settings.units.time``."
-            )
+        Literal(
+            "simulation_timestep",
+            description="The simulation timestep. Relative value to ``settings.units.time``."
         ) : number_syntax,
 
         Optional(
@@ -337,7 +322,7 @@ class ConfigFile:
                 "temperature",
                 description="The temperature to use during spice simulations."
             ),
-            default="25"
+            default=25
         ) : number_syntax,
 
         Optional(
@@ -403,29 +388,75 @@ class ConfigFile:
                              See ``cells`` keyword for more information. \
                             May contain any key-value pair valid for a ``cell`` entry."
             )
-        ) : cell_syntax
+        # Do not pass cell_syntax here to:
+        #   - avoid duplicity in documentation
+        #   - have the "required" cell fields easily controllable by schema
+        # "None" can't be placed here since the field does not propagate to
+        # documentation
+        ) : {}
     },
     description="All keywords under ``settings`` are optional. \
                  If a keyword is not present, CharLib uses default value.")
 
     config_file_syntax = Schema({
-        "settings": settings_syntax,
-        "cells" : Or({
-            str : cell_syntax
-        }, None)
+        Optional("settings") : settings_syntax,
+        Optional("cells") : {
+            Optional(str) : cell_syntax
+        }
     })
 
     @classmethod
     def validate(cls, config):
-        return cls.config_file_syntax.validate(config)
+        """
+        Validates YAML config file syntax and fills the default values.
+        """
 
         # TODO: need following additional checks above schema:
-        #       - check required keys for cell are present after merging "global" and "per-cell" definitions.
         #       - check that if either of "clock", "flops", "setup_time_range" or "hold_time_range" is present,
         #         then all are
 
-        # TODO: need to add defult for all nested keywords that are optional. E.g. if "units" is left-out,
-        #       it should be added with defaults
+        # Fill "settings" and "cells" if not existent
+        if "settings" not in config or config["settings"] == None:
+            config["settings"] = {}
+
+        if "cells" not in config or config["cells"] == None:
+            config["cells"] = {}
+
+        # Fill default keys under "settings"
+        # that have other sub-keys, and no default value in cell_syntax
+        keys = [{"units" : {}}    ,
+                {"logic_thresholds" : {}},
+                {"named_nodes" : {"vdd": {}, "vss": {}, "pwell": {}, "nwell": {}}},
+                {"logic_thresholds" : {}},
+                {"cell_defaults" : {}}]
+
+        for key in keys:
+            k = list(key)[0]
+            v = key[k]
+            if k not in config["settings"]:
+                config["settings"][k] = v
+
+        # Merge "cell_defaults" to all cells
+        cells = config["cells"]
+        cell_defs = config["settings"]["cell_defaults"]
+
+        if len(cells) > 0 and len(cell_defs) > 0:
+            for cell_name, cell_val in cells.items():
+                c = config["cells"][cell_name]
+                for k,v in cell_defs.items():
+                    if k not in c:
+                        c[k] = v
+
+        # Erase the "cell_defaults"
+        #   - not needed anymore -> was already merged
+        #   - Schema validate should not complain
+        config["settings"].pop("cell_defaults")
+
+        #v = json.dumps(config, indent=4)
+        #print(v)
+
+        # Validate the schema
+        return cls.config_file_syntax.validate(config)
 
     class SchemaKind(Enum):
         CELL_SCHEMA     = 0,
@@ -433,7 +464,9 @@ class ConfigFile:
 
     @classmethod
     def dump_json_schema(cls, kind, path):
-
+        """
+        Converts "settings" or "cells" syntax to JSON schema
+        """
         # Convert to JSON
         syntax = cls.settings_syntax if (kind == cls.SchemaKind.SETTINGS_SCHEMA) else cls.cell_syntax
         j = syntax.json_schema("Charlib YAML configuration file syntax")
