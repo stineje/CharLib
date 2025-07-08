@@ -4,7 +4,10 @@ import os
 
 from charlib.config.Syntax import ConfigFile
 
-def test_settings1():
+def test_settings_basic():
+    """
+    Tests available keywords under "settings"
+    """
 
     cfg = None
 
@@ -29,6 +32,8 @@ def test_settings1():
 
     assert cfg["settings"]["logic_thresholds"]["low"] == 0.3
     assert cfg["settings"]["logic_thresholds"]["high"] == 0.7
+
+    assert cfg["settings"]["process"] == "fast"
 
     nn = cfg["settings"]["named_nodes"]
     assert nn["vdd"]["name"] == "VCC"
