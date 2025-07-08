@@ -1,6 +1,8 @@
 """This module contains YAML file syntax parsing"""
 
-from schema import Schema, And, Or, Use, Optional, Literal
+import sys
+
+from schema import Schema, And, Or, Use, Optional, Literal, SchemaError
 import json
 from enum import Enum
 from schema import Regex
@@ -211,7 +213,7 @@ class ConfigFile:
                 Optional(
                     Literal(
                         "energy",
-                        description="The unit of energy"
+                        description="The unit of energy",
                     ),
                     default="fJ"):
                     Or("aJ", "fJ", "nJ")
@@ -411,6 +413,8 @@ class ConfigFile:
         Validates YAML config file syntax and fills the default values.
         """
 
+        print("Checking configuration syntax")
+
         # TODO: need following additional checks above schema:
         #       - check that if either of "clock", "flops", "setup_time_range" or "hold_time_range" is present,
         #         then all are
@@ -456,7 +460,13 @@ class ConfigFile:
         #print(v)
 
         # Validate the schema
-        return cls.config_file_syntax.validate(config)
+        try:
+            return cls.config_file_syntax.validate(config)
+        except SchemaError as e:
+            print("Configuration file syntax error:")
+            print(e)
+
+            sys.exit(1)
 
     class SchemaKind(Enum):
         CELL_SCHEMA     = 0,
