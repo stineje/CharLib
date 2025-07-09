@@ -16,6 +16,34 @@ class ConfigFile:
         Or(float, int)
     )
 
+    # TODO: Figure out a better way how to display this in manual, so that
+    #       it is not copied to all units, but only referenced
+    SI_PREFIX = """^((yocto|y)|""" \
+                  """(zepto|z)|""" \
+                   """(atto|a)|""" \
+                  """(femto|f)|""" \
+                   """(pico|p)|""" \
+                   """(nano|n)|""" \
+                  """(micro|u)|""" \
+                  """(milli|m)|""" \
+                      """()|""" \
+                   """(kilo|k)|""" \
+                   """(mega|M)|""" \
+                   """(giga|G)|""" \
+                   """(tera|T)|""" \
+                   """(peta|P)|""" \
+                    """(exa|E)|""" \
+                  """(zetta|Z)|""" \
+                  """(yotta|Y))"""
+
+    voltage_syntax = Schema(Regex(SI_PREFIX + """(v|V|volts|Volts)"""))
+    current_syntax = Schema(Regex(SI_PREFIX + """(a|A|amp|amps|Amp|Amps)"""))
+    time_syntax = Schema(Regex(SI_PREFIX + """(s|seconds|Seconds)"""))
+    capacitance_syntax = Schema(Regex(SI_PREFIX + """(f|F|farads|Farads)"""))
+    resistance_syntax = Schema(Regex(SI_PREFIX + """(Ω|ohm|ohms|Ohm|Ohms)"""))
+    power_syntax = Schema(Regex(SI_PREFIX + """(w|W|watts|Watts)"""))
+    energy_syntax = Schema(Regex(SI_PREFIX + """(j|J|joules|Joules)"""))
+
     cell_syntax = Schema({
         Literal(
             "netlist",
@@ -27,9 +55,13 @@ class ConfigFile:
             description="A list of paths to the spice models for transistors used in this \
                             cell's netlist. If omitted, CharLib assumes each cell has no \
                             dependencies. \n \
-                            * Using the syntax ``path/to/file`` will result in ``.include path/to/file`` in SPICE simulations. \n \
-                            * Using the syntax ``path/to/dir`` will allow CharLib to search the directory for subcircuits used in a particular cell and include them using ``.include path/to/dir/file``.\n \
-                            * Using the syntax ``path/to/file section`` will result in ``.lib path/to/file section`` in SPICE simulations."
+                            * Using the syntax ``path/to/file`` will result in \
+                            ``.include path/to/file`` in SPICE simulations. \n \
+                            * Using the syntax ``path/to/dir`` will allow CharLib to search \
+                              the directory for subcircuits used in a particular cell and \
+                              include them using ``.include path/to/dir/file``.\n \
+                            * Using the syntax ``path/to/file section`` will result in \
+                              ``.lib path/to/file section`` in SPICE simulations."
         ) : [str],
 
         Literal(
@@ -45,22 +77,26 @@ class ConfigFile:
 
         Literal(
             "functions",
-            description="A list of verilog functions describing each output as logical function of inputs. Shall be in the same order as ``outputs``"
+            description="A list of verilog functions describing each output as logical \
+                         function of inputs. Shall be in the same order as ``outputs``"
         ) : [str],
 
         Literal(
                 "slews",
-                description="A list of input pin slew rates to characterize. Unit is specified by ``settings.units.time``."
+                description="A list of input pin slew rates to characterize. \
+                             Unit is specified by ``settings.units.time``."
         ) : [Or(float, int)],
 
         Literal(
             "loads",
-            description="A list of output capacitive loads to characterize. Unit is specified by ``settings.units.capacitive_load``."
+            description="A list of output capacitive loads to characterize. \
+                         Unit is specified by ``settings.units.capacitive_load``."
         ) : [number_syntax],
 
         Literal(
             "simulation_timestep",
-            description="The simulation timestep. Relative value to ``settings.units.time``."
+            description="The simulation timestep. The unit is specified by \
+                         ``settings.units.time``."
         ) : number_syntax,
 
         Optional(
@@ -81,8 +117,10 @@ class ConfigFile:
         Optional(
             Literal(
                 "clock",
-                description="""The clock pin name and edge direction. The format is: ``<edge_direction> <clock_pin_name>``, """
-                            """where ``edge_direction`` can be one of: ``posedge`` or ``negedge``. E.g. ``posedge CLK`` or ``negedge CKB``."""
+                description="""The clock pin name and edge direction. \
+                               The format is: ``<edge_direction> <clock_pin_name>``, """
+                            """where ``edge_direction`` can be one of: ``posedge`` or ``negedge``. \
+                               E.g. ``posedge CLK`` or ``negedge CKB``."""
             )
         ) : Regex("^(posedge|negedge) [a-zA-Z0-9_]+"),
 
@@ -90,7 +128,8 @@ class ConfigFile:
             Literal(
                 "flops",
                 description="""A list of storage element names. """
-                            """These are the names of flip-flops that Charlib puts under ``ff`` keyword in the generated liberty file"""
+                            """These are the names of flip-flops that Charlib puts under \
+                               ``ff`` keyword in the generated liberty file"""
             )
         ) : [str],
 
@@ -112,9 +151,11 @@ class ConfigFile:
             Literal(
                 "set",
                 description="""The asynchronous set pin name, and edge direction. """
-                            """For sequential cells only. If omitted, CharLib assumes the cell does not have a set pin."""
-                            """The format is ``<edge_direction> <pin_name>``, where ``edge_direction`` can be one of: """
-                            """``posedge`` or ``negedge``. E.g. ``negedge AS`` defines active low set pin."""
+                            """For sequential cells only. If omitted, CharLib assumes the cell """
+                            """does not have a set pin. """
+                            """The format is ``<edge_direction> <pin_name>``, where """
+                            """``edge_direction`` can be one of: ``posedge`` or ``negedge``. """
+                            """E.g. ``negedge AS`` defines active low set pin."""
             )
         ) : Regex("^(posedge|negedge) [a-zA-Z0-9_]+"),
 
@@ -122,29 +163,37 @@ class ConfigFile:
             Literal(
                 "reset",
                 description="""The asynchronous reset pin name, and edge direction. """
-                            """For sequential cells only. If omitted, CharLib assumes the cell does not have a reset pin."""
-                            """The format is ``<edge_direction> <pin_name>``. Where ``edge_direction`` can be one of: """
-                            """``posedge`` or ``negedge``. E.g. ``posedge AR`` defines active high reset pin."""
+                            """For sequential cells only. If omitted, CharLib assumes the cell """
+                            """does not have a reset pin. """
+                            """The format is ``<edge_direction> <pin_name>``. Where """
+                            """``edge_direction`` can be one of: ``posedge`` or ``negedge``. """
+                            """E.g. ``posedge AR`` defines active high reset pin."""
             )
         ) : Regex("^(posedge|negedge) [a-zA-Z0-9_]+"),
 
         Optional(
             Literal(
                 "clock_skew",
-                description="The slew rate to use for the clock signal in simulation. For sequential cells only. In units specified by ``settings.units.time``."
+                description="The slew rate to use for the clock signal in simulation. \
+                             For sequential cells only. \
+                             Unit is specified by ``settings.units.time``."
             )
         ) : number_syntax,
 
         Optional(
             Literal(
                 "plots",
-                description="A string, or list of strings specifying which plots to show for this cell."
+                description="A string, or list of strings specifying which plots to show \
+                             for this cell."
             )
         ) : Or("all","none",[Or("io", "delay", "energy")])
 
-    }, description="""Any of keys under ``cells`` can be omitted from cell entries by instead specifying them in the ``settings.cell_defaults``. """
-                   """CharLib automatically merges any key-value pairs from ``settings.cell_defaults`` to each cell entry when characterizing the cell.\n"""
-                   """If a key appears in a cell's entry, and in ``cell_defaults``, the value in the cell entry overrides the value from ``cell_defaults``. """)
+    }, description="""Any of keys under ``cells`` can be omitted from cell entries by instead """
+                   """specifying them in the ``settings.cell_defaults``. CharLib automatically """
+                   """merges any key-value pairs from ``settings.cell_defaults`` to each cell """
+                   """entry when characterizing the cell.\n If a key appears in a cell's entry, """
+                   """and in ``cell_defaults``, the value in the cell entry overrides the value """
+                   """from ``cell_defaults``. """)
 
     settings_syntax = Schema({
         Optional(
@@ -167,56 +216,49 @@ class ConfigFile:
                         "time",
                         description="The unit of time."
                     ),
-                    default="ns") :
-                    Or("fs", "ps", "ns", "us", "ms"),
+                    default="ns") : time_syntax,
 
                 Optional(
                     Literal(
                         "voltage",
                         description="The unit of electrical voltage."
                     ),
-                    default="V") :
-                    Or("mV", "V"),
+                    default="V") : voltage_syntax,
 
                 Optional(
                     Literal(
                         "current",
                         description="The unit of electrical current"
                     ),
-                    default="uA") :
-                    Or("pA", "nA", "uA", "mA"),
+                    default="uA") : current_syntax,
 
                 Optional(
                     Literal(
                         "capacitive_load",
                         description="The unit of capacitance"
                     ),
-                    default="pF") :
-                    Or("fF", "pF", "nF", "uF"),
+                    default="pF") : capacitance_syntax,
 
                 Optional(
                     Literal(
                         "pulling_resistance",
                         description="The unit of resistance"
                     ),
-                    default="Ohm") :
-                    Or("mOhm", "Ohm", "kOhm"),
+                    default="Ohm") : resistance_syntax,
 
                 Optional(
                     Literal(
                         "leakage_power",
                         description="The unit of power"
                     ),
-                    default="nW"):
-                    Or("pW", "nW", "uW"),
+                    default="nW"): power_syntax,
 
                 Optional(
                     Literal(
                         "energy",
                         description="The unit of energy",
                     ),
-                    default="fJ"):
-                    Or("aJ", "fJ", "nJ")
+                    default="fJ"): energy_syntax
             },
 
         Optional("named_nodes") : {
@@ -346,7 +388,8 @@ class ConfigFile:
             Literal(
                 "results_dir",
                 description="The directory where Charlib exports characterization results.\
-                             If omitted, CharLib creates a ``results`` directory in the current folder."
+                             If omitted, CharLib creates a ``results`` directory in the \
+                             current folder."
             ),
             default="results"
         ) : str,
@@ -362,7 +405,8 @@ class ConfigFile:
         Optional(
             Literal(
                 "debug_dir",
-                description="The directory where simulation SPICE files are stored if ``debug`` keyword is set to ``True``"
+                description="The directory where simulation SPICE files are stored if ``debug`` \
+                             keyword is set to ``True``"
             ),
             default="debug"
         ) : str,
@@ -370,7 +414,8 @@ class ConfigFile:
         Optional(
             Literal(
                 "quiet",
-                description="Minimize the number of messages and data Charlib displays to the console."
+                description="Minimize the number of messages and data Charlib displays to the \
+                             console."
             ),
             default=False
         ) : bool,
@@ -378,7 +423,8 @@ class ConfigFile:
         Optional(
             Literal(
                 "omit_on_failure",
-                description="Specifies whether to terminate if a cell fails to characterize (``False``), or continue with next cells (``True``)."
+                description="Specifies whether to terminate if a cell fails to characterize \
+                             (``False``), or continue with next cells (``True``)."
             ),
             default=False
         ) : bool,
@@ -388,7 +434,7 @@ class ConfigFile:
                 "cell_defaults",
                 description="Default values to use for all cells. \
                              See ``cells`` keyword for more information. \
-                            May contain any key-value pair valid for a ``cell`` entry."
+                            May contain any key-value pair valid for a :ref:`04_syntax_reference_cell.json#/` entry."
             )
         # Do not pass cell_syntax here to:
         #   - avoid duplicity in documentation
