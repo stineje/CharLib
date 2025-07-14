@@ -1,34 +1,42 @@
-[tool.poetry]
+[project]
 name = "charlib"
-version = "1.0.1"
+version = "1.1.0"
 description = "An open-source standard cell library characterizer"
-repository = "https://github.com/stineje/CharLib"
-authors = [
-	"Marcus Mellor <infinitymdm@gmail.com>",
-	"James Stine <james.stine@okstate.edu",
-]
 license = "GPL-2.0"
 readme = "README.md"
-packages = [{include = "charlib"}]
+requires-python = ">=3.11"
+authors = [
+    {name = "Marcus Mellor", email = "marcus@infinitymdm.dev"},
+    {name = "James Stine",   email = "james.stine@okstate.edu"},
+]
+keywords = [ "VLSI", "EDA" ]
+classifiers = [ "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)" ]
+dependencies = [
+    "liberty-parser>=0.0.23",
+    "pyyaml>=6.0.1",
+    "numpy>=2.0.0",
+    "pyspice @ git+https://github.com/infinitymdm/PySpice.git",
+    "matplotlib>=3.8.2",
+    "schema>=0.7.7",
+    "pytest>=8.4.1",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.11"
-pyspice = {git = "https://github.com/infinitymdm/PySpice.git"}
-liberty-parser = ">=0.0.23"
-pyyaml = ">=6.0.1"
-numpy = ">=2.0.0"
-matplotlib = "^3.8.2"
-Sphinx = "^8.2.3"
-sphinx-rtd-theme = "^3.0.2"
-pytest = "^8.4.1"
-schema = "^0.7.7"
-jsonschema2rst = "^0.1.7"
+[project.optional-dependencies]
+docs = [
+    "Sphinx>=8.2.3",
+    "sphinx-rtd-theme>=3.0.2",
+    "jsonschema2rst>=0.1.7",
+]
 
-[tool.poetry.scripts]
+[project.urls]
+repository = "https://github.com/stineje/CharLib"
+documentation = "https://stineje.github.io/CharLib/"
+
+[project.scripts]
 charlib = "charlib.characterizer.run:main"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
