@@ -1,4 +1,4 @@
-name: Documenation build
+name: Documentation build
 run-name: ${{ github.actor }} is building CharLib documentation
 
 on: [push, pull_request]
@@ -15,9 +15,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: "Install PySpice"
-        run: |
-          pip install git+https://github.com/infinitymdm/PySpice
 
       - name: "Install CharLib"
         run: |
