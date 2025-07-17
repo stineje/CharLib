@@ -1,36 +1,13 @@
 settings:
     lib_name:           OSU350
-    multithreaded:      no
     units:
-        time:               ns
-        voltage:            V
-        current:            uA
         pulling_resistance: kOhm
-        leakage_power:      nW
-        capacitive_load:    pF
-        energy:             fJ
-    named_nodes:
-        vdd:
-            name:       VDD
-            voltage:    3.3
-        vss:
-            name:       GND
-            voltage:    0
-        pwell:
-            name:       VPW
-            voltage:    0
-        nwell:
-            name:       VNW
-            voltage:    3.3
     cell_defaults:
-        models: [test/osu350/model.sp]
-        slews: [0.015, 0.04, 0.08, 0.2, 0.4]
-        # loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-        # slews: [0.06, 0.3, 0.6]
+        models: [test/pdks/osu350/model.sp]
+        slews: [0.06, 0.3, 0.6]
         loads: [0.06, 0.18, 0.42, 0.6, 1.2]
         setup_time_range: [0.001, 1]
         hold_time_range: [0.001, 1]
-        # plots: [io]
 cells:
     AND2X1:
         netlist:    osu350_spice_temp/AND2X1.sp
@@ -86,36 +63,36 @@ cells:
         inputs:     [A]
         outputs:    ['Y']
         functions:  [Y=A]
-    # DFFNEGX1:
-        # netlist:    osu350_spice_temp/DFFNEGX1.sp
-        # area:       384
-        # clock:      negedge CLK
-        # inputs:     [D]
-        # outputs:    [Q]
-        # flops:      [DS0000,P0002]
-        # functions:  [Q<=D]
-        # setup_time_range: [0.1, 10]
-        # hold_time_range: [0.1, 10]
-    # DFFPOSX1:
-        # netlist:    osu350_spice_temp/DFFPOSX1.sp
-        # area:       384
-        # clock:      posedge CLK
-        # inputs:     [D]
-        # outputs:    [Q]
-        # flops:      [DS0000,P0002]
-        # functions:  [Q<=D]
-        # setup_time_range: [0.1, 10]
-        # hold_time_range: [0.1, 10]
-    # DFFSR:
-    #     netlist:    osu350_spice_temp/DFFSR.sp
-    #     area:       704
-    #     clock:      posedge CLK
-    #     set:        negedge S
-    #     reset:      negedge R
-    #     inputs:     [D]
-    #     outputs:    [Q]
-    #     flops:      [P0002,P0003]
-    #     functions:  [Q<=D]
+    DFFNEGX1:
+        netlist:    osu350_spice_temp/DFFNEGX1.sp
+        area:       384
+        clock:      negedge CLK
+        inputs:     [D]
+        outputs:    [Q]
+        flops:      [DS0000,P0002]
+        functions:  [Q<=D]
+        setup_time_range: [0.1, 10]
+        hold_time_range: [0.1, 10]
+    DFFPOSX1:
+        netlist:    osu350_spice_temp/DFFPOSX1.sp
+        area:       384
+        clock:      posedge CLK
+        inputs:     [D]
+        outputs:    [Q]
+        flops:      [DS0000,P0002]
+        functions:  [Q<=D]
+        setup_time_range: [0.1, 10]
+        hold_time_range: [0.1, 10]
+    DFFSR:
+        netlist:    osu350_spice_temp/DFFSR.sp
+        area:       704
+        clock:      posedge CLK
+        set:        negedge S
+        reset:      negedge R
+        inputs:     [D]
+        outputs:    [Q]
+        flops:      [P0002,P0003]
+        functions:  [Q<=D]
     FAX1:
         netlist:    osu350_spice_temp/FAX1.sp
         area:       480

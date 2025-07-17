@@ -4,11 +4,11 @@ Installation
 
 There are two approaches to installing Charlib:
 
-- Install from PyPi using pip
-- Install from repository
+- :ref:`install_pip`
+- :ref:`install_repo`
 
-When installing by either means, we recommend creating a python virtual environment for
-the installation:
+When installing by either means, we recommend creating a python virtual environment for the
+installation. This helps separate CharLib and its dependencies from other software on your system.
 
 .. code-block:: SHELL
 
@@ -17,7 +17,7 @@ the installation:
 
 .. note::
     If you want to contribute to Charlib, you should fork the repository and install your fork by
-    following the :ref:`_install_repo` steps.
+    following the instructions under :ref:`install_repo`.
 
 ====================================================================================================
 Dependencies
@@ -35,39 +35,42 @@ simulator you need.
 - Xyce 7.8.0 or newer
 
 .. _install_pip:
+
 ====================================================================================================
-Install from PyPi using pip
+Install using pip
 ====================================================================================================
-To install from Python package manager:
+This is the recommended method to install CharLib for normal use.
+
+..  For now we're recommending installing from the latest git master rather than a particular
+    release. This will probably change with the next release.
+
+Execute the following to install CharLib:
 
 .. code-block:: SHELL
 
-    # Install our customized version of PySpice
-    pip install git+https://github.com/infinitymdm/PySpice
-
-    # Install CharLib
-    pip install charlib
+    python -m pip install git+https://github.com/stineje/CharLib
 
 .. note::
-    If you have any trouble installing CharLib, please `open a new issue <https://github.com/stineje/CharLib/issues/new?template=problem-report.md>`_
+    If you have any trouble installing CharLib, please
+    `open a new issue <https://github.com/stineje/CharLib/issues/new?template=problem-report.md>`_.
 
 .. _install_repo:
+
 ====================================================================================================
-Install from repository
+Install from a cloned repository
 ====================================================================================================
-To install from repository, first clone CharLib:
+You should use this method to install CharLib if you want to make tweaks to its code or contribute
+to its development.
+
+Begin by using git to clone CharLib:
 
 .. code-block:: SHELL
 
-    git clone https://github.com/stineje/CharLib
-    cd CharLib
+    git clone https://github.com/stineje/CharLib # If you plan to contribute, clone your fork instead
 
 and then install the cloned repository:
 
 .. code-block:: SHELL
 
-    # Install our customized version of PySpice
-    pip install git+https://github.com/infinitymdm/PySpice
-
-    # Install CharLib
+    cd CharLib
     pip install -e .

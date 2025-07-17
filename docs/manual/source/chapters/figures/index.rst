@@ -1,0 +1,4 @@
+figures
+=======
+.. toctree::
+	:titlesonly:
