@@ -93,10 +93,13 @@ class ConfigFile:
                          Unit is specified by ``settings.units.capacitive_load``."
         ) : [number_syntax],
 
-        Literal(
-            "simulation_timestep",
-            description="The simulation timestep. The unit is specified by \
-                         ``settings.units.time``."
+        Optional(
+            Literal(
+                "simulation_timestep",
+                description="The simulation timestep. The unit is specified by \
+                            ``settings.units.time``."
+            ),
+            default=1e-3 # FIXME: This should be 1/4*min(slews). Not sure how to do that here.
         ) : number_syntax,
 
         Optional(

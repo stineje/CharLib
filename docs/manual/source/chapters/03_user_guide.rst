@@ -19,10 +19,12 @@ To run characterization, you must provide:
 2. Analog transistor models for your PDK
 3. YAML configuration file
 
-The netlist and transistor models need to be compatible with the syntax of the analog simulator
-CharLib uses.
+Typically the first two items are provided by your foundry as part of the PDK. The third item tells
+CharLib how to process the SPICE netlists and transistor models.
 
-See :ref:`_yaml_examples` for examples of YAML configuration file.
+.. note::
+
+See :ref:`yaml_examples` for more information on configuring CharLib.
 
 ====================================================================================================
 Invoking CharLib
@@ -74,7 +76,7 @@ To compare two Liberty files with CharLib, execute:
 where:
 
 - ``benchmark_lib_file`` a "golden" reference liberty file to compare against.
-- ``compared_lib_file`` a liberty file, typically produced by CharLib, to be compared against the
+- ``compared_lib_file`` a liberty file (typically produced by CharLib) to be compared against the
     benchmark file.
 
 .. _yaml_examples:
@@ -92,6 +94,7 @@ The example below is a configuration file for characterization of a single ``INV
     settings:
         lib_name:           test_OSU350
         units:
+            # Specify all units for clarity, even though only resistance differs from the default
             time:               ns
             voltage:            V
             current:            uA
@@ -99,19 +102,6 @@ The example below is a configuration file for characterization of a single ``INV
             leakage_power:      nW
             capacitive_load:    pF
             energy:             fJ
-        named_nodes:
-            vdd:
-                name:       VDD
-                voltage:    3.3
-            vss:
-                name:       GND
-                voltage:    0
-            pwell:
-                name:       VPW
-                voltage:    0
-            nwell:
-                name:       VNW
-                voltage:    3.3
     cells:
         INVX1:
             netlist:    osu350_spice_temp/INVX1.sp
@@ -127,41 +117,21 @@ The example below is a configuration file for characterization of a single ``INV
 Example 2: Characterizing Multiple OSU350 Combinational Cells
 ----------------------------------------------------------------------------------------------------
 
-The YAML below configures CharLib to perform characterization of full adder (``FAX1``) and
-half adder (``HAX1``) cells.
-
-.. note:: Several cell parameters are moved into ``settings.cell_defaults`` to avoid repeating them for each cell.
+The YAML below configures CharLib to perform characterization of full adder (``FAX1``) and half
+adder (``HAX1``) cells. Notice that several cell parameters are moved into
+``settings.cell_defaults`` to avoid repeating them for each cell.
 
 .. code-block:: YAML
 
     settings:
         lib_name:           test_OSU350
         units:
-            time:               ns
-            voltage:            V
-            current:            uA
-            pulling_resistance: kOhm
-            leakage_power:      nW
-            capacitive_load:    pF
-            energy:             fJ
-        named_nodes:
-            vdd:
-                name:       VDD
-                voltage:    3.3
-            vss:
-                name:       GND
-                voltage:    0
-            pwell:
-                name:       VPW
-                voltage:    0
-            nwell:
-                name:       VNW
-                voltage:    3.3
+            pulling_resistance: kOhm # This is the only unit that differs from the defaults
         cell_defaults:
+            # The key-value pairs below get copied to all cells
             models: [test/osu350/model.sp]
             slews: [0.015, 0.04, 0.08, 0.2, 0.4]
             loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-
     cells:
         FAX1:
             netlist:    osu350_spice_temp/FAX1.sp
@@ -179,46 +149,27 @@ half adder (``HAX1``) cells.
             functions:
                 - YC=A&B
                 - YS=A^B
+            loads: [0.012, 0.036, 0.06] # This overrides the value from cell_defaults
 
 Example 3: OSU350 DFFSR Characterization
 ----------------------------------------------------------------------------------------------------
 
-.. This likely needs to be updated!
 
-The example below is a config file for positive-edge triggered flip-flop (``DFFSR``) with asynchronous
-set and reset.
+The example below is a config file for positive-edge triggered flip-flop (``DFFSR``) with
+asynchronous set and reset.
 
 .. code-block:: YAML
 
     settings:
         lib_name:           test_OSU350
-            units:
-            time:               ns
-            voltage:            V
-            current:            uA
+        units:
             pulling_resistance: kOhm
-            leakage_power:      nW
-            capacitive_load:    pF
-            energy:             fJ
-        named_nodes:
-            vdd:
-                name:       VDD
-                voltage:    3.3
-            vss:
-                name:       GND
-                voltage:    0
-            pwell:
-                name:       VPW
-                voltage:    0
-            nwell:
-                name:       VNW
-                voltage:    3.3
         cell_defaults:
             models: [test/osu350/model.sp]
             slews: [0.015, 0.04, 0.08, 0.2, 0.4]
             loads: [0.06, 0.18, 0.42, 0.6, 1.2]
-    	setup_time_range: [0.001, 1]
-    	hold_time_range: [0.001, 1]
+            setup_time_range: [0.001, 1]
+            hold_time_range: [0.001, 1]
     cells:
         DFFSR:
             netlist:    osu350_spice_temp/DFFSR.sp
@@ -241,32 +192,16 @@ The example below is a configuration file for characterization of multiple cells
 
     settings:
         lib_name:           test_GF180
-        omit_on_failure:      True
+        omit_on_failure:    yes # If a cell fails, CharLib will exclude it from the results & continue with the other cells
         units:
-            time:               ns
-            voltage:            V
-            current:            uA
             pulling_resistance: kOhm
-            leakage_power:      nW
-            capacitive_load:    pF
-            energy:             fJ
         named_nodes:
-            vdd:
-                name:       VDD
-                voltage:    3.3
             vss:
-                name:       VSS
+                name:       VSS # GF180 uses VSS instead of GND, so we have to override the default
                 voltage:    0
-            pwell:
-                name:       VPW
-                voltage:    0
-            nwell:
-                name:       VNW
-                voltage:    3.3
         cell_defaults:
             models:
-                # This syntax tells CharLib to use the '.lib file section' syntax for this model
-                - gf180_temp/models/sm141064.ngspice typical
+                - gf180_temp/models/sm141064.ngspice typical # This syntax tells CharLib to use the '.lib file section' syntax for this model
                 - gf180_temp/models/design.ngspice
             slews:  [0.015, 0.08, 0.4]
             loads:  [0.06, 1.2]
