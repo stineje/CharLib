@@ -16,3 +16,4 @@ venv
 #*.lib
 *.txt
 *.v
+docs/manual/source/chapters/04_syntax_reference_*.rst
