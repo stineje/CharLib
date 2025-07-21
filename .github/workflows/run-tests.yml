@@ -22,4 +22,23 @@ jobs:
         run: |
           pytest
 
+  Characterize-GF180-inv:
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: "Install CharLib"
+        run: |
+          pip install -e .[docs]
+
+      - name: "Download gf180mcu_osu cell SPICE models"
+        run: |
+          ./test/pdks/gf180/fetch_spice.sh
+
+      - name: "Characterize (using test/pdks/gf180.yml)"
+        run: |
+          charlib run test/pdks/gf180 -f inv
