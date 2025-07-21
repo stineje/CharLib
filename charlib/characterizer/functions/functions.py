@@ -48,7 +48,7 @@ class Function:
         operands = self.operands
         if not len(inputs) == len(operands):
             raise ValueError(f'Expected {len(operands)} inputs for function {self.expression}, got {len(inputs)}')
-        f = eval(f'lambda {",".join(operands)}: int({self.expression.replace("~", " not ")})')
+        f = eval(f'lambda {",".join(operands)}: int({self.expression.replace("~", " not ").replace("&", " and ").replace("|", " or ")})')
         return f(**inputs)
 
     def truth_table(self) -> list:
