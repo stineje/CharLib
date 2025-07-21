@@ -17,6 +17,7 @@ class Cell:
         self._name = name.upper()
         self.area = area
         self._attrs = attrs
+        self.pg_pins = []
         self.flops = []
         self.pins = {}
 
@@ -34,12 +35,18 @@ class Cell:
         """Return self[key]. Searches pins by name."""
         return self.pins[key.upper()]
 
+    def add_pg_pin(self, pg_pin_name: str, voltage_name: str, pg_type: str, **attrs):
+        """Add a new power/ground pin to this cell's list of pg_pins"""
+        pg_pin = PgPin(pg_pin_name, voltage_name, pg_type)
+        [setattr(pg_pin, attr, value) for attr, value in attrs]
+        self.pg_pins.append(pg_pin)
+
+
     def add_ff(self, in_node: str, out_node: str, next_state: str, clock: str, **attrs):
         """Add a new flop to this cell's list of flops"""
         ff = Flop(in_node, out_node, next_state, clock)
-        for attr, value in attrs:
-            setattr(ff, attr, value)
-        self.flops.append()
+        [setattr(ff, attr, value) for attr, value in attrs]
+        self.flops.append(ff)
 
     def add_pin(self, name: str, direction=None, role='io'):
         """Add a new pin to this cell's list of pins"""
@@ -78,6 +85,9 @@ class Cell:
             lib_str.append('  pad_cell : true;')
         for key, value in self.attributes:
             lib_str.append(f'  {key} : {value};')
+        for pg_pin in self.pg_pins:
+            for line in str(pg_pin).split('\n'):
+                lib_str.append(f'  {line}')
         for flop in self.flops:
             for line in str(flop).split('\n'):
                 lib_str.append(f'  {line}')
@@ -86,6 +96,86 @@ class Cell:
                 lib_str.append(f'  {line}')
         lib_str.append('}')
         return '\n'.join(lib_str)
+
+
+class PgPin:
+    """A single power or ground pin from a standard cell"""
+
+    def __init__(self, pg_pin_name: str, voltage_name: str, pg_type: str):
+        assert(pg_type in self.valid_pg_types)
+        self._pg_pin_name = pg_pin_name
+        self._voltage_name = voltage_name
+        self._pg_type = pg_type
+        self.user_pg_type = None
+        self._physical_connection = None
+        self.related_bias_pin = None
+
+    @property
+    def pg_pin_name(self):
+        return self._pg_pin_name
+
+    @property
+    def voltage_name(self):
+        return self._voltage_name
+
+    @property
+    def valid_pg_types(self):
+        return (
+            'primary_power',
+            'primary_ground',
+            'backup_power',
+            'backup_ground,',
+            'internal_power',
+            'internal_ground',
+            'pwell',
+            'nwell',
+            'deepnwell',
+            'deeppwell'
+        )
+
+    @property
+    def pg_type(self):
+        return self._pg_type
+
+    @pg_type.setter
+    def pg_type(self, value):
+        try:
+            assert(value in self.valid_pg_types)
+        except AssertionError:
+            raise ValueError(f'pg_type must be one of ({", ".join(self.valid_pg_types)}), not {value}')
+        self._pg_type = value
+
+    @property
+    def valid_physical_connections(self):
+        return ('device_layer', 'routing_pin')
+
+    @property
+    def physical_connection(self):
+        return self._physical_connection
+
+    @physical_connection.setter
+    def physical_connection(self, value):
+        try:
+            assert(value in self.valid_physical_connections)
+        except AssertionError:
+            raise ValueError(f'physical_connection must be one of ({", ".join(self.valid_physical_connections)}), not {value}')
+        self._physical_connection = value
+
+    def __str__(self) -> str:
+        """Return str(self)"""
+        pg_pin_str = [
+            f'pg_pin ({self.pg_pin_name}) {{',
+            f'  voltage_name : {self.voltage_name};',
+            f'  pg_type : {self.pg_type};',
+        ]
+        if self.user_pg_type:
+            pg_pin_str.append(f'  user_pg_type : {self.user_pg_type};')
+        if self.physical_connection:
+            pg_pin_str.append(f'  physical_connection : {self.physical_connection}')
+        if self.related_bias_pin:
+            pg_pin_str.append(f'  related_bias_pin : {self.related_bias_pin}')
+        pg_pin_str.append('}')
+        return '\n'.join(pg_pin_str)
 
 
 class Flop:
@@ -184,7 +274,7 @@ class Pin:
 
     def __eq__(self, other) -> bool:
         """Return `True` if name, role, and direction match.
-        
+
         :param other: A pin to compare against self"""
         return self.name == other.name \
             and self.role == other.role \
@@ -517,4 +607,4 @@ class Table:
             template_str.append(f'  index_2 ("{", ".join(self.index_2)}");')
         template_str.append('}')
         return '\n'.join(template_str)
-        
+

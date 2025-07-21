@@ -300,6 +300,13 @@ class TestManager:
 
         return capacitance
 
+    def add_pg_pins(self, vdd, vss, pwell, nwell):
+        """Annotate cell liberty file with pg_pins"""
+        self._cell.add_pg_pin(vdd.name, vdd.name, 'primary_power')
+        self._cell.add_pg_pin(vss.name, vss.name, 'primary_ground')
+        self._cell.add_pg_pin(pwell.name, pwell.name, 'pwell')
+        self._cell.add_pg_pin(nwell.name, nwell.name, 'nwell')
+
 
 class CombinationalTestManager(TestManager):
     """A combinational cell test manager"""
@@ -310,6 +317,10 @@ class CombinationalTestManager(TestManager):
         for pin in self.in_ports:
             input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
+
+        # FIXME: pg_pins should not be added here, but this is the first place we have access to
+        # the CharacterizationSettings after Cell init
+        self.add_pg_pins(settings.vdd, settings.vss, settings.pwell, settings.nwell)
 
         # Run delay simulation for all test vectors of each function
         for out_port in self.out_ports:
@@ -657,6 +668,10 @@ class SequentialTestManager(TestManager):
 
         # Save test results to cell
         normalize_t_units = lambda value: (value @ u_s).convert(settings.units.time.prefixed_unit).value
+
+        # FIXME: pg_pins should not be added here, but this is the first place we have access to
+        # the CharacterizationSettings after Cell init
+        self.add_pg_pins(settings.vdd, settings.vss, settings.pwell, settings.nwell)
 
         for out_port in self.out_ports:
             unsorted_harnesses = []
