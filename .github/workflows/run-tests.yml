@@ -31,6 +31,10 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: "Install ngspice"
+        run: |
+          sudo apt update && sudo apt install -y libngspice0-dev
+
       - name: "Install CharLib"
         run: |
           pip install -e .[docs]
@@ -42,3 +46,9 @@ jobs:
       - name: "Characterize (using test/pdks/gf180.yml)"
         run: |
           charlib run test/pdks/gf180 -f inv
+
+      - name: "Record characterization results"
+        uses: actions/upload-artifact@v4
+        with:
+          name: characterization-results
+          path: results/GF180.lib
