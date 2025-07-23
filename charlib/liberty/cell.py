@@ -289,11 +289,12 @@ class Pin:
         lib_str.append(f'  direction : {self.direction};')
         if self.is_pad() and self.drive_current:
             lib_str.append(f'  drive_current : {self.drive_current:7f};')
-        lib_str.extend([
-            f'  capacitance : {self.capacitance:7f};',
-            f'  rise_capacitance : {self.rise_capacitance:7f};',
-            f'  fall_capacitance : {self.fall_capacitance:7f};',
-        ])
+        if self.capacitance:
+            lib_str.append(f'  capacitance : {self.capacitance:7f};')
+        if self.rise_capacitance:
+            lib_str.append(f'  rise_capacitance : {self.rise_capacitance:7f};')
+        if self.fall_capacitance:
+            lib_str.append(f'  fall_capacitance : {self.fall_capacitance:7f};')
         if self.is_clk():
             lib_str.append('  clock : true;')
         if self.max_capacitance:
