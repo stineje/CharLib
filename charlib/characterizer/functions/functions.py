@@ -41,7 +41,7 @@ class Function:
     @property
     def operands(self) -> list:
         """Return a list of operand names"""
-        return list(set(re.findall(r'(\w+)', self.expression)))
+        return sorted(set(re.findall(r'(\w+)', self.expression)))
 
     def eval(self, **inputs) -> bool:
         """Evaluate this function for the given inputs"""
