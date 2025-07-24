@@ -102,7 +102,7 @@ class PgPin:
     """A single power or ground pin from a standard cell"""
 
     def __init__(self, pg_pin_name: str, voltage_name: str, pg_type: str):
-        assert(pg_type in self.valid_pg_types)
+        assert(pg_type in self.valid_pg_types())
         self._pg_pin_name = pg_pin_name
         self._voltage_name = voltage_name
         self._pg_type = pg_type
@@ -111,15 +111,15 @@ class PgPin:
         self.related_bias_pin = None
 
     @property
-    def pg_pin_name(self):
+    def pg_pin_name(self) -> str:
         return self._pg_pin_name
 
     @property
-    def voltage_name(self):
+    def voltage_name(self) -> str:
         return self._voltage_name
 
-    @property
-    def valid_pg_types(self):
+    @classmethod
+    def valid_pg_types(cls) -> tuple:
         return (
             'primary_power',
             'primary_ground',
@@ -134,29 +134,29 @@ class PgPin:
         )
 
     @property
-    def pg_type(self):
+    def pg_type(self) -> str:
         return self._pg_type
 
     @pg_type.setter
-    def pg_type(self, value):
+    def pg_type(self, value: str):
         try:
-            assert(value in self.valid_pg_types)
+            assert(value in self.valid_pg_types())
         except AssertionError:
             raise ValueError(f'pg_type must be one of ({", ".join(self.valid_pg_types)}), not {value}')
         self._pg_type = value
 
-    @property
-    def valid_physical_connections(self):
+    @classmethod
+    def valid_physical_connections(cls) -> tuple:
         return ('device_layer', 'routing_pin')
 
     @property
-    def physical_connection(self):
+    def physical_connection(self) -> str:
         return self._physical_connection
 
     @physical_connection.setter
-    def physical_connection(self, value):
+    def physical_connection(self, value: str):
         try:
-            assert(value in self.valid_physical_connections)
+            assert(value in self.valid_physical_connections())
         except AssertionError:
             raise ValueError(f'physical_connection must be one of ({", ".join(self.valid_physical_connections)}), not {value}')
         self._physical_connection = value
