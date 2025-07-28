@@ -34,13 +34,13 @@ class Token:
             self._type = T_GROUP
         elif value == ')':
             self._type = T_GROUP_END
-        elif value == '&':
+        elif value == '&' or value == '*':
             self._type = T_AND
         elif value == '^':
             self._type = T_XOR
         elif value == '~^':
             self._type = T_XNOR
-        elif value == '|':
+        elif value == '|' or value == '+':
             self._type = T_OR
         else:
             self._type = T_OTHER
@@ -170,7 +170,7 @@ def _lex(expression: str) -> list:
                     tokens.append(Token(temp))
                     temp = ''
                 tokens.append(Token(c))
-        elif c in ['!', '(', ')', '|', '&']:
+        elif c in ['!', '(', ')', '|', '&', '+', '*']:
             if temp:
                 tokens.append(Token(temp))
                 temp = ''
@@ -204,10 +204,10 @@ def _resolve_unates(syntax_tree: list, target: str):
     if op == '~':
         unate_l = -1
         unate_r = None
-    elif op == '&':
+    elif op == '&' or op == '*':
         unate_l = 1
         unate_r = 1
-    elif str(op) in ['|', '^', '~^']:
+    elif str(op) in ['|', '+', '^', '~^']:
         # can't determine these yet - have to check which side contains the target
         unate_l = 0
         unate_r = 0
