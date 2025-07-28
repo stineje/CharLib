@@ -5,7 +5,8 @@ from pathlib import Path
 
 from charlib.liberty.UnitsSettings import UnitsSettings
 from charlib.liberty.library import Library
-from charlib.characterizer.TestManager import TestManager, CombinationalTestManager, SequentialTestManager
+from charlib.characterizer.combinational.TestManager import CombinationalTestManager
+from charlib.characterizer.sequential.TestManager import SequentialTestManager
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""
