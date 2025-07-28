@@ -6,7 +6,7 @@ from PySpice import Circuit, Simulator
 from PySpice.Unit import *
 
 from charlib.characterizer.combinational.Harness import CombinationalHarness
-from charlib.characterizer.Harness import find_harness_by_arc
+from charlib.characterizer.Harness import filter_harnesses_by_ports, find_harness_by_arc
 from charlib.characterizer.TestManager import TestManager
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
 
