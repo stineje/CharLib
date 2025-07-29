@@ -840,6 +840,29 @@ class SequentialTestManager(TestManager):
         mshp = (1.4*(t_setup_min+t_setup_max)/2, (t_hold_min+t_hold_max)/2)
         return mshp
 
+    def binary_search_violation_boundary(values, works_fn):
+        """
+        Binary search to find the *lowest* index where the test value transitions from
+        failing (violation) to working (no violation).
+    
+        :param values: Sorted list of test values
+        :param works_fn: Function that returns True if value *works* (no violation), False if it violates
+        :return: Threshold value that is just enough to be safe
+        """
+        low = 0
+        high = len(values) - 1
+        result = None
+
+        while low <= high:
+            mid = (low + high) // 2
+            if works_fn(values[mid]):
+                result = values[mid]   # It's safe, try lower values
+                high = mid - 1
+            else:
+                low = mid + 1          # Still failing, go higher
+
+        return result    
+
     def _sweep_ts(self, settings, harness, t_slew, c_load, t_stabilizing, t_hold, title, debug_path):
         """Perform a binary search to find the minimum viable t_setup with the given t_hold"""
         t_step = self.sim_timestep * settings.units.time
