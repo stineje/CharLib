@@ -840,7 +840,7 @@ class SequentialTestManager(TestManager):
         mshp = (1.4*(t_setup_min+t_setup_max)/2, (t_hold_min+t_hold_max)/2)
         return mshp
 
-    def binary_search_violation_boundary(values, works_fn):
+    def _binary_search_violation_boundary(values, works_fn):
         """
         Binary search to find the *lowest* index where the test value transitions from
         failing (violation) to working (no violation).
