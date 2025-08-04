@@ -6,6 +6,7 @@ from PySpice import Circuit, Simulator
 from PySpice.Unit import *
 
 from charlib.characterizer.combinational.Harness import CombinationalHarness
+from charlib.characterizer.procedures.PinCapacitance import ac_sweep as measure_input_capacitance
 from charlib.characterizer.Harness import filter_harnesses_by_ports, find_harness_by_arc
 from charlib.characterizer.TestManager import TestManager
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
@@ -17,7 +18,7 @@ class CombinationalTestManager(TestManager):
         """Characterize a combinational cell"""
         # Measure input capacitance for all input pins
         for pin in self.in_ports:
-            input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
+            input_capacitance = measure_input_capacitance(self, settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
         # FIXME: pg_pins should not be added here, but this is the first place we have access to

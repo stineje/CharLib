@@ -7,6 +7,7 @@ from PySpice import Circuit, Simulator
 from PySpice.Unit import *
 
 from charlib.characterizer.sequential.Harness import SequentialHarness
+from charlib.characterizer.procedures.PinCapacitance import ac_sweep as measure_input_capacitance
 from charlib.characterizer.Harness import find_harness_by_arc
 from charlib.characterizer.TestManager import TestManager, _parse_triggered_pin, _flip_direction
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
@@ -124,6 +125,14 @@ class SequentialTestManager(TestManager):
 
     def characterize(self, settings):
         """Run Delay, Recovery & Removal characterization for a sequential cell"""
+
+        # IDEA: Refactor this into multiple distinct procedures:
+        # - measure_capacitance
+        # - measure_metastability_timings
+        # - measure_transient_timings
+        # Allow methods to be registered for each procedure so users can provide their own if
+        # desired. User procedures will have to generate their own harnesses & circuits.
+
         # Measure input capacitance for all input pins
         in_cap_pins = [*self.in_ports, self.clock]
         if self.set:
@@ -131,7 +140,7 @@ class SequentialTestManager(TestManager):
         if self.reset:
             in_cap_pins += [self.reset]
         for pin in in_cap_pins:
-            input_capacitance = self._run_input_capacitance(settings, pin.name) @ u_F
+            input_capacitance = measure_input_capacitance(self, settings, pin.name) @ u_F
             self.cell[pin.name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
         # Save test results to cell

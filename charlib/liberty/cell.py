@@ -494,7 +494,7 @@ class TimingData:
 @dataclass
 class TableTemplate:
     """Template data for a Table"""
-    name: str =
+    name: str
     variables: list
 
     def __init__(self, name: str = 'delay_template', variables: list = []) -> None:
