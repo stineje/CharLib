@@ -494,8 +494,12 @@ class TimingData:
 @dataclass
 class TableTemplate:
     """Template data for a Table"""
-    name = 'delay_template'
-    variables = ['input_net_transition']
+    name: str =
+    variables: list
+
+    def __init__(self, name: str = 'delay_template', variables: list = []) -> None:
+        self.name = name
+        self.variables = variables
 
     def __str__(self) -> str:
         """Return str(self)"""
