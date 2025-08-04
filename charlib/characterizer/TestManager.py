@@ -3,9 +3,6 @@
 from itertools import product
 from pathlib import Path
 
-import numpy as np
-import matplotlib.pyplot as plt
-
 from PySpice import Circuit, Simulator, SpiceLibrary
 from PySpice.Spice.unit import str_spice
 from PySpice.Unit import *
@@ -216,14 +213,15 @@ class TestManager:
         """Set plot configuration
 
         :param value: a str or list specifying which plot types to generate."""
-        if value == 'all':
-            self._plots = ['io', 'delay', 'power']
-        elif value == 'none':
-            self._plots = []
-        elif isinstance(value, list):
-            self._plots = value
-        else:
-            raise ValueError(f'Invalid value for plots: "{value}"')
+        match value:
+            case 'all':
+                self._plots = ['io', 'delay', 'power']
+            case 'none':
+                self._plots = []
+            case list():
+                self._plots = value
+            case _:
+                raise ValueError(f'Invalid value for plots: "{value}"')
 
     @property
     def is_exported(self) -> bool:
@@ -233,72 +231,6 @@ class TestManager:
     def set_exported(self):
         """Set a flag that this test manager's results have been exported"""
         self._is_exported = True
-
-    def _run_input_capacitance(self, settings, target_pin):
-        """Measure the input capacitance of target_pin.
-
-        Assuming a black-box model, treat the cell as a grounded capacitor with fixed capacitance.
-        Perform an AC sweep on the circuit and evaluate the capacitance as d/ds(i(s)/v(s))."""
-        if not settings.quiet:
-            print(f'Running input_capacitance for pin {target_pin} of cell {self.cell.name}')
-        vdd = settings.vdd.voltage * settings.units.voltage
-        vss = settings.vss.voltage * settings.units.voltage
-        # TODO: Make these values configurable from settings
-        f_start = 10 @ u_Hz
-        f_stop = 10 @ u_GHz
-        r_in = 10 @ u_GOhm
-        i_in = 1 @ u_uA
-        r_out = 10 @ u_GOhm
-        c_out = 1 @ u_pF
-
-        # Initialize circuit
-        circuit = Circuit(f'{self.cell.name}_pin_{target_pin}_cap')
-        self._include_models(circuit)
-        circuit.include(self.netlist)
-        circuit.V('dd', 'vdd', circuit.gnd, vdd)
-        circuit.V('ss', 'vss', circuit.gnd, vss)
-        circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {str_spice(i_in)}')
-        circuit.R('in', circuit.gnd, 'vin', r_in)
-
-        # Initialize device under test and wire up ports
-        ports = self.definition().upper().split()[1:]
-        subcircuit_name = ports.pop(0)
-        connections = []
-        for port in ports:
-            if port == target_pin:
-                connections.append('vin')
-            elif port == settings.vdd.name.upper():
-                connections.append('vdd')
-            elif port == settings.vss.name.upper():
-                connections.append('vss')
-            else:
-                # Add a resistor and capacitor to each output
-                circuit.C(port, f'v{port}', circuit.gnd, c_out)
-                circuit.R(port, f'v{port}', circuit.gnd, r_out)
-                connections.append(f'v{port}')
-        circuit.X('dut', subcircuit_name, *connections)
-
-        simulator = Simulator.factory(simulator=settings.simulator)
-        simulation = simulator.simulation(
-            circuit,
-            temperature=settings.temperature,
-            nominal_temperature=settings.temperature
-        )
-
-        # Log simulation
-        # Path should be debug_dir/cell_name/input_capacitance/pin
-        if settings.debug:
-            debug_path = settings.debug_dir / self.cell.name / 'input_capacitance'
-            debug_path.mkdir(parents=True, exist_ok=True)
-            with open(debug_path/f'{target_pin}.sp', 'w') as spice_file:
-                spice_file.write(str(simulation))
-
-        # Measure capacitance as the slope of the conductance
-        analysis = simulation.ac('dec', 100, f_start, f_stop)
-        impedance = np.abs(analysis.vin)/i_in
-        [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
-
-        return capacitance
 
     def add_pg_pins(self, vdd, vss, pwell, nwell):
         """Annotate cell liberty file with pg_pins"""
