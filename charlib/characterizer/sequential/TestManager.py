@@ -381,7 +381,7 @@ class SequentialTestManager(TestManager):
 
         # Initialize circuit
         circuit = Circuit(title)
-        self._include_models(circuit)
+        self.include_models(circuit)
         circuit.include(self.netlist)
         circuit.V('high', 'vhigh', circuit.gnd, vdd)
         circuit.V('low', 'vlow', circuit.gnd, vss)
