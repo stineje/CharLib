@@ -6,13 +6,28 @@ from PySpice import Circuit, Simulator
 from PySpice.Unit import *
 
 from charlib.characterizer.combinational.Harness import CombinationalHarness
+from charlib.characterizer.procedures import Procedure
 from charlib.characterizer.procedures.PinCapacitance import ac_sweep as measure_input_capacitance
+from charlib.characterizer.procedures.CombinationalDelay import measure_tran_prop as measure_delays
 from charlib.characterizer.Harness import filter_harnesses_by_ports, find_harness_by_arc
 from charlib.characterizer.TestManager import TestManager
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
 
 class CombinationalTestManager(TestManager):
     """Manage test harnesses for a combinational cell"""
+
+    def setup_measurements(self, settings):
+        """Construct an ordered list of measurement procedures for later execution."""
+        measurements = []
+
+        # Input capacitance measurements
+        def measure_cap_for_pin(pin_name: str):
+            input_capacitance = measure_input_capacitance(self, settings, pin_name) @ u_F
+            self.cell[pin_name].capacitance = input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
+        measurements.extend([Procedure(measure_cap_for_pin, pin.name) for pin in self.in_ports])
+
+        # TODO: Delay measurements
+        pass
 
     def characterize(self, settings):
         """Characterize a combinational cell"""
@@ -28,21 +43,8 @@ class CombinationalTestManager(TestManager):
         # Run delay simulation for all test vectors of each function
         for out_port in self.out_ports:
             unsorted_harnesses = []
-            # Run characterization
             for test_vector in out_port.function.test_vectors:
-                # Map pins to test vector
-                inputs = out_port.function.operands
-                state_map = dict(zip([*inputs, out_port.name], test_vector))
-
-                # Generate harness
-                harness = CombinationalHarness(self, state_map)
-                trial_name = f'delay {self.cell.name} {harness.short_str()}'
-
-                # Run delay characterization
-                for slew in self.in_slews:
-                    for load in self.out_loads:
-                        self._run_delay(settings, harness, slew, load, trial_name)
-                unsorted_harnesses.append(harness)
+                unsorted_harnesses.append(measure_delays(self, settings, out_port, test_vector))
 
             # Filter out harnesses that aren't worst-case conditions
             # We should be left with the critical path rise and fall harnesses for each i/o path
@@ -62,26 +64,8 @@ class CombinationalTestManager(TestManager):
             for in_port in self.in_ports:
                 delay_timing = TimingData(in_port.name)
                 for direction in ['rise', 'fall']:
-                    # Identify the correct harness
                     harness = find_harness_by_arc(harnesses, in_port, out_port, direction)
-
-                    # Construct the table
-                    index_1 = [str(slew) for slew in self.in_slews]
-                    index_2 = [str(load) for load in self.out_loads]
-                    prop_values = []
-                    tran_values = []
-                    for slew in index_1:
-                        for load in index_2:
-                            result = harness.results[slew][load]
-                            prop_value = (result['prop_in_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
-                            prop_values.append(f'{prop_value:7f}')
-                            tran_value = (result['trans_out'] @ u_s).convert(settings.units.time.prefixed_unit).value
-                            tran_values.append(f'{tran_value:7f}')
-                    template = TableTemplate()
-                    template.name = f'delay_template_{len(index_1)}x{len(index_2)}'
-                    template.variables = ['input_net_transition', 'total_output_net_capacitance']
-                    delay_timing.add_table(f'cell_{direction}', template, prop_values, index_1, index_2)
-                    delay_timing.add_table(f'{direction}_transition', template, tran_values, index_1, index_2)
+                    delay_timing.merge(harness.to_timingdata(settings.units.time.prefixed_unit))
                 self.cell[out_port.name].timings.append(delay_timing)
 
             # Display plots
@@ -96,115 +80,6 @@ class CombinationalTestManager(TestManager):
                 plt.show()
 
         return self.cell
-
-    def _run_delay(self, settings, harness: CombinationalHarness, slew, load, trial_name):
-        if not settings.quiet:
-            print(f'Running {trial_name} with slew={slew*settings.units.time}, load={load*settings.units.capacitance}')
-        harness.results[str(slew)][str(load)] = self._run_delay_trial(settings, harness, slew, load)
-
-    def _run_delay_trial(self, settings, harness: CombinationalHarness, slew, load):
-        """Run delay measurement for a single trial"""
-        # Set up parameters
-        data_slew = slew * settings.units.time
-        t_start = data_slew
-        t_end = t_start + data_slew
-        t_simend = 10000 * data_slew
-        vdd = settings.vdd.voltage * settings.units.voltage
-        vss = settings.vss.voltage * settings.units.voltage
-
-        # Initialize circuit
-        circuit = Circuit(f'{self.cell.name}_delay')
-        self._include_models(circuit)
-        circuit.include(self.netlist)
-        (v_start, v_end) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
-        pwl_values = [(0, v_start), (t_start, v_start), (t_end, v_end), (t_simend, v_end)]
-        circuit.PieceWiseLinearVoltageSource('in', 'vin', circuit.gnd, values=pwl_values)
-        circuit.V('high', 'vhigh', circuit.gnd, vdd)
-        circuit.V('low', 'vlow', circuit.gnd, vss)
-        circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd)
-        circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss)
-        circuit.V('o_cap', 'vout', 'wout', circuit.gnd)
-        circuit.C('0', 'wout', 'vss_dyn', load * settings.units.capacitance)
-
-        # Initialize device under test subcircuit and wire up ports
-        ports = self.definition().upper().split()[1:]
-        subcircuit_name = ports.pop(0)
-        connections = []
-        for port in ports:
-            if port == harness.target_in_port.pin.name:
-                connections.append('vin')
-            elif port == harness.target_out_port.pin.name:
-                connections.append('vout')
-            elif port == settings.vdd.name.upper():
-                connections.append('vdd_dyn')
-            elif port == settings.vss.name.upper():
-                connections.append('vss_dyn')
-            elif port in [pin.pin.name for pin in harness.stable_in_ports]:
-                for stable_port in harness.stable_in_ports:
-                    if port == stable_port.pin.name:
-                        if stable_port.state == '1':
-                            connections.append('vhigh')
-                        elif stable_port.state == '0':
-                            connections.append('vlow')
-                        else:
-                            raise ValueError(f'Invalid state identified during simulation setup for port {port}: {state}')
-            else:
-                connections.append('wfloat0') # Float any unrecognized ports
-        if len(connections) is not len(ports):
-            raise ValueError(f'Failed to match all ports identified in definition "{self.definition().strip()}"')
-        circuit.X('dut', subcircuit_name, *connections)
-
-        # Initialize simulation
-        simulator = Simulator.factory(simulator=settings.simulator)
-        simulation = simulator.simulation(
-            circuit,
-            temperature=settings.temperature,
-            nominal_temperature=settings.temperature
-        )
-        simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
-
-        # Measure delay
-        pct_vdd = lambda x : x * settings.vdd.voltage
-        match harness.in_direction:
-            case 'rise':
-                v_prop_start = settings.logic_threshold_low_to_high
-            case 'fall':
-                v_prop_start = settings.logic_threshold_high_to_low
-        match harness.out_direction:
-            case 'rise':
-                v_prop_end = settings.logic_threshold_low_to_high
-                v_trans_start = settings.logic_threshold_low
-                v_trans_end = settings.logic_threshold_high
-            case 'fall':
-                v_prop_end = settings.logic_threshold_high_to_low
-                v_trans_start = settings.logic_threshold_high
-                v_trans_end = settings.logic_threshold_low
-        simulation.measure(
-            'tran', 'prop_in_out',
-            f'trig v(vin) val={pct_vdd(v_prop_start)} {harness.in_direction}=1',
-            f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=1',
-            run=False
-        )
-        simulation.measure(
-            'tran', 'trans_out',
-            f'trig v(vout) val={pct_vdd(v_trans_start)} {harness.out_direction}=1',
-            f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1',
-            run=False
-        )
-
-        # Log simulation
-        # Path should be debug_dir/cell_name/delay/arc/slew/load/
-        if settings.debug:
-            debug_path = settings.debug_dir / self.cell.name / 'delay' / harness.debug_path / \
-                         f'slew_{slew}' / f'load_{load}'
-            debug_path.mkdir(parents=True, exist_ok=True)
-            with open(debug_path/'delay.sp', 'w') as spice_file:
-                spice_file.write(str(simulation))
-
-        # Run transient analysis
-        # TODO: May need to add probes before running?
-        step_time = min(self.sim_timestep*settings.units.time, t_simend/1000)
-        return simulation.transient(step_time=step_time, end_time=t_simend)
 
     def plot_io(self, settings, harness):
         """Plot I/O voltages vs time"""

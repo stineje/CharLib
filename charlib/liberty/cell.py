@@ -490,6 +490,23 @@ class TimingData:
         timing_str.append('}')
         return '\n'.join(timing_str)
 
+    def merge(self, other):
+        """Merge another TimingData into self by transferring all tables and attributes."""
+        # Check that related pin and timing type are the same
+        if not self.related_pin == other.related_pin:
+            raise ValueError('related_pin must match in order to merge TimingData!')
+        if not self.timing_type == other.timing_type:
+            raise ValueError('timing_type must match in order to merge TimingData!')
+        # Copy attrs
+        for k, v in other.attributes.items():
+            if k in self.attributes.keys() and not self.attributes[k] == other.attributes[k]:
+                raise ValueError(f'Unable to merge attributes due to mismatch in key "{k}"!')
+            self.add_attribute(k, v)
+        # Copy tables
+        for name, table in other._tables.items():
+            if name in self._tables.keys() and not self[name] == other[name]:
+                raise ValueError(f'Unable to merge tables due to mismatch in table "{name}"!')
+            self._tables[name] = table
 
 @dataclass
 class TableTemplate:
@@ -559,6 +576,16 @@ class Table:
     def shape(self):
         """Return the table shape (not including indices)."""
         return len(self.index_1) if not self.is_2d() else (len(self.index_1), len(self.index_2))
+
+    def __eq__(self, other: TableTemplate) -> bool:
+        """Return self==other"""
+        return (
+            self.name == other.name
+            and self.template == other.template
+            and self.index_1 == other.index_1
+            and self.index_2 == other.index_2
+            and self.values == other.values
+        )
 
     def __str__(self) -> str:
         """Return str(self)"""

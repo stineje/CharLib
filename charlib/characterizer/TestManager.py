@@ -122,17 +122,18 @@ class TestManager:
                     raise FileNotFoundError(f'File {value} not found')
         self._models = models
 
-    def _include_models(self, circuit):
+    def include_models(self, circuit):
         """Include models in the circuit netlist."""
         for model in self.models:
-            if isinstance(model, SpiceLibrary):
-                for device in self.used_models():
-                    # TODO: Handle the case where we have multiple spice libraries
-                    circuit.include(model[device])
-            elif isinstance(model, Path):
-                circuit.include(model)
-            elif isinstance(model, tuple):
-                circuit.lib(*model)
+            match model:
+                case tuple():
+                    circuit.lib(*model)
+                case Path():
+                    circuit.include(model)
+                case SpiceLibrary():
+                    for device in self.used_models():
+                        # TODO: Handle the case where we have multiple spice libraries
+                        circuit.include(model[device])
 
     @property
     def netlist(self) -> str:

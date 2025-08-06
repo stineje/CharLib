@@ -7,8 +7,9 @@ from PySpice.Unit import *
 def ac_sweep(cell_settings, charlib_settings, target_pin) -> float:
     """Measure the input capacitance of target_pin using an AC frequency sweep.
 
-    Treat the cell as a grounded capacitor with fixed capacitance. Perform an AC sweep on the
-    circuit and evaluate the capacitance as d/ds(i(s)/v(s))."""
+    Treat the cell as a grounded capacitor with fixed capacitance. With a fixed current amplitude,
+    perform an AC frequency sweep on the circuit and evaluate the capacitance as
+    d/ds(i(s)/v(s))."""
     vdd = charlib_settings.vdd.voltage * charlib_settings.units.voltage
     vss = charlib_settings.vss.voltage * charlib_settings.units.voltage
     # TODO: Make these values configurable
@@ -28,7 +29,7 @@ def ac_sweep(cell_settings, charlib_settings, target_pin) -> float:
     circuit.R('in', circuit.gnd, 'vin', r_in)
 
     # Initialize device under test and wire up ports
-    cell_settings._include_models(circuit)
+    cell_settings.include_models(circuit)
     circuit.include(cell_settings.netlist)
     ports = cell_settings.definition().lower().split()[1:]
     subcircuit_name = ports.pop(0)
@@ -56,7 +57,7 @@ def ac_sweep(cell_settings, charlib_settings, target_pin) -> float:
         nominal_temperature=charlib_settings.temperature
     )
 
-    # Write spice files if debugging
+    # Log simulation files if debugging
     if charlib_settings.debug:
         debug_path = charlib_settings.debug_dir / cell_settings.cell.name / 'in_cap_ac_sweep'
         debug_path.mkdir(parents=True, exist_ok=True)
@@ -67,6 +68,5 @@ def ac_sweep(cell_settings, charlib_settings, target_pin) -> float:
     analysis = simulation.ac('dec', 100, f_start, f_stop)
     impedance = np.abs(analysis.vin)/i_in
     [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
-    print(f'{circuit_name}: {capacitance}')
 
     return capacitance
