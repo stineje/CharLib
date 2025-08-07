@@ -31,15 +31,15 @@ def ac_sweep(cell_settings, charlib_settings, target_pin) -> float:
     # Initialize device under test and wire up ports
     cell_settings.include_models(circuit)
     circuit.include(cell_settings.netlist)
-    ports = cell_settings.definition().lower().split()[1:]
+    ports = cell_settings.definition().upper().split()[1:]
     subcircuit_name = ports.pop(0)
     connections = []
     for port in ports:
         if port == target_pin:
             connections.append('vin')
-        elif port == charlib_settings.vdd.name.lower():
+        elif port == charlib_settings.vdd.name.upper():
             connections.append('vdd')
-        elif port == charlib_settings.vss.name.lower():
+        elif port == charlib_settings.vss.name.upper():
             connections.append('vss')
         else:
             # Add a resistor and capacitor to each other port
@@ -56,6 +56,7 @@ def ac_sweep(cell_settings, charlib_settings, target_pin) -> float:
         temperature=charlib_settings.temperature,
         nominal_temperature=charlib_settings.temperature
     )
+    simulation.ac('dec', 100, f_start, f_stop, run=False)
 
     # Log simulation files if debugging
     if charlib_settings.debug:
@@ -65,7 +66,7 @@ def ac_sweep(cell_settings, charlib_settings, target_pin) -> float:
             spice_file.write(str(simulation))
 
     # Measure capacitance as the slope of the conductance with respect to frequency
-    analysis = simulation.ac('dec', 100, f_start, f_stop)
+    analysis = simulator.run(simulation)
     impedance = np.abs(analysis.vin)/i_in
     [capacitance, _] = np.polyfit(analysis.frequency, np.reciprocal(impedance)/(2*np.pi), 1)
 
