@@ -1,6 +1,8 @@
 """Dispatches characterization jobs and manages cell data"""
 
-from multiprocessing import Pool, cpu_count
+import itertools
+
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from charlib.liberty.UnitsSettings import UnitsSettings
@@ -18,26 +20,26 @@ class Characterizer:
 
     def add_cell(self, name, in_ports, out_ports, functions, **kwargs):
         """Create a new logic cell test"""
-        self.tests.append(
-            CombinationalTestManager(name, in_ports, out_ports, functions, **kwargs)
-        )
+        comb_cell = CombinationalTestManager(name, in_ports, out_ports, functions, **kwargs)
+        comb_cell.add_pg_pins(self.settings.vdd, self.settings.vss, self.settings.pwell, self.settings.nwell)
+        self.tests.append(comb_cell)
 
     def add_flop(self, name, in_ports, out_ports, clock, flops, functions, **kwargs):
         """Create a new sequential cell test"""
-        self.tests.append(
-            SequentialTestManager(name, in_ports, out_ports, clock, flops, functions, **kwargs)
-        )
+        seq_cell = SequentialTestManager(name, in_ports, out_ports, clock, flops, functions, **kwargs)
+        seq_cell.add_pg_pins(self.settings.vdd, self.settings.vss, self.settings.pwell, self.settings.nwell)
+        self.tests.append(seq_cell)
 
     def characterize(self):
         """Characterize all cells"""
+        procedures = list(itertools.chain.from_iterable([cell.setup_measurements(self.settings) for cell in self.tests]))
+        max_workers = None if self.settings.use_multithreaded else 1
+        with ProcessPoolExecutor(max_workers) as executor:
+            running_tasks = [executor.submit(procedure) for procedure in procedures]
+            for task in running_tasks:
+                print(task.result())
+        cells = [test.cell for test in self.tests]
 
-        # If no target cells were given, characterize all cells
-        if self.settings.use_multithreaded:
-            num_workers = max(len(self.tests), cpu_count())
-            with Pool(num_workers) as pool:
-                cells = pool.map(self.characterize_cell, [*self.tests])
-        else:
-            cells = [self.characterize_cell(cell) for cell in self.tests]
 
         # Add cells to the library
         [self.library.add_cell(cell) for cell in cells if cell]

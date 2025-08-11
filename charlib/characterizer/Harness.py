@@ -129,16 +129,13 @@ class Harness:
         stable_dir = '_'.join([str(pin) for pin in self.stable_in_ports])
         return f'{arc_dir}/{stable_dir}'
 
-    def average_propagation_delay(self):
-        """Calculates the average propagation delay over all trials"""
-        # TODO: Usually we want longest prop delay instead of average
+    def sum_propagation_delay(self):
+        """Sum the propagation delay over all trials"""
         total_delay = 0.0 @ u_s
-        n = 0
         for slope in self.results.keys():
             for load in self.results[slope].keys():
                 total_delay += self.results[slope][load]['prop_in_out'] @ u_s
-                n += 1
-        return total_delay / n
+        return total_delay
 
     def _calc_internal_energy(self, slew: str, load: str, energy_meas_high_threshold_voltage: float):
         """Calculates internal energy for a particular slope/load combination"""
