@@ -69,7 +69,7 @@ class TestManager:
         self.models = kwargs.get('models', [])
         self._in_slews = kwargs.get('slews', [])
         self._out_loads = kwargs.get('loads', [])
-        self.sim_timestep = kwargs.get('simulation_timestep', min(self.in_slews)/4.0)
+        self.sim_timestep = kwargs.get('simulation_timestep', 0)
 
         # Behavioral/internal-use settings
         self.plots = kwargs.get('plots', [])

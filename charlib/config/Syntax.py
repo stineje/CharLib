@@ -99,7 +99,7 @@ class ConfigFile:
                 description="The simulation timestep. The unit is specified by \
                             ``settings.units.time``."
             ),
-            default=1e-3 # FIXME: This should be 1/4*min(slews). Not sure how to do that here.
+            default=0
         ) : number_syntax,
 
         Optional(
