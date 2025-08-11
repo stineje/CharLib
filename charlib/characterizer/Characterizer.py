@@ -1,7 +1,5 @@
 """Dispatches characterization jobs and manages cell data"""
 
-import itertools
-
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -32,17 +30,9 @@ class Characterizer:
 
     def characterize(self):
         """Characterize all cells"""
-        procedures = list(itertools.chain.from_iterable([cell.setup_measurements(self.settings) for cell in self.tests]))
         max_workers = None if self.settings.use_multithreaded else 1
         with ProcessPoolExecutor(max_workers) as executor:
-            running_tasks = [executor.submit(procedure) for procedure in procedures]
-            for task in running_tasks:
-                print(task.result())
-        cells = [test.cell for test in self.tests]
-
-
-        # Add cells to the library
-        [self.library.add_cell(cell) for cell in cells if cell]
+            [self.library.add_cell(cell) for cell in executor.map(self.characterize_cell, self.tests)]
 
         return self.library
 
