@@ -62,6 +62,10 @@ def measure_tran_prop(cell_settings, charlib_settings, target_pin, test_arc):
                             connections.append('vhigh')
                         case s:
                             raise ValueError(f'Invalid state identified during simulation setup for port {port}: {s}')
+        elif port in [pin.pin.name for pin in harness.nontarget_ports]:
+            for nontarget_port in harness.nontarget_ports:
+                if port == nontarget_port.pin.name:
+                    connections.append(f'wfloat{nontarget_port.state}')
         else:
             raise ValueError(f'Unable to connect unrecognized port {port}')
     if len(connections) is not len(ports):
@@ -105,11 +109,6 @@ def measure_tran_prop(cell_settings, charlib_settings, target_pin, test_arc):
         f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1',
         run=False
     )
-    simulation.transient(
-        step_time=cell_settings.sim_timestep * charlib_settings.units.time,
-        end_time=1000*max(cell_settings.in_slews) * charlib_settings.units.time,
-        run=False
-    )
 
     # Test each combination of slew & load
     for slew in cell_settings.in_slews:
@@ -121,6 +120,17 @@ def measure_tran_prop(cell_settings, charlib_settings, target_pin, test_arc):
             circuit.gnd,
             values=slew_pwl(slew * charlib_settings.units.time)
         )
+
+        # Use slew/8 for sim timestep unless user has set a custom timestep
+        # TODO: Consider allowing sim_timestep be set to a multiplied factor
+        t_step = cell_settings.sim_timestep if cell_settings.sim_timestep else slew/8
+        simulation.reset_analysis()
+        simulation.transient(
+            step_time=t_step * charlib_settings.units.time,
+            end_time=10000 * t_step * charlib_settings.units.time,
+            run=False
+        )
+
         for load in cell_settings.out_loads:
             # Assign new test load
             circuit['Cload'].capacitance = load * charlib_settings.units.capacitance
