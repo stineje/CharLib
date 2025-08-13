@@ -4,7 +4,7 @@ from PySpice.Unit import *
 from charlib.characterizer.combinational.Harness import CombinationalHarness
 from charlib.liberty.cell import TimingData
 
-def measure_tran_prop(cell_settings, charlib_settings, target_pin, test_arc):
+def measure_delays_for_arc(cell_settings, charlib_settings, target_pin, test_arc):
     """Measure combinational transient and propagation delays for a particular timing arc.
 
     This procedure constructs harnesses and makes delay measurements for all combinations of slew

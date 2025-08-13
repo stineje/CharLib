@@ -6,7 +6,7 @@ from PySpice.Unit import *
 
 from charlib.characterizer.combinational.Harness import CombinationalHarness
 from charlib.characterizer.procedures.PinCapacitance import ac_sweep as measure_input_capacitance
-from charlib.characterizer.procedures.CombinationalDelay import measure_tran_prop
+from charlib.characterizer.procedures.CombinationalDelay import measure_delays_for_arc
 from charlib.characterizer.Harness import filter_harnesses_by_ports, find_harness_by_arc
 from charlib.characterizer.TestManager import TestManager
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
@@ -18,13 +18,13 @@ class CombinationalTestManager(TestManager):
         """Characterize a combinational cell"""
 
         # Input capacitance measurements
-        def measure_pin_cap(in_port: str):
+        def measure_pin_cap(in_port):
             input_capacitance = measure_input_capacitance(self, settings, in_port.name) @ u_F
             return input_capacitance.convert(settings.units.capacitance.prefixed_unit).value
 
         #  Delay measurements
-        def measure_delays(out_port: str):
-            harnesses = [measure_tran_prop(self, settings, out_port, tv) for tv in out_port.function.test_vectors]
+        def measure_delays(out_port):
+            harnesses = [measure_delays_for_arc(self, settings, out_port, tv) for tv in out_port.function.test_vectors]
             timings = []
             for in_port in self.in_ports:
                 delay_timing = TimingData(in_port.name)
