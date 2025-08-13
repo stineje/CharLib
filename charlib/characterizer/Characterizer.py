@@ -30,6 +30,7 @@ class Characterizer:
 
     def characterize(self):
         """Characterize all cells"""
+        # Consider using tqdm to display progress
         max_workers = None if self.settings.use_multithreaded else 1
         with ProcessPoolExecutor(max_workers) as executor:
             [self.library.add_cell(cell) for cell in executor.map(self.characterize_cell, self.tests)]
