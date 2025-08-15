@@ -7,9 +7,9 @@ from PySpice import Circuit, Simulator, SpiceLibrary
 from PySpice.Spice.unit import str_spice
 from PySpice.Unit import *
 
-from charlib.characterizer.functions import Function, registered_functions
 from charlib.characterizer.Harness import filter_harnesses_by_ports, find_harness_by_arc
-from charlib.characterizer.LogicParser import parse_logic
+from charlib.characterizer.logic import Function, registered_functions
+from charlib.characterizer.logic.Parser import parse_logic
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
 
 class TestManager:
