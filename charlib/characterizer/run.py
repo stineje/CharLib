@@ -10,7 +10,7 @@ from liberty.parser import parse_liberty
 from PySpice.Logging import Logging
 
 from charlib.characterizer.Characterizer import Characterizer
-from charlib.characterizer.functions.functions import generate_yml
+from charlib.characterizer.logic.functions import generate_yml
 
 from charlib.config.Syntax import ConfigFile
 
@@ -37,8 +37,8 @@ def main():
             help='The directory containing the library characterization configuration file, or the full path to the file')
     parser_characterize.add_argument('-o', '--output', type=str, default='',
             help='Place the characterization results in the specified file')
-    parser_characterize.add_argument('--multithreaded', action='store_true',
-            help='Enable multithreaded execution')
+    parser_characterize.add_argument('-j', '--jobs', type=int, default=0,
+            help='Specify the number of concurrent jobs')
     parser_characterize.add_argument('--comparewith', type=str, default='',
             help='A liberty file to compare results with')
     parser_characterize.add_argument('-f', '--filters', nargs='*',
@@ -114,10 +114,10 @@ def run_charlib(args):
     # The next line is commented out because of an issue in PySpice, but should be uncommented once that's fixed
     # logger = Logging.setup_logging(logging_level='ERROR') # TODO: logging level should be configurable
 
-    # OR settings with command line flags
+    # Override settings with command line flags
     characterizer.settings.debug = characterizer.settings.debug or args.debug
     characterizer.settings.quiet = characterizer.settings.quiet or args.quiet
-    characterizer.settings.use_multithreaded = characterizer.settings.use_multithreaded or args.multithreaded
+    characterizer.settings.jobs = args.jobs if args.jobs else characterizer.settings.jobs
 
     # Filter list of cells based on cell_filters
     if args.filters:

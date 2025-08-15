@@ -10,10 +10,12 @@ from charlib.characterizer.sequential.TestManager import SequentialTestManager
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells."""
+    # TODO: Let characterizer handle simulation job schedule & results dispatch
 
     def __init__(self, **kwargs) -> None:
         self.settings = CharacterizationSettings(**kwargs)
         self.library = Library(kwargs.get('lib_name'), **kwargs)
+        self.executor = ProcessPoolExecutor(self.settings.jobs)
         self.tests = []
 
     def add_cell(self, name, in_ports, out_ports, functions, **kwargs):
@@ -31,8 +33,8 @@ class Characterizer:
     def characterize(self):
         """Characterize all cells"""
         # Consider using tqdm to display progress
-        max_workers = None if self.settings.use_multithreaded else 1
-        with ProcessPoolExecutor(max_workers) as executor:
+        # TODO: Figure out how to optimize number of jobs here. For some reason -j2 is fastest on my Ryzen 7600 system, which doesn't make a ton of sense
+        with ProcessPoolExecutor(self.settings.jobs) as executor:
             [self.library.add_cell(cell) for cell in executor.map(self.characterize_cell, self.tests)]
 
         return self.library
@@ -47,13 +49,23 @@ class Characterizer:
             else:
                 raise e
 
+    def schedule(self, simulation, key):
+        """Schedule a simulation job that produces the results for key
+
+        :param simulation: a callable which returns a liberty-compatible object.
+        :param key: a string containing the dot-indexed location within the liberty library where
+                    results should be saved.
+        """
+        self.executor.submit(simulation)
+
+
 class CharacterizationSettings:
     """Container for characterization settings"""
     def __init__(self, **kwargs):
         """Create a new CharacterizationSettings instance"""
         # Behavioral settings
         self.simulator = kwargs.pop('simulator', 'ngspice-shared')
-        self.use_multithreaded = kwargs.pop('multithreaded', True)
+        self.jobs = None if kwargs.pop('multithreaded', True) else 1
         self.results_dir = Path(kwargs.pop('results_dir', 'results'))
         self.debug = kwargs.pop('debug', False)
         self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))

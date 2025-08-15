@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from PySpice import Circuit, Simulator
 from PySpice.Unit import *
 
-from charlib.characterizer.sequential.Harness import SequentialHarness
-from charlib.characterizer.procedures.PinCapacitance import ac_sweep as measure_input_capacitance
 from charlib.characterizer.Harness import find_harness_by_arc
+from charlib.characterizer.InputCapacitance import ac_sweep as measure_input_capacitance
 from charlib.characterizer.TestManager import TestManager, _parse_triggered_pin, _flip_direction
+from charlib.characterizer.sequential.Harness import SequentialHarness
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
 
 class SequentialTestManager(TestManager):

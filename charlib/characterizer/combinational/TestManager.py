@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 
 from PySpice.Unit import *
 
-from charlib.characterizer.combinational.Harness import CombinationalHarness
-from charlib.characterizer.procedures.PinCapacitance import ac_sweep as measure_input_capacitance
-from charlib.characterizer.procedures.CombinationalDelay import measure_delays_for_arc
 from charlib.characterizer.Harness import filter_harnesses_by_ports, find_harness_by_arc
+from charlib.characterizer.InputCapacitance import ac_sweep as measure_input_capacitance
 from charlib.characterizer.TestManager import TestManager
+from charlib.characterizer.combinational.Delay import measure_delays_for_arc
+from charlib.characterizer.combinational.Harness import CombinationalHarness
 from charlib.liberty.cell import Cell, Pin, TimingData, TableTemplate
 
 class CombinationalTestManager(TestManager):
