@@ -10,6 +10,7 @@ from liberty.parser import parse_liberty
 from PySpice.Logging import Logging
 
 from charlib.characterizer.Characterizer import Characterizer
+from charlib.characterizer.cell import Cell
 from charlib.characterizer.logic.functions import generate_yml
 
 from charlib.config.Syntax import ConfigFile
@@ -151,17 +152,9 @@ def run_charlib(args):
                 properties[key] = value
 
         # Read config data for this cell
-        inputs = properties.pop('inputs')
-        outputs = properties.pop('outputs')
+        netlist = properties.pop('netlist')
         functions = properties.pop('functions')
-        clock = properties.pop('clock', None)
-        flops = properties.pop('flops', [])
-
-        # Add cells
-        if clock:
-            characterizer.add_flop(name, inputs, outputs, clock, flops, functions, **properties)
-        else:
-            characterizer.add_cell(name, inputs, outputs, functions, **properties)
+        cell = Cell(name, netlist, functions, supplies=characterizer.settings.named_nodes)
 
     # TODO: Add print statements to display which keys in YAML were not used
 
