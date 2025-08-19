@@ -91,6 +91,12 @@ class CharacterizationSettings:
         # Operating conditions
         self.temperature = kwargs.get('temperature', 25)
 
+    @property
+    def named_nodes(self) -> dict:
+        """Return named nodes as a dictionary of names & voltages (with correct units)"""
+        nodes = [self.vdd, self.vss, self.pwell, self.nwell]
+        return dict(zip([n.name for n in nodes], [n.voltage * self.units.voltage for n in nodes]))
+
 
 class NamedNode:
     """Binds supply node names to voltages"""
