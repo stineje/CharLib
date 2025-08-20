@@ -145,16 +145,8 @@ def run_charlib(args):
                     properties = yaml.safe_load(f)
                     f.close()
                     break # Quit searching after successfully reading a match
-
-        # Merge settings.cell_defaults into properties, keeping entries from properties
-        for key, value in characterizer.settings.cell_defaults.items():
-            if not key in properties.keys():
-                properties[key] = value
-
-        # Read config data for this cell
-        netlist = properties.pop('netlist')
-        functions = properties.pop('functions')
-        cell = Cell(name, netlist, functions, supplies=characterizer.settings.named_nodes)
+        # Add the cell
+        characterizer.add_cell(name, properties)
 
     # TODO: Add print statements to display which keys in YAML were not used
 

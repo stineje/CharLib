@@ -64,40 +64,44 @@ class ConfigFile:
                               ``.lib path/to/file section`` in SPICE simulations."
         ) : [str],
 
-        Literal(
+        Optional(
+            Literal(
                 "inputs",
                 description="A list of input pin names as they appear in the cell netlist."
+            )
         ) : [str],
 
-        Literal(
+        Optional(
+            Literal(
                 "outputs",
                 description="A list of output pin names as they appear in the cell netlist."
+            )
         ) : [str],
 
 
         Literal(
             "functions",
-            description="A list of verilog functions describing each output as logical \
-                         function of inputs. Shall be in the same order as ``outputs``"
+            description="A list of verilog functions describing each output as logical function"
+                        + " of inputs."
         ) : [str],
 
         Literal(
-                "slews",
-                description="A list of input pin slew rates to characterize. \
-                             Unit is specified by ``settings.units.time``."
+                "data_slews",
+                description="A list of input pin slew rates to characterize."
+                            + " Unit is specified by ``settings.units.time``."
         ) : [Or(float, int)],
 
         Literal(
             "loads",
-            description="A list of output capacitive loads to characterize. \
-                         Unit is specified by ``settings.units.capacitive_load``."
+            description="A list of output capacitive loads to characterize."
+                         + " Unit is specified by ``settings.units.capacitive_load``."
         ) : [number_syntax],
 
         Optional(
             Literal(
                 "simulation_timestep",
-                description="The simulation timestep. The unit is specified by \
-                            ``settings.units.time``."
+                description="The simulation timestep. The unit is specified by"
+                            + " ``settings.units.time``."
             ),
             default=0
         ) : number_syntax,
@@ -120,10 +124,10 @@ class ConfigFile:
         Optional(
             Literal(
                 "clock",
-                description="""The clock pin name and edge direction. \
-                               The format is: ``<edge_direction> <clock_pin_name>``, """
-                            """where ``edge_direction`` can be one of: ``posedge`` or ``negedge``. \
-                               E.g. ``posedge CLK`` or ``negedge CKB``."""
+                description="The clock pin name and edge direction. The format is:"
+                            + " ``<edge_direction> <clock_pin_name>``, where ``edge_direction``"
+                            + " can be one of: ``posedge`` or ``negedge``"
+                            + " (e.g. ``posedge CLK`` or ``negedge CKB``)."
             )
         ) : Regex("^(posedge|negedge) [a-zA-Z0-9_]+"),
 
@@ -267,8 +271,8 @@ class ConfigFile:
         Optional("named_nodes") : {
             Optional(
                 Literal(
-                    "vdd",
-                    description="Devices power supply terminal"
+                    "primary_power",
+                    description="Device power supply node name"
                 )
             ) : {
                 Optional("name", default="VDD"): str,
@@ -277,18 +281,18 @@ class ConfigFile:
 
             Optional(
                 Literal(
-                    "vss",
-                    description="Devices ground terminal"
+                    "primary_ground",
+                    description="Device ground node name"
                 )
             ) : {
-                Optional("name", default="GND"): str,
+                Optional("name", default="VSS"): str,
                 Optional("voltage", default=0): number_syntax
             },
 
             Optional(
                 Literal(
                     "pwell",
-                    description="Devicess P-WELL terminal"
+                    description="Device p-type biasing node name"
                 )
             ) : {
                 Optional("name", default="VPW"): str,
@@ -298,7 +302,7 @@ class ConfigFile:
             Optional(
                 Literal(
                     "nwell",
-                    description="Devices N-WELL terminal"
+                    description="Devices n-type biasing node name"
                 )
             ) : {
                 Optional("name", default="VNW"): str,
@@ -309,7 +313,7 @@ class ConfigFile:
         Optional(
             Literal(
                 "simulator",
-                description="Specifies which Spice simulator to use"
+                description="Specifies which PySpice backend to use"
             ),
             default="ngspice-shared"
         ) : Or("ngspice-shared", "ngspice-subprocess", "xyce-serial", "xyce-parallel"),
@@ -479,7 +483,7 @@ class ConfigFile:
         # that have other sub-keys, and no default value in cell_syntax
         keys = [{"units" : {}}    ,
                 {"logic_thresholds" : {}},
-                {"named_nodes" : {"vdd": {}, "vss": {}, "pwell": {}, "nwell": {}}},
+                {"named_nodes" : {"primary_power": {}, "primary_ground": {}, "pwell": {}, "nwell": {}}},
                 {"logic_thresholds" : {}},
                 {"cell_defaults" : {}}]
 
