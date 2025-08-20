@@ -3,51 +3,40 @@
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+from charlib.characterizer.cell import Cell, CellTestConfig
 from charlib.liberty.UnitsSettings import UnitsSettings
-from charlib.liberty.library import Library
-from charlib.characterizer.combinational.TestManager import CombinationalTestManager
-from charlib.characterizer.sequential.TestManager import SequentialTestManager
 
 class Characterizer:
-    """Main object of Charlib. Keeps track of settings and cells."""
-    # TODO: Let characterizer handle simulation job schedule & results dispatch
+    """Main object of Charlib. Keeps track of settings and cells, and schedules simulations."""
 
     def __init__(self, **kwargs) -> None:
         self.settings = CharacterizationSettings(**kwargs)
-        self.library = Library(kwargs.get('lib_name'), **kwargs)
-        self.executor = ProcessPoolExecutor(self.settings.jobs)
-        self.tests = []
+        self.cells = []
 
-    def add_cell(self, name, in_ports, out_ports, functions, **kwargs):
-        """Create a new logic cell test"""
-        comb_cell = CombinationalTestManager(name, in_ports, out_ports, functions, **kwargs)
-        comb_cell.add_pg_pins(self.settings.vdd, self.settings.vss, self.settings.pwell, self.settings.nwell)
-        self.tests.append(comb_cell)
-
-    def add_flop(self, name, in_ports, out_ports, clock, flops, functions, **kwargs):
-        """Create a new sequential cell test"""
-        seq_cell = SequentialTestManager(name, in_ports, out_ports, clock, flops, functions, **kwargs)
-        seq_cell.add_pg_pins(self.settings.vdd, self.settings.vss, self.settings.pwell, self.settings.nwell)
-        self.tests.append(seq_cell)
+    def add_cell(self, name: str, properties: dict):
+        """Add a cell to be characterized"""
+        netlist = properties.pop('netlist')
+        functions = properties.pop('functions')
+        special_pins = {self.settings.primary_power.name: 'primary_power',
+                        self.settings.primary_ground.name: 'primary_ground',
+                        self.settings.pwell.name: 'pwell',
+                        self.settings.nwell.name: 'nwell'}
+        # TODO: Handle other special pins
+        logic_pins = {}
+        if 'inputs' in properties and 'outputs' in properties:
+            logic_pins['inputs'] = properties.pop('inputs')
+            logic_pins['outputs'] = properties.pop('outputs')
+        cell = Cell(name, netlist, functions, logic_pins, special_pins)
+        models = properties.pop('models')
+        config = CellTestConfig(models, **properties)
+        self.cells.append((cell, config))
 
     def characterize(self):
         """Characterize all cells"""
         # Consider using tqdm to display progress
         # TODO: Figure out how to optimize number of jobs here. For some reason -j2 is fastest on my Ryzen 7600 system, which doesn't make a ton of sense
         with ProcessPoolExecutor(self.settings.jobs) as executor:
-            [self.library.add_cell(cell) for cell in executor.map(self.characterize_cell, self.tests)]
-
-        return self.library
-
-    def characterize_cell(self, cell):
-        """Characterize a single cell. Helper for multiprocessing"""
-        try:
-            return cell.characterize(self.settings)
-        except Exception as e:
-            if self.settings.omit_on_failure:
-                print(f"Error characterizing cell {cell.cell.name}: {e}")
-            else:
-                raise e
+            return [cell for cell in executor.map(self.characterize_cell, self.tests)]
 
     def schedule(self, simulation, key):
         """Schedule a simulation job that produces the results for key
@@ -76,8 +65,8 @@ class CharacterizationSettings:
         # Units and important voltages
         self.units = UnitsSettings(**kwargs.get('units', {}))
         nodes = kwargs.pop('named_nodes', {})
-        self.vdd = NamedNode(**nodes.get('vdd', {'name':'VDD', 'voltage': 3.3}))
-        self.vss = NamedNode(**nodes.get('vss', {'name':'VSS', 'voltage': 0}))
+        self.primary_power = NamedNode(**nodes.get('primary_power', {'name':'VDD', 'voltage': 3.3}))
+        self.primary_ground = NamedNode(**nodes.get('primary_ground', {'name':'VSS', 'voltage': 0}))
         self.pwell = NamedNode(**nodes.get('pwell', {'name':'VPW', 'voltage': 0}))
         self.nwell = NamedNode(**nodes.get('nwell', {'name':'VNW', 'voltage': 3.3}))
 
@@ -90,12 +79,6 @@ class CharacterizationSettings:
 
         # Operating conditions
         self.temperature = kwargs.get('temperature', 25)
-
-    @property
-    def named_nodes(self) -> dict:
-        """Return named nodes as a dictionary of names & voltages (with correct units)"""
-        nodes = [self.vdd, self.vss, self.pwell, self.nwell]
-        return dict(zip([n.name for n in nodes], [n.voltage * self.units.voltage for n in nodes]))
 
 
 class NamedNode:
