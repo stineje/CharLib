@@ -17,35 +17,43 @@ class Characterizer:
         """Add a cell to be characterized"""
         netlist = properties.pop('netlist')
         functions = properties.pop('functions')
-        special_pins = {self.settings.primary_power.name: 'primary_power',
-                        self.settings.primary_ground.name: 'primary_ground',
-                        self.settings.pwell.name: 'pwell',
-                        self.settings.nwell.name: 'nwell'}
-        # TODO: Handle other special pins
+
+        # If logic_pins are present, unpack and organize
         logic_pins = {}
         if 'inputs' in properties and 'outputs' in properties:
             logic_pins['inputs'] = properties.pop('inputs')
             logic_pins['outputs'] = properties.pop('outputs')
+
+        # Get pg_pins
+        special_pins = {self.settings.primary_power.name: 'primary_power',
+                        self.settings.primary_ground.name: 'primary_ground',
+                        self.settings.pwell.name: 'pwell',
+                        self.settings.nwell.name: 'nwell'}
+
+        # Handle other special pins
+        for role in ['clock', 'set', 'reset', 'enable']:
+            match properties.pop(role, '').split():
+                case [edge_or_level, pin]:
+                    special_pins[pin] = f'{edge_or_level} {role}'
+                case [pin]:
+                    special_pins[pin] = role
+
         cell = Cell(name, netlist, functions, logic_pins, special_pins)
         models = properties.pop('models')
         config = CellTestConfig(models, **properties)
         self.cells.append((cell, config))
 
+    def analyse_cell(self, cell) -> list:
+        """Return a list of callable simulation tasks required for this cell."""
+        pass # TODO
+
+    def schedule_simulations(self):
+        """Set up simulations for each cell"""
+        pass # TODO
+
     def characterize(self):
-        """Characterize all cells"""
-        # Consider using tqdm to display progress
-        # TODO: Figure out how to optimize number of jobs here. For some reason -j2 is fastest on my Ryzen 7600 system, which doesn't make a ton of sense
-        with ProcessPoolExecutor(self.settings.jobs) as executor:
-            return [cell for cell in executor.map(self.characterize_cell, self.tests)]
-
-    def schedule(self, simulation, key):
-        """Schedule a simulation job that produces the results for key
-
-        :param simulation: a callable which returns a liberty-compatible object.
-        :param key: a string containing the dot-indexed location within the liberty library where
-                    results should be saved.
-        """
-        self.executor.submit(simulation)
+        """Execute scheduled simulation jobs in parallel"""
+        pass # TODO
 
 
 class CharacterizationSettings:

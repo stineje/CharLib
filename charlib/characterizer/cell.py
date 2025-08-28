@@ -1,6 +1,6 @@
 """Encapsulates a cell to be tested."""
 
-from enum import StrEnum
+from enum import StrEnum, Flag
 from pathlib import Path
 
 from charlib.characterizer.logic import Function
@@ -42,7 +42,7 @@ class Cell:
             self.functions[output] = Function(expr)
 
         # Use netlist .subckt line and function operands to validate and bind ports
-        self.ports = dict()
+        self.ports = list()
         function_outputs = set(self.functions.keys())
         function_inputs = set.union(*[set(function.operands) for function in self.functions.values()])
         for port in self.subckt().split()[2:]:
@@ -51,12 +51,25 @@ class Cell:
                     else 'output' if port in function_outputs \
                     else 'input' if port in function_inputs \
                     else f'unable to determine direction for port {port}'
-            # Special pins override default role (and sometimes direction)
+            inverted = False
+            edge_triggered = False
+            # Special pins may override role, direction, etc.
             if port in special_pins:
-                role = special_pins[port]
-                if 'primary' in role or 'well' in role:
+                *modifiers, role = special_pins[port].split()
+                if len(modifiers) > 1:
+                    raise ValueError(f'A maximum of 2 components are allowed in role, but pin "{port}" has role "{special_pins[port]}"')
+                if any([substr in role for substr in ['primary', 'well', 'set', 'enable', 'clock']]):
                     direction = 'input'
-            self.ports[port] = Port(port, direction, role)
+                match modifiers:
+                    case ['posedge']:
+                        inverted = False
+                        edge_triggered = True
+                    case ['negedge']:
+                        inverted = True
+                        edge_triggered = True
+                    case ['not']:
+                        inverted = True
+            self.ports.append(Port(port, direction, role, inverted, edge_triggered))
 
         # If logic_pins kwarg is present, use it to validate port names
         if logic_pins:
@@ -67,6 +80,8 @@ class Cell:
             if not all([output_pin in self.outputs for output_pin in logic_pins['outputs']]):
                 raise ValueError(f'Failed to validate output pins! Expected {logic_pins["outputs"]}, found {self.outputs}')
 
+        self.liberty = [] # TODO: Init as a liberty.Cell object
+
     def subckt(self) -> str:
         """Return the subckt line from the spice file"""
         with open(self.netlist, 'r') as file:
@@ -75,25 +90,48 @@ class Cell:
                     return line
             raise ValueError(f'Failed to identify a .subckt in netlist "{self.netlist}"')
 
+    def filter_ports(self, directions: list=[], roles: list=[],
+                     inverted: bool|None=None, edge_triggered: bool|None=None):
+        """Return a collection of ports matching the given directions, roles, etc.
+
+        :param direction: A list of port directions to match. Elements must be values in Port.Direction.
+        :param role: A list of port roles to match. Elements must be values in Port.Role.
+        :param inverted: Return only ports with inversion matching this argument.
+        :param edge_triggered: Return only ports with trigger matching this argument.
+
+        Any argument may be omitted, in which case it is not used to filter the list of ports.
+        """
+        for port in self.ports:
+            if directions and not port.direction in directions:
+                continue
+            if roles and not port.role in roles:
+                continue
+            if inverted is not None and not port.is_inverted() == inverted:
+                continue
+            if edge_triggered is not None and not port.is_edge_triggered == edge_triggered:
+                continue
+            yield port
+
     @property
     def outputs(self) -> list:
         """Return a list of output port names"""
-        return [p.name for p in self.ports.values() if p.direction == 'output']
+        return [port.name for port in self.filter_ports(['output'])]
 
     @property
     def inputs(self) -> list:
         """Return a list of input port names"""
-        return [p.name for p in self.ports.values() if p.direction == 'input']
+        return [port.name for port in self.filter_ports(['input'])]
 
     @property
     def inouts(self) -> list:
         """Return a list of inout port names"""
-        return [p.name for p in self.ports.values() if p.direction == 'inout']
+        return [port.name for port in self.filter_ports(['inout'])]
 
     @property
     def pg_pins(self) -> list:
         """Return a list of supply and bias pin names"""
-        return [p.name for p in self.ports.values() if p.role in ['primary_power', 'primary_ground', 'pwell', 'nwell']]
+        return [port.name for port in self.filter_ports(roles=['primary_power', 'primary_ground', 'pwell', 'nwell'])]
+
 
 class Port:
     """Encapsulate port names with roles and directions"""
@@ -117,18 +155,38 @@ class Port:
         """
         LOGIC = 'logic' # Normal inputs and outputs
         CLOCK = 'clock'
-        INVERTED = 'inverted' # Diff complementary input or flop inverting output
         ANALOG = 'analog'
         POWER = 'primary_power'
         GROUND = 'primary_ground'
         PWELL = 'pwell'
         NWELL = 'nwell'
+        CLEAR = 'reset'
+        PRESET = 'set'
+        ENABLE = 'enable' # Tristate enable
 
-    def __init__(self, name: str, direction: str, role='logic'):
+    class Trigger(Flag):
+        EDGE = True
+        LEVEL = False
+
+    def __init__(self, name: str, direction: str, role='logic', inverted=False, edge_triggered=False):
         """Construct a new port"""
         self.name = name
         self.direction = self.Direction(direction)
         self.role = self.Role(role)
+        self.inversion = False
+        self.trigger = self.Trigger(edge_triggered)
+
+    def is_inverted(self) -> bool:
+        """Return whether this port is inverted.
+
+        Inputs which are inverted are either falling-edge triggered or logic-0 active. Useful for
+        differential complementary inputs, inverting flip-flop outputs, inverted set and enable
+        pins, etc."""
+        return self.inversion
+
+    def is_edge_triggered(self) -> bool:
+        """Return whether this port is edge-triggered."""
+        return bool(self.trigger)
 
 
 class CellTestConfig:
@@ -157,7 +215,7 @@ class CellTestConfig:
                 raise ValueError(f'Unable to locate model at "{filename}"')
             if len(libname) > 1:
                 raise ValueError(f'Expected 1 libname in model "{model}", got {len(libname)}: {libname}')
-            self.models.append((Path(filename), *libname))
+            self.models.append((Path(filename), *libname if len(libname == 1) else None))
 
         self.parameters = parameters
 
