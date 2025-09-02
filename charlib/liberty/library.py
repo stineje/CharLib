@@ -1,3 +1,5 @@
+import numpy as np
+
 import charlib.liberty.liberty as liberty
 
 class Library(liberty.Group):
@@ -93,6 +95,7 @@ class LookupTableTemplate(liberty.Group):
             self.add_attribute(f'variable_{index}', variable)
             self.add_attribute(f'index_{index}', ['"'+', '.join([str(1.0+i) for i in range(length)])+'"'])
             index += 1
+        self.size = tuple(variables.values())
 
     def to_liberty(self, indent_level=0, precision=6):
         # LUT display order is specialized
@@ -105,6 +108,33 @@ class LookupTableTemplate(liberty.Group):
         for group in self.groups.values():
             group_str += group.to_liberty(indent_level+1, precision).split('\n')
         return '\n'.join(lut_str)
+
+
+class LookupTable(liberty.Group):
+    """Convenience class for lookup tables.
+
+    LookupTables have odd formatting like LookupTableTemplates, but also need improved tools for
+    quickly accessing and manipulating data. Variable values and table contents are stored as numpy
+    arrays and matrices respectively.
+    """
+
+    def __init__(self, lut_name, lut_template, **variable_values):
+        """Initialize a lookup table from a template
+
+        :param lut_name: The name of the lookup table.
+        :param lut_template: A LookupTableTemplate group or lu_table_template name to create.
+        :param **variable_values: keyword arguments consisting of variable names and values.
+        """
+        super().__init__(lut_name, lut_template)
+        if isinstance(lut_template, LookupTableTemplate):
+            # TODO: Validate variable names and sizes match up with **variable_values
+            self.template = lut_template
+        else:
+            variables = {v : len(variable_values[v]) for v in variable_values.keys()}
+            self.template = LookupTableTemplate(lut_template, **variables)
+        # TODO: Store variable values as numpy arrays
+
+        self.values = np.zeros(self.template.size)
 
 
 if __name__ == "__main__":
