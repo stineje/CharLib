@@ -25,7 +25,7 @@ class Library(liberty.Group):
     def __init__(self, name, **attrs):
         """Construct a library group"""
         super().__init__('library', name)
-        self.add_attribute('filename', f'{name}.lib')
+        self.file_name = attrs.pop('filename', f'{name}.lib')
         self.add_attribute('technology', 'cmos')
         self.add_attribute('delay_model', 'table_lookup')
         self.add_attribute('bus_naming_style', '%s-%d')
@@ -41,9 +41,10 @@ class Library(liberty.Group):
 
         # Copy nom_* attrs into operating_conditions group
         op_conditions = liberty.Group('operating_conditions', 'typical')
-        op_conditions.add_attribute('process', self.nom_process)
-        op_conditions.add_attribute('voltage', self.nom_voltage)
-        op_conditions.add_attribute('temperature', self.nom_temperature)
+        op_conditions.add_attribute('process', self.nom_process.value)
+        op_conditions.add_attribute('voltage', self.nom_voltage.value)
+        op_conditions.add_attribute('temperature', self.nom_temperature.value)
+        self.add_group(op_conditions)
 
     def add_lu_table_template(self, lut, **variables):
         if isinstance(lut, LookupTableTemplate):
@@ -64,15 +65,16 @@ class Library(liberty.Group):
     def to_liberty(self, precision=6):
         """Convert this library to a Liberty-format string."""
         # Library display order is specialized
-        lib_str = [f'{self.name}, {self.identifier}{{']
+        lib_str = [f'{self.name} ({self.identifier}){{']
         for attr in self.ordered_attributes:
             if hasattr(self, attr):
                 lib_str += [self.attributes[attr].to_liberty(1, precision)]
         for key, attr in self.attributes.items():
             if key not in self.ordered_attributes:
                 lib_str += [attr.to_liberty(1, precision)]
-        for group in self.groups:
+        for group in self.groups.values():
             lib_str += group.to_liberty(1, precision).split('\n')
+        lib_str += [f'}} /* end {self.name} */']
         return '\n'.join(lib_str)
 
 
@@ -98,15 +100,15 @@ class LookupTableTemplate(liberty.Group):
         self.size = tuple(variables.values())
 
     def to_liberty(self, indent_level=0, precision=6):
-        # LUT display order is specialized
+        # LUT template display order is specialized
         indent = liberty.INDENT_STR * indent_level
-        indices = range(1, len(self.attributes)//2 + 1)
+        indices = range(1, len(self.size)+1)
         lut_str = [f'{indent}{self.name} ({self.identifier}) {{']
         lut_str += [self.attributes[f'variable_{i}'].to_liberty(indent_level+1, precision) for i in indices]
         lut_str += [self.attributes[f'index_{i}'].to_liberty(indent_level+1, precision) for i in indices]
-        lut_str += [f'{indent}}}']
         for group in self.groups.values():
-            group_str += group.to_liberty(indent_level+1, precision).split('\n')
+            lut_str += group.to_liberty(indent_level+1, precision).split('\n')
+        lut_str += [f'{indent}}} /* end {self.name} */']
         return '\n'.join(lut_str)
 
 
@@ -125,21 +127,83 @@ class LookupTable(liberty.Group):
         :param lut_template: A LookupTableTemplate group or lu_table_template name to create.
         :param **variable_values: keyword arguments consisting of variable names and values.
         """
-        super().__init__(lut_name, lut_template)
-        if isinstance(lut_template, LookupTableTemplate):
-            # TODO: Validate variable names and sizes match up with **variable_values
-            self.template = lut_template
-        else:
-            variables = {v : len(variable_values[v]) for v in variable_values.keys()}
-            self.template = LookupTableTemplate(lut_template, **variables)
-        # TODO: Store variable values as numpy arrays
+        if not isinstance(lut_template, LookupTableTemplate):
+            lut_template = LookupTableTemplate(lut_template, **{k: len(v) for k, v in variable_values.items()})
 
-        self.values = np.zeros(self.template.size)
+        # Validate variable names and sizes match up with template
+        for variable, i, template_length in zip(variable_values.keys(), range(1, len(lut_template.size)+1), lut_template.size):
+            template_variable = lut_template.attributes[f'variable_{i}'].value
+            if not variable == template_variable:
+                raise ValueError(f'Template requires variable_{i} = "{template_variable}", got "{variable}"!')
+            if not len(variable_values[variable]) == template_length:
+                raise ValueError(f'Template requires variable "{variable}" to have {template_length} values!')
+        super().__init__(lut_name, lut_template.identifier)
+        self.template = lut_template
+
+        # Store index values as numpy arrays
+        self.index_values = np.array([np.array(v) for v in variable_values.values()])
+
+        # Store table values as a matrix
+        self.values = np.zeros(self.size)
+
+    @property
+    def size(self):
+        """Return template size as a shape-like tuple"""
+        return self.template.size
+
+    def _get_indices(self, *index_values):
+        """Determine the indices matching the ordered list of index values passed"""
+        indices = []
+        for key, i in zip(index_values, range(len(self.size))):
+            try:
+                indices += [int(np.argwhere(self.index_values[i] == key)[0][0])]
+            except IndexError:
+                raise KeyError(f'index_{i+1} contains no such value: {key}')
+        return indices
+
+    def __getitem__(self, keys):
+        # Lookup and return value by indices
+        return self.values[*self._get_indices(*keys)]
+
+    def __setitem__(self, keys, value):
+        # Lookup and set value by indices
+        self.values[*self._get_indices(*keys)] = value
+
+    def to_liberty(self, indent_level=0, precision=6):
+        # LUT display requires reformatting indices and variables
+        indent = liberty.INDENT_STR * indent_level
+        indent_1 = liberty.INDENT_STR * (indent_level + 1)
+        lut_str = [f'{indent}{self.name} ({self.identifier}) {{']
+        for i in range(len(self.index_values)):
+            index_values = [f"{v:{precision}f}" for v in self.index_values[i]]
+            lut_str += [f'{indent_1}index_{i+1} ("{", ".join(index_values)}") ;']
+        lut_str += [f'{indent_1}values ( \\']
+        for i in range(len(self.index_values[0])):
+            values = [f"{v:{precision}f}" for v in self.values[i,:]]
+            lut_str += [f'{indent_1}        "{", ".join(values)}" \\']
+        lut_str += [f'{indent_1}) ;']
+        lut_str += [f'{indent}}}  /* end {self.name} */']
+        return '\n'.join(lut_str)
 
 
 if __name__ == "__main__":
     # Test Library and LUT classes
     library = Library('gf180')
-    lut = LookupTableTemplate('delay_template_5x5', total_output_net_capacitance=5, input_net_transition=5)
-    library.add_lu_table_template(lut)
+    library.add_attribute('voltage_unit', '1V')
+    lut_template = LookupTableTemplate('delay_template_5x5', total_output_net_capacitance=5, input_net_transition=5)
+    library.add_lu_table_template(lut_template)
+
+    cell = liberty.Group('cell', 'gf180mcu_osu_sc_gp9t3v3__addf_1')
+    cell.add_group('pin', 'CO')
+    cell.group('pin', 'CO').add_attribute('direction', 'output')
+    cell.group('pin', 'CO').add_attribute('function', 'A&B | CI&(A^B)')
+    cell.group('pin', 'CO').add_group('timing')
+    lut = LookupTable('cell_rise', lut_template.identifier,
+                      total_output_net_capacitance=[0.0013, 0.0048, 0.0172, 0.0616, 0.2206],
+                      input_net_transition=[0.0706, 0.1903, 0.5123, 1.3794, 3.714])
+    lut.values[0,2] = 0.016206
+    lut[0.0013, 0.1903] = 0.1134 # Test setitem
+    lut[0.2206, 3.714] = lut[0.0013, 0.5123] # Test getitem
+    cell.group('pin', 'CO').group('timing').add_group(lut)
+    library.add_group(cell)
     print(library.to_liberty())

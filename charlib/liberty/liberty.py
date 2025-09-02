@@ -1,9 +1,21 @@
 """Tools for creating Liberty groups. See Liberty User Guide Vol 1, Chapter 1."""
 
+import re
+
 INDENT_STR = '  '
 
 class Statement:
     """Abstract base class for Liberty statements, such as Groups and Attributes"""
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if not re.match(r'^\w+$', name):
+            raise ValueError('Liberty object names must consist of only alphanumeric characters and underscores!')
+        self._name = name
+
     def to_liberty(self, indent=0, precision=6):
         return NotImplemented
 
@@ -20,7 +32,7 @@ class Group(Statement):
         :param group_name: The Liberty group name, such as 'cell' or 'pin'.
         :param group_id: The group identifier, e.g. the cell name for a 'cell' group.
         """
-        self.name = group_name # TODO: Validate only alnums or underscores
+        self.name = group_name
         self.identifier = group_id # TODO: Validate
         self.groups = dict()
         self.attributes = dict()
@@ -48,9 +60,13 @@ class Group(Statement):
 
     def __getattr__(self, name):
         # Allows group.key syntax for attribute (but not subgroup) lookup
-        return self.attributes[name]
+        try:
+            return self.attributes[name]
+        except KeyError:
+            classname = type(self).__name__
+            raise AttributeError(f'{classname!r} object has no attribute {name!r}')
 
-    def add_group(self, group, group_id=None):
+    def add_group(self, group, group_id=''):
         """Add a sub-group.
 
         :param group: An existing Group object or the name of the group to create.
@@ -66,7 +82,7 @@ class Group(Statement):
         finally:
             self.groups[hash(group)] = group
 
-    def group(self, name, identifier):
+    def group(self, name, identifier=''):
         """Look up a sub-group by name and id"""
         return self.groups[hash((name, identifier))]
 
@@ -87,9 +103,7 @@ class Group(Statement):
         Note that attribute values from other will override attribute values from self."""
         if not hash(self) == hash(other):
             raise ValueError("Group name and id must match in order to merge!")
-        # [self.add_group(group) for group in other.groups]
-        for group in other.groups.values():
-            self.add_group(group)
+        [self.add_group(group) for group in other.groups.values()]
         self.attributes |= other.attributes
 
     def to_liberty(self, indent_level=0, precision=6):
@@ -104,7 +118,7 @@ class Group(Statement):
             group_str += [attr.to_liberty(indent_level+1, precision)]
         for group in self.groups.values():
             group_str += group.to_liberty(indent_level+1, precision).split('\n')
-        group_str += [f'{indent}}}']
+        group_str += [f'{indent}}} /* end {self.name} */']
         return '\n'.join(group_str)
 
 
@@ -122,7 +136,6 @@ class Attribute(Statement):
         :param attribute_name: The Liberty attribute name, such as 'function' or 'value'.
         :param attribute_value: The value to store. May be numeric, boolean, string, or list.
         """
-        # TODO: Validate attribute_name is only alnums or underscores
         self.name = attribute_name
         # TODO: Validate attribute_value
         self.value = attribute_value
@@ -135,7 +148,7 @@ class Attribute(Statement):
         # Implements == operation
         return self.name == other.name and self.value == other.value
 
-    def __repr__(self, other):
+    def __repr__(self):
         # Display for debugging
         return f'Attribute({self.name}, {self.value})'
 
@@ -153,7 +166,7 @@ class Attribute(Statement):
         :param value: A string value that may or may not need to be enclosed in quotes
         """
         value = value.strip()
-        if len(value.split()) > 1 or value[0].isnumeric():
+        if value[0].isnumeric() or not re.match(r'^\w+$', value):
             return f'"{value}"'
         else:
             return value
