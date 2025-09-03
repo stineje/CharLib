@@ -120,7 +120,7 @@ class UnitsSettings:
     @property
     def energy(self):
         return self._energy
-    
+
     @energy.setter
     def energy(self, value: str):
         # Valid symbols are "J" or "Joules"
@@ -156,5 +156,6 @@ class UnitsSettings:
         ]
         prefix_str = prefix_str.lower() if len(prefix_str) > 1 else prefix_str # Allow case-insensitive long prefixes
         for (prefixes, exponent) in lookup_table:
-            if prefix_str in prefixes: return unit(10.0**exponent).canonise()
+            if prefix_str in prefixes:
+                return unit(10.0**exponent).canonise()
         raise ValueError(f'"{prefix_str}" is not a recognized metric prefix! Supported values are: {[prefixes for (prefixes,_) in lookup_table]}')

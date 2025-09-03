@@ -9,7 +9,7 @@ import numpy as np
 from liberty.parser import parse_liberty
 from PySpice.Logging import Logging
 
-from charlib.characterizer.Characterizer import Characterizer
+from charlib.characterizer.characterizer import Characterizer
 from charlib.characterizer.cell import Cell
 from charlib.characterizer.logic.functions import generate_yml
 
