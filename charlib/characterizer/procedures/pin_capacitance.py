@@ -2,11 +2,23 @@ import numpy as np
 import PySpice
 from PySpice.Unit import *
 
-def measure_input_capacitance(cell, settings, config):
-    """Measure input capacitance for each input pin and return a liberty.Cell object"""
-    pass # TODO
+from charlib.characterizer.procedures import register
+from charlib.liberty import liberty
 
-def ac_sweep(cell, settings, config, target_pin):
+@register
+def ac_sweep(cell, config, settings):
+    """Measure input capacitance for each input pin using ac sweep and return a liberty cell group"""
+    # Copy cell liberty to a new group
+    result = liberty.Group('cell', cell.name)
+    result += cell.liberty
+
+    # Measure capacitance of each input pin and add to results
+    for target_pin in cell.inputs:
+        capacitance = measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin)
+        result.group('pin', target_pin).add_attribute('capacitance', capacitance)
+    return result
+
+def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     """Use an AC frequency sweep to measure the capacitance of target_pin
 
     Treat the cell as a grounded capacitor with fixed capacitance. Perform an ac sweep with fixed
@@ -28,7 +40,7 @@ def ac_sweep(cell, settings, config, target_pin):
     circuit = PySpice.Circuit(circuit_name)
     circuit.V('dd', 'vdd', circuit.gnd, vdd)
     circuit.V('ss', 'vss', circuit.gnd, vss)
-    circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {PySpice.Unit.str_spice(i_in)}')
+    circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {PySpice.Spice.unit.str_spice(i_in)}')
     circuit.R('in', circuit.gnd, 'vin', r_in)
 
     # Include relevant circuits
@@ -42,7 +54,7 @@ def ac_sweep(cell, settings, config, target_pin):
     circuit.include(cell.netlist)
 
     # Initialize device under test and wire up ports
-    for port in self.ports:
+    for port in cell.ports:
         if port.name == target_pin:
             connections.append('vin')
         elif port.name == settings.primary_power.name:

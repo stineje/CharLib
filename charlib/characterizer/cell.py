@@ -5,6 +5,7 @@ from pathlib import Path
 
 from charlib.characterizer.logic import Function
 from charlib.characterizer.logic.Parser import parse_logic
+from charlib.liberty import liberty
 
 class Cell:
     """A standard cell and its functional details"""
@@ -21,6 +22,8 @@ class Cell:
         :param special_pins: A dict of pin names with non-logic roles
         """
         self.name = name
+        self.liberty = liberty.Group('cell', name)
+        self.liberty.add_attribute('area', 0.0)
 
         # Validate & bind netlist as an existing filepath
         if isinstance(netlist, (str, Path)):
@@ -80,7 +83,19 @@ class Cell:
             if not all([output_pin in self.outputs for output_pin in logic_pins['outputs']]):
                 raise ValueError(f'Failed to validate output pins! Expected {logic_pins["outputs"]}, found {self.outputs}')
 
-        self.liberty = [] # TODO: Init as a liberty.Cell object
+        # Add ports to liberty data
+        for port in [p for p in self.ports if p.name in self.pg_pins]:
+            pin = liberty.Group('pg_pin', port.name)
+            pin.add_attribute('voltage_name', port.name)
+            pin.add_attribute('pg_type', port.role)
+            self.liberty.add_group(pin)
+        for port in self.filter_ports(roles='logic'):
+            pin = liberty.Group('pin', port.name)
+            pin.add_attribute('direction', port.direction)
+            if port.name in function_outputs:
+                pin.add_attribute('function', str(self.functions[port.name]))
+            self.liberty.add_group(pin)
+
 
     def subckt(self) -> str:
         """Return the subckt line from the spice file"""
@@ -215,7 +230,9 @@ class CellTestConfig:
                 raise ValueError(f'Unable to locate model at "{filename}"')
             if len(libname) > 1:
                 raise ValueError(f'Expected 1 libname in model "{model}", got {len(libname)}: {libname}')
-            self.models.append((Path(filename), *libname if len(libname == 1) else None))
+            elif not len(libname) == 1:
+                libname = []
+            self.models.append((Path(filename), *libname))
 
         self.parameters = parameters
 

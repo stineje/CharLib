@@ -1,16 +1,19 @@
 """Dispatches characterization jobs and manages cell data"""
 
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import charlib.characterizer.procedures.pin_capacitance
 from charlib.characterizer.cell import Cell, CellTestConfig
-from charlib.liberty.UnitsSettings import UnitsSettings
+from charlib.characterizer.units import UnitsSettings
+from charlib.characterizer.procedures import registered_procedures
+from charlib.liberty.library import Library
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells, and schedules simulations."""
 
     def __init__(self, **kwargs) -> None:
         self.settings = CharacterizationSettings(**kwargs)
+        self.library = Library(kwargs.pop('lib_name', 'unnamed_lib'), **self.settings.liberty_attrs_as_dict())
         self.cells = []
 
     def add_cell(self, name: str, properties: dict):
@@ -39,21 +42,23 @@ class Characterizer:
                     special_pins[pin] = role
 
         cell = Cell(name, netlist, functions, logic_pins, special_pins)
+        print(cell.liberty.to_liberty(1))
         models = properties.pop('models')
         config = CellTestConfig(models, **properties)
         self.cells.append((cell, config))
 
-    def analyse_cell(self, cell) -> list:
+    def analyse_cell(self, cell, config) -> list:
         """Return a list of callable simulation tasks required for this cell."""
-        pass # TODO
-
-    def schedule_simulations(self):
-        """Set up simulations for each cell"""
-        pass # TODO
+        # TODO: Identify which delay sims to run
+        return [(self.settings.simulation.input_capacitance, cell, config, self.settings)]
 
     def characterize(self):
         """Execute scheduled simulation jobs in parallel"""
-        pass # TODO
+        simulation_tasks = []
+        for (cell, config) in self.cells:
+            simulation_tasks += self.analyse_cell(cell, config)
+        [self.library.add_group(task(*args)) for task, *args in simulation_tasks]
+        return self.library.to_liberty()
 
 
 class CharacterizationSettings:
@@ -61,7 +66,6 @@ class CharacterizationSettings:
     def __init__(self, **kwargs):
         """Create a new CharacterizationSettings instance"""
         # Behavioral settings
-        self.simulator = kwargs.pop('simulator', 'ngspice-shared')
         self.jobs = None if kwargs.pop('multithreaded', True) else 1
         self.results_dir = Path(kwargs.pop('results_dir', 'results'))
         self.debug = kwargs.pop('debug', False)
@@ -70,8 +74,13 @@ class CharacterizationSettings:
         self.cell_defaults = kwargs.get('cell_defaults', {})
         self.omit_on_failure = kwargs.get('omit_on_failure', False)
 
-        # Units and important voltages
+        # Simulation procedures
+        self.simulation = SimulationSettings(**kwargs.get('simulation', {}))
+
+        # Units for simulation and results
         self.units = UnitsSettings(**kwargs.get('units', {}))
+
+        # Library-wide named voltages
         nodes = kwargs.pop('named_nodes', {})
         self.primary_power = NamedNode(**nodes.get('primary_power', {'name':'VDD', 'voltage': 3.3}))
         self.primary_ground = NamedNode(**nodes.get('primary_ground', {'name':'VSS', 'voltage': 0}))
@@ -79,15 +88,49 @@ class CharacterizationSettings:
         self.nwell = NamedNode(**nodes.get('nwell', {'name':'VNW', 'voltage': 3.3}))
 
         # Logic thresholds
-        logic_thresholds = kwargs.get('logic_thresholds', {})
-        self.logic_threshold_low = logic_thresholds.get('low', 0.2)
-        self.logic_threshold_high = logic_thresholds.get('high', 0.8)
-        self.logic_threshold_high_to_low = logic_thresholds.get('high_to_low', 0.5)
-        self.logic_threshold_low_to_high = logic_thresholds.get('low_to_high', 0.5)
+        self.logic_thresholds = LogicThresholds(**kwargs.get('logic_thresholds', {}))
 
         # Operating conditions
         self.temperature = kwargs.get('temperature', 25)
 
+    def liberty_attrs_as_dict(self):
+        """Return a dict of library-wide settings that should be written to the liberty file."""
+        spice_unit = lambda unit: f'1{unit.prefixed_unit.str_spice()}'
+        return {
+            'nom_voltage': self.primary_power.voltage,
+            'nom_temperature': self.temperature,
+            'time_unit': spice_unit(self.units.time),
+            'current_unit': spice_unit(self.units.current),
+            'pulling_resistance_unit': spice_unit(self.units.current),
+            'leakage_power_unit': spice_unit(self.units.power),
+            'capacitive_load_unit': [1, self.units.capacitance.prefixed_unit.str_spice()],
+            'slew_upper_threshold_pct_rise': self.logic_thresholds.high,
+            'slew_lower_threshold_pct_rise': self.logic_thresholds.low,
+            'slew_upper_threshold_pct_fall': self.logic_thresholds.high,
+            'slew_lower_threshold_pct_fall': self.logic_thresholds.low,
+            'input_threshold_pct_rise': self.logic_thresholds.rising,
+            'input_threshold_pct_fall': self.logic_thresholds.falling,
+            'output_threshold_pct_rise': self.logic_thresholds.rising,
+            'output_threshold_pct_fall': self.logic_thresholds.falling,
+        }
+
+class SimulationSettings:
+    """Container for simulation backend and procedures"""
+    def __init__(self, **kwargs):
+        self.backend = kwargs.get('simulator', 'ngspice-shared')
+        print(registered_procedures)
+        self.input_capacitance = registered_procedures[kwargs.get('input_capacitance', 'ac_sweep')]
+        # self.combinational_delay = registered_procedures[kwargs.get('combinational_delay', 'combinational_worst_case')]
+        # self.sequential_delay = registered_procedures[kwargs.get('sequential_delay', 'sequential_worst_case')]
+        # self.metastable_delay = registered_procedures[kwargs.get('metastable_delay', 'binary_search')]
+
+class LogicThresholds:
+    """Container for logic_thresholds settings"""
+    def __init__(self, **kwargs):
+        self.low = kwargs.get('low', 0.2)
+        self.high = kwargs.get('high', 0.8)
+        self.rising = kwargs.get('low_to_high', 0.5)
+        self.falling = kwargs.get('high_to_low', 0.5)
 
 class NamedNode:
     """Binds supply node names to voltages"""

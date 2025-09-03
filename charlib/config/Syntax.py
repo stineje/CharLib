@@ -466,7 +466,7 @@ class ConfigFile:
         Validates YAML config file syntax and fills the default values.
         """
 
-        print("Checking configuration syntax")
+        # print("Checking configuration syntax")
 
         # TODO: need following additional checks above schema:
         #       - check that if either of "clock", "flops", "setup_time_range" or "hold_time_range" is present,
