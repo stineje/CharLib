@@ -29,7 +29,6 @@ class Library(liberty.Group):
         self.add_attribute('technology', 'cmos')
         self.add_attribute('delay_model', 'table_lookup')
         self.add_attribute('bus_naming_style', '%s-%d')
-        self.add_attribute('in_place_swap_mode', 'match_footprint')
 
         # Add nominal operating conditions
         self.add_attribute('nom_process', 1.0)
@@ -40,6 +39,7 @@ class Library(liberty.Group):
         [self.add_attribute(attr_name, value) for attr_name, value in attrs.items()]
 
         # Copy nom_* attrs into operating_conditions group
+        # TODO: Make op_conditions identifier configurable
         op_conditions = liberty.Group('operating_conditions', 'typical')
         op_conditions.add_attribute('process', self.nom_process.value)
         op_conditions.add_attribute('voltage', self.nom_voltage.value)
@@ -62,18 +62,23 @@ class Library(liberty.Group):
         """Return cell groups."""
         return [group for group in self.groups if group.name == 'cell']
 
-    def to_liberty(self, precision=6):
-        """Convert this library to a Liberty-format string."""
+    def to_liberty(self, **kwargs):
+        """Convert this library to a Liberty-format string.
+
+        :param precision: Digits of floating-point precision to display. Default 1.
+        :param lut_precision: Digits of floating-point precision to display in LUTs. Default 6.
+                              Overrides precision for LUTs.
+        """
         # Library display order is specialized
         lib_str = [f'{self.name} ({self.identifier}){{']
         for attr in self.ordered_attributes:
             if hasattr(self, attr):
-                lib_str += [self.attributes[attr].to_liberty(1, precision)]
+                lib_str += [self.attributes[attr].to_liberty(1, **kwargs)]
         for key, attr in self.attributes.items():
             if key not in self.ordered_attributes:
-                lib_str += [attr.to_liberty(1, precision)]
+                lib_str += [attr.to_liberty(1, **kwargs)]
         for group in self.groups.values():
-            lib_str += group.to_liberty(1, precision).split('\n')
+            lib_str += group.to_liberty(1, **kwargs).split('\n')
         lib_str += [f'}} /* end {self.name} */']
         return '\n'.join(lib_str)
 
@@ -99,15 +104,15 @@ class LookupTableTemplate(liberty.Group):
             index += 1
         self.size = tuple(variables.values())
 
-    def to_liberty(self, indent_level=0, precision=6):
+    def to_liberty(self, indent_level=0, **kwargs):
         # LUT template display order is specialized
         indent = liberty.INDENT_STR * indent_level
         indices = range(1, len(self.size)+1)
         lut_str = [f'{indent}{self.name} ({self.identifier}) {{']
-        lut_str += [self.attributes[f'variable_{i}'].to_liberty(indent_level+1, precision) for i in indices]
-        lut_str += [self.attributes[f'index_{i}'].to_liberty(indent_level+1, precision) for i in indices]
+        lut_str += [self.attributes[f'variable_{i}'].to_liberty(indent_level+1, **kwargs) for i in indices]
+        lut_str += [self.attributes[f'index_{i}'].to_liberty(indent_level+1, **kwargs) for i in indices]
         for group in self.groups.values():
-            lut_str += group.to_liberty(indent_level+1, precision).split('\n')
+            lut_str += group.to_liberty(indent_level+1, **kwargs).split('\n')
         lut_str += [f'{indent}}} /* end {self.name} */']
         return '\n'.join(lut_str)
 
@@ -169,30 +174,32 @@ class LookupTable(liberty.Group):
         # Lookup and set value by indices
         self.values[*self._get_indices(*keys)] = value
 
-    def to_liberty(self, indent_level=0, precision=6):
+    def to_liberty(self, indent_level=0, lut_precision=6, **kwargs):
         # LUT display requires reformatting indices and variables
         indent = liberty.INDENT_STR * indent_level
-        indent_1 = liberty.INDENT_STR * (indent_level + 1)
+        inner_indent = liberty.INDENT_STR * (indent_level + 1)
+        value_indent = liberty.INDENT_STR * (indent_level + 2)
         lut_str = [f'{indent}{self.name} ({self.identifier}) {{']
         for i in range(len(self.index_values)):
-            index_values = [f"{v:{precision}f}" for v in self.index_values[i]]
-            lut_str += [f'{indent_1}index_{i+1} ("{", ".join(index_values)}") ;']
-        lut_str += [f'{indent_1}values ( \\']
+            index_values = [f"{v:.{lut_precision}f}" for v in self.index_values[i]]
+            lut_str += [f'{inner_indent}index_{i+1} ("{", ".join(index_values)}") ;']
+        lut_str += [f'{inner_indent}values ( \\']
         for i in range(len(self.index_values[0])):
-            values = [f"{v:{precision}f}" for v in self.values[i,:]]
-            lut_str += [f'{indent_1}        "{", ".join(values)}" \\']
-        lut_str += [f'{indent_1}) ;']
+            values = [f"{v:.{lut_precision}f}" for v in self.values[i,:]]
+            lut_str += [f'{value_indent}"{", ".join(values)}" \\']
+        lut_str += [f'{inner_indent}) ;']
         lut_str += [f'{indent}}}  /* end {self.name} */']
         return '\n'.join(lut_str)
 
 
 if __name__ == "__main__":
-    # Test Library and LUT classes
+    # Test Library and LUT template classes
     library = Library('gf180')
     library.add_attribute('voltage_unit', '1V')
     lut_template = LookupTableTemplate('delay_template_5x5', total_output_net_capacitance=5, input_net_transition=5)
     library.add_lu_table_template(lut_template)
 
+    # Add a cell with a LUT
     cell = liberty.Group('cell', 'gf180mcu_osu_sc_gp9t3v3__addf_1')
     cell.add_group('pin', 'CO')
     cell.group('pin', 'CO').add_attribute('direction', 'output')
@@ -201,9 +208,15 @@ if __name__ == "__main__":
     lut = LookupTable('cell_rise', lut_template.identifier,
                       total_output_net_capacitance=[0.0013, 0.0048, 0.0172, 0.0616, 0.2206],
                       input_net_transition=[0.0706, 0.1903, 0.5123, 1.3794, 3.714])
+    # Manipulate LUT data
     lut.values[0,2] = 0.016206
     lut[0.0013, 0.1903] = 0.1134 # Test setitem
     lut[0.2206, 3.714] = lut[0.0013, 0.5123] # Test getitem
     cell.group('pin', 'CO').group('timing').add_group(lut)
     library.add_group(cell)
-    print(library.to_liberty())
+
+    # Test library merge
+    library2 = Library('gf180')
+    library2 += library
+    assert(library.to_liberty() == library2.to_liberty())
+    print(library2.to_liberty(lut_precision=5))

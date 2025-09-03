@@ -106,18 +106,18 @@ class Group(Statement):
         [self.add_group(group) for group in other.groups.values()]
         self.attributes |= other.attributes
 
-    def to_liberty(self, indent_level=0, precision=6):
+    def to_liberty(self, indent_level=0, precision=1, **kwargs):
         """Convert this group to a Liberty-format string
 
         :param indent_level: The level of indentation to use. Default 0.
-        :param precision: The number of digits to use when displaying float values. Default 6.
+        :param precision: The number of digits to use when displaying float values. Default 1.
         """
         indent = INDENT_STR * indent_level
         group_str = [f'{indent}{self.name} ({self.identifier}) {{']
         for attr in self.attributes.values():
-            group_str += [attr.to_liberty(indent_level+1, precision)]
+            group_str += [attr.to_liberty(indent_level+1, precision=precision, **kwargs)]
         for group in self.groups.values():
-            group_str += group.to_liberty(indent_level+1, precision).split('\n')
+            group_str += group.to_liberty(indent_level+1, precision=precision, **kwargs).split('\n')
         group_str += [f'{indent}}} /* end {self.name} */']
         return '\n'.join(group_str)
 
@@ -171,7 +171,7 @@ class Attribute(Statement):
         else:
             return value
 
-    def to_liberty(self, indent_level=0, precision=6) -> str:
+    def to_liberty(self, indent_level=0, precision=1, **kwargs) -> str:
         """Convert this Attribute to a Liberty-format string
 
         :param indent_level: The level of indentation to use. Default 0.
@@ -184,7 +184,7 @@ class Attribute(Statement):
         elif isinstance(self.value, str):
             return f'{indent}{self.name} : {self._to_safe_str(self.value)} ;'
         elif isinstance(self.value, float):
-            return f'{indent}{self.name} : {self.value:{precision}f} ;'
+            return f'{indent}{self.name} : {self.value:.{precision}f} ;'
         else: # Assume int or bool, but don't prevent other types
             return f'{indent}{self.name} : {self.value} ;'
 
