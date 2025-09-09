@@ -31,19 +31,19 @@ class Library(liberty.Group):
         self.add_attribute('bus_naming_style', '%s-%d')
 
         # Add nominal operating conditions
-        self.add_attribute('nom_process', 1.0)
-        self.add_attribute('nom_voltage', 3.3) # FIXME: This isn't a sane default. Needs user input
-        self.add_attribute('nom_temperature', 25.0)
+        self.add_attribute('nom_process', 1.0, 2)
+        self.add_attribute('nom_voltage', 3.3, 2) # FIXME: This isn't a sane default. Needs user input
+        self.add_attribute('nom_temperature', 25.0, 2)
 
         # Override defaults with whatever attrs get passed as kwargs
-        [self.add_attribute(attr_name, value) for attr_name, value in attrs.items()]
+        [self.add_attribute(attr_name, value, 2) for attr_name, value in attrs.items()]
 
         # Copy nom_* attrs into operating_conditions group
         # TODO: Make op_conditions identifier configurable
         op_conditions = liberty.Group('operating_conditions', 'typical')
-        op_conditions.add_attribute('process', self.nom_process.value)
-        op_conditions.add_attribute('voltage', self.nom_voltage.value)
-        op_conditions.add_attribute('temperature', self.nom_temperature.value)
+        op_conditions.add_attribute('process', self.nom_process.value, self.nom_process.precision)
+        op_conditions.add_attribute('voltage', self.nom_voltage.value, self.nom_voltage.precision)
+        op_conditions.add_attribute('temperature', self.nom_temperature.value, self.nom_temperature.precision)
         self.add_group(op_conditions)
 
     def add_lu_table_template(self, lut, **variables):
@@ -65,10 +65,9 @@ class Library(liberty.Group):
     def to_liberty(self, **kwargs):
         """Convert this library to a Liberty-format string.
 
-        :param precision: Digits of floating-point precision to display. Default 1.
-        :param lut_precision: Digits of floating-point precision to display in LUTs. Default 6.
-                              Overrides precision for LUTs.
+        :param precision: Digits of floating-point precision to display. Default 1
         """
+        # TODO: Rework precision kwarg into a dict of group.name: precision values
         # Library display order is specialized
         lib_str = [f'{self.name} ({self.identifier}){{']
         for attr in self.ordered_attributes:
@@ -174,18 +173,18 @@ class LookupTable(liberty.Group):
         # Lookup and set value by indices
         self.values[*self._get_indices(*keys)] = value
 
-    def to_liberty(self, indent_level=0, lut_precision=6, **kwargs):
+    def to_liberty(self, indent_level=0, precision=1, **kwargs):
         # LUT display requires reformatting indices and variables
         indent = liberty.INDENT_STR * indent_level
         inner_indent = liberty.INDENT_STR * (indent_level + 1)
         value_indent = liberty.INDENT_STR * (indent_level + 2)
         lut_str = [f'{indent}{self.name} ({self.identifier}) {{']
         for i in range(len(self.index_values)):
-            index_values = [f"{v:.{lut_precision}f}" for v in self.index_values[i]]
+            index_values = [f"{v:.{precision}f}" for v in self.index_values[i]]
             lut_str += [f'{inner_indent}index_{i+1} ("{", ".join(index_values)}") ;']
         lut_str += [f'{inner_indent}values ( \\']
         for i in range(len(self.index_values[0])):
-            values = [f"{v:.{lut_precision}f}" for v in self.values[i,:]]
+            values = [f"{v:.{precision}f}" for v in self.values[i,:]]
             lut_str += [f'{value_indent}"{", ".join(values)}" \\']
         lut_str += [f'{inner_indent}) ;']
         lut_str += [f'{indent}}}  /* end {self.name} */']
@@ -219,4 +218,4 @@ if __name__ == "__main__":
     library2 = Library('gf180')
     library2 += library
     assert(library.to_liberty() == library2.to_liberty())
-    print(library2.to_liberty(lut_precision=5))
+    print(library2.to_liberty())

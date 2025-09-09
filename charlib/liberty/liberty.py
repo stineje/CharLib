@@ -86,16 +86,18 @@ class Group(Statement):
         """Look up a sub-group by name and id"""
         return self.groups[hash((name, identifier))]
 
-    def add_attribute(self, attr: str, value=None):
+    def add_attribute(self, attr: str, value=None, precision=None):
         """Add a simple or complex attribute.
 
         :param attr: An existing Attribute object or the name of the Attribute object to create.
         :param value: The value for the new attribute. Ignored if attr is an Attribute object.
+        :param precision: If different from default, the number of digits to display when printed.
+                          Ignored if attr is an Attribute object.
         """
         if isinstance(attr, Attribute):
             self.attributes[attr.name] = attr
         else:
-            self.attributes[attr] = Attribute(attr, value)
+            self.attributes[attr] = Attribute(attr, value, precision)
 
     def merge(self, other):
         """Merge another group into this one, merging sub-groups and adding attributes.
@@ -123,7 +125,8 @@ class Group(Statement):
 
 
 class Attribute(Statement):
-    def __init__(self, attribute_name: str, attribute_value: bool|int|float|str|list):
+    def __init__(self, attribute_name: str, attribute_value: bool|int|float|str|list,
+                 precision=None):
         """Create a new Liberty attribute.
 
         Per section 1.2.2, attributes have one of the following formats:
@@ -135,10 +138,13 @@ class Attribute(Statement):
 
         :param attribute_name: The Liberty attribute name, such as 'function' or 'value'.
         :param attribute_value: The value to store. May be numeric, boolean, string, or list.
+        :param precision: The number of digits to display with to_liberty, if different from
+                          default.
         """
         self.name = attribute_name
         # TODO: Validate attribute_value
         self.value = attribute_value
+        self.precision = precision
 
     def __hash__(self):
         # Implements hash(Attribute)
@@ -179,11 +185,11 @@ class Attribute(Statement):
         """
         indent = INDENT_STR * indent_level
         if isinstance(self.value, list):
-            # TODO: Break long lists intelligently
             return f'{indent}{self.name} ({", ".join([str(v) for v in self.value])});'
         elif isinstance(self.value, str):
             return f'{indent}{self.name} : {self._to_safe_str(self.value)} ;'
         elif isinstance(self.value, float):
+            precision = self.precision if self.precision is not None else precision
             return f'{indent}{self.name} : {self.value:.{precision}f} ;'
         else: # Assume int or bool, but don't prevent other types
             return f'{indent}{self.name} : {self.value} ;'
