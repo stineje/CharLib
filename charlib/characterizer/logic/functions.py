@@ -100,7 +100,6 @@ class Function:
         # have a different output.
         # If a row differs only by a single input and the output, then we can use that delta for a
         # test vector.
-        # TODO: Make this more efficient
         test_vectors = []
         table = self.truth_table()
         while table:

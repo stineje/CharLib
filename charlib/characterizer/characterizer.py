@@ -1,12 +1,15 @@
 """Dispatches characterization jobs and manages cell data"""
 
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-import charlib.characterizer.procedures.pin_capacitance
 from charlib.characterizer.cell import Cell, CellTestConfig
 from charlib.characterizer.units import UnitsSettings
 from charlib.characterizer.procedures import registered_procedures
 from charlib.liberty.library import Library
+
+import charlib.characterizer.procedures.pin_capacitance
+import charlib.characterizer.procedures.combinational_delay
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells, and schedules simulations."""
@@ -27,13 +30,11 @@ class Characterizer:
             logic_pins['inputs'] = properties.pop('inputs')
             logic_pins['outputs'] = properties.pop('outputs')
 
-        # Get pg_pins
+        # Get pg_pins from library config, then handle other special pins
         special_pins = {self.settings.primary_power.name: 'primary_power',
                         self.settings.primary_ground.name: 'primary_ground',
                         self.settings.pwell.name: 'pwell',
                         self.settings.nwell.name: 'nwell'}
-
-        # Handle other special pins
         for role in ['clock', 'set', 'reset', 'enable']:
             match properties.pop(role, '').split():
                 case [edge_or_level, pin]:
@@ -41,24 +42,41 @@ class Characterizer:
                 case [pin]:
                     special_pins[pin] = role
 
-        cell = Cell(name, netlist, functions, logic_pins, special_pins)
-        print(cell.liberty.to_liberty(1))
+        area = properties.pop('area', 0.0)
+        cell = Cell(name, netlist, functions, logic_pins, special_pins, area)
         models = properties.pop('models')
         config = CellTestConfig(models, **properties)
         self.cells.append((cell, config))
 
     def analyse_cell(self, cell, config) -> list:
         """Return a list of callable simulation tasks required for this cell."""
-        # TODO: Identify which delay sims to run
-        return [(self.settings.simulation.input_capacitance, cell, config, self.settings)]
+        simulations = []
+
+        # Every cell needs input capacitance
+        simulations += self.settings.simulation.input_capacitance(cell, config, self.settings)
+
+        # Identify which delay sims to run based on cell & config
+        if cell.filter_ports(roles=['clock']) and 'clock_slews' in config.parameters:
+            # TODO: clk_inv cells will show up here. Need a way to determine if cell is a flop
+            # TODO: Determine FF type and test as appropriate
+            pass # TODO: add metastability tests & sequential delay tests
+        else:
+            # Run combinational delay measurements
+            pass # simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
+        return simulations
 
     def characterize(self):
         """Execute scheduled simulation jobs in parallel"""
+        # Get simulation jobs single-threadedly (is that a word?)
         simulation_tasks = []
         for (cell, config) in self.cells:
             simulation_tasks += self.analyse_cell(cell, config)
-        [self.library.add_group(task(*args)) for task, *args in simulation_tasks]
-        return self.library.to_liberty()
+        # Use as many processes as we can to complete simulations
+        with ProcessPoolExecutor(max_workers=self.settings.jobs) as executor:
+            futures = [executor.submit(task, *args) for (task, *args) in simulation_tasks]
+            for future in futures:
+                self.library.add_group(future.result())
+        return self.library.to_liberty(precision=6)
 
 
 class CharacterizationSettings:
@@ -100,6 +118,7 @@ class CharacterizationSettings:
             'nom_voltage': self.primary_power.voltage,
             'nom_temperature': self.temperature,
             'time_unit': spice_unit(self.units.time),
+            'voltage_unit': spice_unit(self.units.voltage),
             'current_unit': spice_unit(self.units.current),
             'pulling_resistance_unit': spice_unit(self.units.current),
             'leakage_power_unit': spice_unit(self.units.power),
@@ -117,11 +136,10 @@ class CharacterizationSettings:
 class SimulationSettings:
     """Container for simulation backend and procedures"""
     def __init__(self, **kwargs):
-        self.backend = kwargs.get('simulator', 'ngspice-shared')
-        print(registered_procedures)
+        self.backend = kwargs.get('backend', 'ngspice-shared')
         self.input_capacitance = registered_procedures[kwargs.get('input_capacitance', 'ac_sweep')]
-        # self.combinational_delay = registered_procedures[kwargs.get('combinational_delay', 'combinational_worst_case')]
-        # self.sequential_delay = registered_procedures[kwargs.get('sequential_delay', 'sequential_worst_case')]
+        self.combinational_delay = registered_procedures[kwargs.get('combinational_delay', 'combinational_worst_case')]
+        # self.dff_delay = registered_procedures[kwargs.get('dff_delay', 'dff_worst_case')]
         # self.metastable_delay = registered_procedures[kwargs.get('metastable_delay', 'binary_search')]
 
 class LogicThresholds:
@@ -129,8 +147,8 @@ class LogicThresholds:
     def __init__(self, **kwargs):
         self.low = kwargs.get('low', 0.2)
         self.high = kwargs.get('high', 0.8)
-        self.rising = kwargs.get('low_to_high', 0.5)
-        self.falling = kwargs.get('high_to_low', 0.5)
+        self.rising = kwargs.get('rising', 0.5)
+        self.falling = kwargs.get('falling', 0.5)
 
 class NamedNode:
     """Binds supply node names to voltages"""

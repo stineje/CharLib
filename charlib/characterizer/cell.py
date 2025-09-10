@@ -1,5 +1,6 @@
 """Encapsulates a cell to be tested."""
 
+import itertools
 from enum import StrEnum, Flag
 from pathlib import Path
 
@@ -11,7 +12,7 @@ class Cell:
     """A standard cell and its functional details"""
 
     def __init__(self, name: str, netlist: str|Path, functions: list,
-                 logic_pins={}, special_pins={}):
+                 logic_pins={}, special_pins={}, area=0.0):
         """Construct a new cell, detecting ports from netlist & functions
 
         :param name: The cell name as it appears in the spice netlist
@@ -23,7 +24,7 @@ class Cell:
         """
         self.name = name
         self.liberty = liberty.Group('cell', name)
-        self.liberty.add_attribute('area', 0.0)
+        self.liberty.add_attribute('area', area, 2)
 
         # Validate & bind netlist as an existing filepath
         if isinstance(netlist, (str, Path)):
@@ -84,6 +85,7 @@ class Cell:
                 raise ValueError(f'Failed to validate output pins! Expected {logic_pins["outputs"]}, found {self.outputs}')
 
         # Add ports to liberty data
+        # TODO: Handle other port roles
         for port in [p for p in self.ports if p.name in self.pg_pins]:
             pin = liberty.Group('pg_pin', port.name)
             pin.add_attribute('voltage_name', port.name)
@@ -95,7 +97,6 @@ class Cell:
             if port.name in function_outputs:
                 pin.add_attribute('function', str(self.functions[port.name]))
             self.liberty.add_group(pin)
-
 
     def subckt(self) -> str:
         """Return the subckt line from the spice file"""
@@ -123,29 +124,61 @@ class Cell:
                 continue
             if inverted is not None and not port.is_inverted() == inverted:
                 continue
-            if edge_triggered is not None and not port.is_edge_triggered == edge_triggered:
+            if edge_triggered is not None and not port.is_edge_triggered() == edge_triggered:
                 continue
             yield port
 
     @property
     def outputs(self) -> list:
-        """Return a list of output port names"""
-        return [port.name for port in self.filter_ports(['output'])]
+        """Return a list of output logic port names"""
+        return [port.name for port in self.filter_ports(['output'], roles=['logic'])]
 
     @property
     def inputs(self) -> list:
-        """Return a list of input port names"""
-        return [port.name for port in self.filter_ports(['input'])]
+        """Return a list of input logic port names"""
+        return [port.name for port in self.filter_ports(['input'], roles=['logic'])]
 
     @property
     def inouts(self) -> list:
-        """Return a list of inout port names"""
-        return [port.name for port in self.filter_ports(['inout'])]
+        """Return a list of inout logic port names"""
+        return [port.name for port in self.filter_ports(['inout'], roles=['logic'])]
 
     @property
     def pg_pins(self) -> list:
         """Return a list of supply and bias pin names"""
         return [port.name for port in self.filter_ports(roles=['primary_power', 'primary_ground', 'pwell', 'nwell'])]
+
+    def paths(self):
+        """Generator for input-to-output paths through a cell
+
+        Yields lists in the format [input_name, input_transition, output_name, output_transition].
+        All possible combinations of port names and transitions are yielded, regardless of whether
+        they are possible given this cell's functions.
+        """
+        # FIXME: Generate only paths which actually make sense given this cell's function
+        transitions = ['01', '10']
+        for path in itertools.product(self.inputs, transitions, self.outputs, transitions):
+            yield path
+
+    def nonmasking_conditions_for_path(self, input_port, input_transition, output_port,
+                                       output_transition):
+        """Find all mappings of pin states such that the desired state transitions occur.
+
+        Returns a generator yielding dictionaries of states for which input_port and output_port
+        undergo input_transition and output_transition respectively.
+
+        :param input_port: The name of the input port of interest.
+        :param input_transition: The desired state transition for the input port. Must be '01' or
+                                 '10'.
+        :param output_port: The name of the output port of interest.
+        :param output_transition: The desired state transition for the output port. Must be '01' or
+                                  '10'.
+        """
+        function = self.functions[output_port]
+        for test_vector in function.test_vectors:
+            states = dict(zip([*(function.operands), output_port], test_vector))
+            if states[input_port] == input_transition and states[output_port] == output_transition:
+                yield states
 
 
 class Port:
@@ -207,20 +240,22 @@ class Port:
 class CellTestConfig:
     """Capture configuration information for testing one or more cells"""
 
-    def __init__(self, models: list, **parameters):
+    def __init__(self, models: list, plots=None, timestep=None, **parameters):
         """Construct a new test configuration.
 
         :param models: Transistor models for the cell under test
-        :param data_slews: A list of input data slew rates to test, specified in settings.units.time
-                           units
-        :param clock_slews: A list of clock slew rates to test specified in settings.units.time
-                           units
-        :param loads: A list of output load capacitances to test, specified in
-                      settings.units.capacitance units
+        :param plots: A list of plot types to generate from simulation results. Defaults to None.
         :param timestep: The simulation timestep to use for transient simulations, specified in
                          settings.units.time units. Defaults to 1/8 the minimum data_slew or
                          clock_slew if not provided.
-        :param plots: A list of plot types to generate from simulation results
+        :param **parameters: Keyword arguments containing lists of test parameters, as described
+                             below:
+            :param data_slews: A list of input data slew rates to test, specified in
+                               settings.units.time units.
+            :param clock_slews: A list of clock slew rates to test specified in settings.units.time
+                               units
+            :param loads: A list of output load capacitances to test, specified in
+                          settings.units.capacitance units
         """
         self.models = list()
         for model in models:
@@ -234,9 +269,17 @@ class CellTestConfig:
                 libname = []
             self.models.append((Path(filename), *libname))
 
+        self.timestep = timestep
+        self.plots = plots
         self.parameters = parameters
 
-    def __getitem__(self, key: str):
-        """Return the parameter corresponding to key"""
-        return self.parameters[key]
+    def variations(self):
+        """Generator for test configuration variations
 
+        Yields dictionaries containing key-value pairs for a single combination of parameters. For
+        example: {data_slew: 0.01, load: 0.025}
+        """
+        param_names, values = zip(*self.parameters.items())
+        param_names = [n[0:-1] if n.endswith('s') else n for n in param_names]
+        for combination in itertools.product(*values):
+            yield dict(zip(param_names, combination))

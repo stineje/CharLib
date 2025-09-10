@@ -1,10 +1,49 @@
+import itertools
 from PySpice import Circuit, Simulator
 from PySpice.Unit import *
 
-from charlib.characterizer.combinational.Harness import CombinationalHarness
-from charlib.liberty.cell import TimingData
+from charlib.characterizer.procedures import register
+from charlib.liberty import liberty
 
-def measure_delays_for_arc(cell_settings, charlib_settings, target_pin, test_arc):
+@register
+def combinational_worst_case(cell, config, settings):
+    """Measure worst-case combinational transient and propagation delays"""
+    # Construct & yield simulation tasks for each permutation of test arc & config variation
+    for variation in config.variations():
+        for path in cell.paths():
+            yield (measure_worst_case_delay_for_path, cell, config, settings, variation, path)
+
+def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -> liberty.Group:
+    """Given a particular path through the cell, find the worst-case delay for this test variation.
+
+    This method tests all nonmasking conditions for the path through the cell from target_input to
+    target_output with the given slew rate and capacitive load, then returns data for the
+    worst-case (i.e. largest) delay.
+
+    This is in theory an overly pessimistic method of delay estimation. A more accurate method
+    would be to perform a weighted average of each delay based on the likelihood of the
+    corresponding state transition. However, at the time of writing this function, CharLib has no
+    mechanism for accepting prior transition likelihood information.
+
+    :param cell: A Cell object to test.
+    :param config: A CellTestConfig object containing cell-specific test configuration details.
+    :param settings: A CharacterizationSettings object containing library-wide configuration
+                     details.
+    :param variation: A dict containing test parameters for this configuration variation, such
+                      as slew rates and loads.
+    :param path: A list in the format [input_port, input_transition, output_port,
+                 output_transtition] describing the path under test in the cell.
+    """
+    result = liberty.Group('cell', cell.name)
+    result += cell.liberty
+
+    # Measure all nonmasking conditions and keep only the worst case
+    print(variation, path)
+    for state_map in cell.nonmasking_conditions_for_path(*path):
+        print(state_map) # TODO
+    return result
+
+def measure_delays_for_arc(cell, config, settings, target_pin):
     """Measure combinational transient and propagation delays for a particular timing arc.
 
     This procedure constructs harnesses and makes delay measurements for all combinations of slew
@@ -143,7 +182,6 @@ def measure_delays_for_arc(cell_settings, charlib_settings, target_pin, test_arc
                     spice_file.write(str(circuit))
 
             # Run the simulation
-            # print(f'running {circuit_name} with slew={slew}, load={load}')
             harness.results[str(slew)][str(load)] = simulator.run(simulation)
 
     return harness

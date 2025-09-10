@@ -1,11 +1,5 @@
 from dataclasses import dataclass
 
-import matplotlib.pyplot as plt
-import numpy as np
-from PySpice.Unit import *
-
-from charlib.liberty.cell import Pin
-
 @dataclass
 class PinTestBinding:
     """Associates a pin to test data, such as state"""
@@ -27,10 +21,17 @@ class PinTestBinding:
 
 
 class Harness:
-    """Characterization parameters for one path through a cell.
+    """Connect ports of a cell to the appropriate waveforms for a test.
 
-    The primary purpose of a Harness is to map pins to states. At simulation time this serves as a
-    "wiring harness", telling the TestManager how to wire up the cell for a particular test."""
+    Harness maps cell ports to logic levels or transitions for a particular path through the cell.
+
+    Keeps track of:
+    - which inputs are changing
+    - whether each of those inputs is rising or falling
+    - which outputs are expected to change in response
+    - whether each of those outputs is expected to rise or fall
+    - the logic value required for each stable input
+    - required level or transition for special pins, like enables, resets, and clocks"""
 
     def __init__(self, test_manager, pin_state_map: dict) -> None:
         """Create a new Harness"""
@@ -128,31 +129,6 @@ class Harness:
         arc_dir = f'{self.target_in_port}_to_{self.target_out_port}'
         stable_dir = '_'.join([str(pin) for pin in self.stable_in_ports])
         return f'{arc_dir}/{stable_dir}'
-
-    def sum_propagation_delay(self):
-        """Sum the propagation delay over all trials"""
-        total_delay = 0.0 @ u_s
-        for slope in self.results.keys():
-            for load in self.results[slope].keys():
-                total_delay += self.results[slope][load]['prop_in_out'] @ u_s
-        return total_delay
-
-    def _calc_internal_energy(self, slew: str, load: str, energy_meas_high_threshold_voltage: float):
-        """Calculates internal energy for a particular slope/load combination"""
-        # Fetch calculation parameters, using units to validate calculation
-        slew = str(slew)
-        load = str(load)
-        t_start = self.results[slew][load]['t_energy_start'] @ u_s
-        t_end = self.results[slew][load]['t_energy_end'] @ u_s
-        q_vdd_dyn = self.results[slew][load]['q_vdd_dyn'] @ u_C
-        q_vss_dyn = self.results[slew][load]['q_vss_dyn'] @ u_C
-        i_vdd_leak = abs(self.results[slew][load]['i_vdd_leak']) @ u_A
-        i_vss_leak = abs(self.results[slew][load]['i_vss_leak']) @ u_A
-        # Perform the calculation
-        time_delta = (t_end - t_start)
-        avg_current = ((i_vdd_leak + i_vss_leak) / 2)
-        internal_charge = min(abs(q_vss_dyn), abs(q_vdd_dyn)) - time_delta * avg_current
-        return internal_charge * (energy_meas_high_threshold_voltage @ u_V)
 
 # Utilities for working with Harnesses
 def filter_harnesses_by_ports(harness_list: list, in_port, out_port) -> list:

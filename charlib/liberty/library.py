@@ -41,9 +41,9 @@ class Library(liberty.Group):
         # Copy nom_* attrs into operating_conditions group
         # TODO: Make op_conditions identifier configurable
         op_conditions = liberty.Group('operating_conditions', 'typical')
-        op_conditions.add_attribute('process', self.nom_process.value, self.nom_process.precision)
-        op_conditions.add_attribute('voltage', self.nom_voltage.value, self.nom_voltage.precision)
-        op_conditions.add_attribute('temperature', self.nom_temperature.value, self.nom_temperature.precision)
+        op_conditions.add_attribute('process', self.attributes['nom_process'].value, self.attributes['nom_process'].precision)
+        op_conditions.add_attribute('voltage', self.attributes['nom_voltage'].value, self.attributes['nom_voltage'].precision)
+        op_conditions.add_attribute('temperature', self.attributes['nom_temperature'].value, self.attributes['nom_temperature'].precision)
         self.add_group(op_conditions)
 
     def add_lu_table_template(self, lut, **variables):
@@ -71,7 +71,7 @@ class Library(liberty.Group):
         # Library display order is specialized
         lib_str = [f'{self.name} ({self.identifier}){{']
         for attr in self.ordered_attributes:
-            if hasattr(self, attr):
+            if attr in self.attributes:
                 lib_str += [self.attributes[attr].to_liberty(1, **kwargs)]
         for key, attr in self.attributes.items():
             if key not in self.ordered_attributes:
@@ -218,4 +218,4 @@ if __name__ == "__main__":
     library2 = Library('gf180')
     library2 += library
     assert(library.to_liberty() == library2.to_liberty())
-    print(library2.to_liberty())
+    print(library2.to_liberty(precision=6))

@@ -8,21 +8,19 @@ from charlib.liberty import liberty
 @register
 def ac_sweep(cell, config, settings):
     """Measure input capacitance for each input pin using ac sweep and return a liberty cell group"""
-    # Copy cell liberty to a new group
-    result = liberty.Group('cell', cell.name)
-    result += cell.liberty
-
-    # Measure capacitance of each input pin and add to results
+    # Yield simulation tasks for measuring capacitance of each pin
     for target_pin in cell.inputs:
-        capacitance = measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin)
-        result.group('pin', target_pin).add_attribute('capacitance', capacitance)
-    return result
+        yield (measure_pin_cap_by_ac_sweep, cell, settings, config, target_pin)
 
 def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     """Use an AC frequency sweep to measure the capacitance of target_pin
 
     Treat the cell as a grounded capacitor with fixed capacitance. Perform an ac sweep with fixed
-    current amplitude, then evaluate capacitance as d/ds(i(s)/v(s))"""
+    current amplitude, then evaluate capacitance as d/ds(i(s)/v(s))
+
+    Returns a liberty cell group with the capacitance included on the appropriate pin.
+    """
+    result = cell.liberty
 
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
@@ -36,7 +34,7 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     c_out = 1 @ u_pF
 
     # Initialize circuit
-    circuit_name = f'cell{cell.name}-pin{target_pin}-cap'
+    circuit_name = f'cell-{cell.name}-pin-{target_pin}-cap'
     circuit = PySpice.Circuit(circuit_name)
     circuit.V('dd', 'vdd', circuit.gnd, vdd)
     circuit.V('ss', 'vss', circuit.gnd, vss)
@@ -44,16 +42,17 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     circuit.R('in', circuit.gnd, 'vin', r_in)
 
     # Include relevant circuits
-    for (model, libname) in config.models:
-        if libname is not None:
-            circuit.lib(model, libname)
+    circuit.include(cell.netlist)
+    for model in config.models:
+        if len(model) > 1:
+            circuit.lib(*model)
         else:
-            circuit.include(model)
+            circuit.include(model[0])
             # TODO: if model.is_dir(), use SpiceLibrary
             # We'll also need to know what subckts are used by the netlist
-    circuit.include(cell.netlist)
 
     # Initialize device under test and wire up ports
+    connections = []
     for port in cell.ports:
         if port.name == target_pin:
             connections.append('vin')
@@ -65,20 +64,28 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
             # Add a resistor and capacitor to each other port
             # TODO: Determine whether the capacitors are actually needed.
             # In general this method for cap measurement needs further investigation.
-            circuit.C(port, f'v{port.name}', circuit.gnd, c_out)
-            circuit.R(port, f'v{port.name}', circuit.gnd, r_out)
-            connections.append(f'v{port}')
+            circuit.C(port.name, f'v{port.name}', circuit.gnd, c_out)
+            circuit.R(port.name, f'v{port.name}', circuit.gnd, r_out)
+            connections.append(f'v{port.name}')
     circuit.X('dut', cell.name, *connections)
 
-    simulator = PySpice.Simulator.factory(simulator=settings.simulator)
-    simulation = simulator.simulation(circuit, temperature= settings.temperature)
+    simulator = PySpice.Simulator.factory(simulator=settings.simulation.backend)
+    simulation = simulator.simulation(circuit, temperature=settings.temperature)
     simulation.ac('dec', 100, f_start, f_stop, run=False)
 
-    # TODO: Log for debugging
+    if settings.debug:
+        debug_path = settings.debug_dir / cell.name / __name__
+        debug_path.mkdir(parents=True, exist_ok=True)
+        with open(debug_path/f'{target_pin}.spice', 'w') as spice_file:
+            spice_file.write(str(simulation))
 
     # Measure capacitance as the slope of the conductance with respect to frequency
     analysis = simulator.run(simulation)
-    conductance = i_in*np.reciprocal(np.abs(analysis.vin))
-    [capacitance, _] = np.polynomial.polynomial.polyfit(analysis.frequency, conductance, 1)
+    conductance = np.reciprocal(np.abs(analysis.vin)/i_in)
+    [*_, capacitance] = np.polynomial.polynomial.polyfit(analysis.frequency, conductance, 1)
 
-    return capacitance
+    # Add to the liberty group
+    converted_cap = (capacitance @ u_F).convert(settings.units.capacitance.prefixed_unit).value
+    result.group('pin', target_pin).add_attribute('capacitance', converted_cap)
+
+    return result

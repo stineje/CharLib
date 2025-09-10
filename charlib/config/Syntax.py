@@ -10,12 +10,13 @@ class ConfigFile:
 
     # TODO: Figure out a better way how to display this in manual, so that
     #       it is not copied to all units, but only referenced
-    SI_PREFIX = '^((yocto|y)|(zepto|z)|(atto|a)|(femto|f)|(pico|p)|(nano|n)|(micro|u)|(milli|m)|' \
-                '()|(kilo|k)|(mega|M)|(giga|G)|(tera|T)|(peta|P)(exa|E)|(zetta|Z)|(yotta|Y))'
-    si_prefixed_syntax = lambda base_unit: Schema(Regex(SI_PREFIX + base_unit))
+
     TRIGGER_FORMAT = '``<trigger> <name>``. For edge-sensitive devices, ``trigger`` should be ' \
                      '``posedge`` or ``negedge``. For level-sensitive devices, ``trigger`` may ' \
                      'be ``not`` or omitted altogether.'
+    SI_PREFIX = '^((yocto|y)|(zepto|z)|(atto|a)|(femto|f)|(pico|p)|(nano|n)|(micro|u)|(milli|m)|' \
+                '()|(kilo|k)|(mega|M)|(giga|G)|(tera|T)|(peta|P)(exa|E)|(zetta|Z)|(yotta|Y))'
+    si_prefixed_syntax = lambda base_unit, SI_PREFIX=SI_PREFIX: Schema(Regex(SI_PREFIX + base_unit))
 
     cell_syntax = Schema({
         Literal(
@@ -346,22 +347,20 @@ class ConfigFile:
 
         # Fill default keys under "settings"
         # that have other sub-keys, and no default value in cell_syntax
-        keys = [{"units" : {}},
-                {"logic_thresholds" : {}},
-                {"named_nodes" : {"primary_power": {}, "primary_ground": {}, "pwell": {}, "nwell": {}}},
-                {"logic_thresholds" : {}},
-                {"cell_defaults" : {}}]
-        [config['settings'][k] = v for k, v in keys.items() if k not in config['settings']]
-
+        keys = {"units" : {},
+                "named_nodes" : {"primary_power": {}, "primary_ground": {}, "pwell": {}, "nwell": {}},
+                "logic_thresholds" : {},
+                "cell_defaults" : {}}
+        for k, v in keys.items():
+            if k not in config['settings']:
+                config['settings'][k] = v
 
         # Merge "cell_defaults" to all cells
-        for cell in config['cells'].values():
-            [cell[k] = v for k, v in config['settings']['cell_defaults'].items() if k not in cell]
-
-        # Erase the "cell_defaults"
-        #   - not needed anymore -> was already merged
-        #   - Schema validate should not complain
-        config["settings"].pop("cell_defaults") # FIXME: Is this necessary?
+        for name, cell in config['cells'].items():
+            for k, v in config['settings']['cell_defaults'].items():
+                if k not in cell:
+                    config['cells'][name][k] = v
+        config['settings'].pop('cell_defaults')
 
         # Validate the schema
         return cls.config_file_syntax.validate(config)
