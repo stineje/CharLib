@@ -3,6 +3,7 @@ from PySpice import Circuit, Simulator
 from PySpice.Unit import *
 
 from charlib.characterizer.procedures import register
+from charlib.characterizer.harness import Harness
 from charlib.liberty import liberty
 
 @register
@@ -38,9 +39,8 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
     result += cell.liberty
 
     # Measure all nonmasking conditions and keep only the worst case
-    print(variation, path)
     for state_map in cell.nonmasking_conditions_for_path(*path):
-        print(state_map) # TODO
+        harness = Harness(cell.inputs, cell.outputs, state_map)
     return result
 
 def measure_delays_for_arc(cell, config, settings, target_pin):

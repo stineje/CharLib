@@ -62,7 +62,7 @@ class Characterizer:
             pass # TODO: add metastability tests & sequential delay tests
         else:
             # Run combinational delay measurements
-            pass # simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
+            simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
         return simulations
 
     def characterize(self):
