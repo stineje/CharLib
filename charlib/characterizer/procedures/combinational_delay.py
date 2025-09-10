@@ -1,9 +1,8 @@
 import itertools
-from PySpice import Circuit, Simulator
-from PySpice.Unit import *
+import PySpice
 
 from charlib.characterizer.procedures import register
-from charlib.characterizer.harness import Harness
+from charlib.characterizer.utils import PinStateMap, slew_pwl
 from charlib.liberty import liberty
 
 @register
@@ -38,150 +37,95 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
     result = liberty.Group('cell', cell.name)
     result += cell.liberty
 
+    # Set up key parameters
+    data_slew = variation['data_slew'] * settings.units.time
+    load = variation['load'] * settings.units.capacitance
+    vdd = settings.primary_power.voltage * settings.units.voltage
+    vss = settings.primary_ground.voltage * settings.units.voltage
+
     # Measure all nonmasking conditions and keep only the worst case
+    analyses = []
     for state_map in cell.nonmasking_conditions_for_path(*path):
-        harness = Harness(cell.inputs, cell.outputs, state_map)
+
+        # Build the test circuit
+        circuit = PySpice.Circuit('comb_delay')
+        circuit.include(cell.netlist)
+        for model in config.models:
+            if len(model) > 1:
+                circuit.lib(*model)
+            else:
+                circuit.include(model[0])
+                # TODO: if model.is_dir(), use SpiceLibrary
+        circuit.V('dd', 'vdd', circuit.gnd, vdd)
+        circuit.V('ss', 'vss', circuit.gnd, vss)
+
+        # Initialize device under test and wire up ports
+        pin_map = PinStateMap(cell.inputs, cell.outputs, state_map)
+        connections = []
+        measurements = []
+        for port in cell.ports:
+            if port.name in pin_map.target_inputs:
+                connections.append(f'v{port.name}')
+                (v_0, v_1) = (vss, vdd) if pin_map.target_inputs[port.name] == '01' else (vdd, vss)
+                circuit.PieceWiseLinearVoltageSource(
+                    port.name,
+                    f'v{port.name}', circuit.gnd,
+                    values=slew_pwl(v_0, v_1, data_slew, 3*data_slew,
+                                    settings.logic_thresholds.low,
+                                    settings.logic_thresholds.high))
+            elif port.name in pin_map.stable_inputs:
+                connections.append('vss' if pin_map.stable_inputs[port.name] == '0' else 'vdd')
+            elif port.name in pin_map.target_outputs:
+                connections.append(f'v{port.name}')
+                circuit.C(port.name, f'v{port.name}', circuit.gnd, load)
+                for in_port in pin_map.target_inputs:
+                    if pin_map.target_inputs[in_port] == '01':
+                        in_direction = 'rise'
+                        threshold_prop_0 = settings.logic_thresholds.rising
+                    else:
+                        in_direction = 'fall'
+                        threshold_prop_0 = settings.logic_thresholds.falling
+                    if pin_map.target_outputs[port.name] == '01':
+                        out_direction = 'rise'
+                        threshold_prop_1 = settings.logic_thresholds.rising
+                        threshold_tran_0 = settings.logic_thresholds.low
+                        threshold_tran_1 = settings.logic_thresholds.high
+                    else:
+                        out_direction = 'fall'
+                        threshold_prop_1 = settings.logic_thresholds.falling
+                        threshold_tran_0 = settings.logic_thresholds.high
+                        threshold_tran_1 = settings.logic_thresholds.low
+                    measurements.append((
+                        'tran', f't_{in_port}_to_{port.name}_prop',
+                        f'trig v(v{in_port}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
+                        f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
+                    measurements.append((
+                        'tran', f't_{in_port}_to_{port.name}_tran',
+                        f'trig v(v{port.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
+                        f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_tran_1)} {out_direction}=1'))
+            elif port.role == 'primary_power':
+                connections.append('vdd')
+            elif port.role == 'primary_ground':
+                connections.append('vss')
+            elif port.name in pin_map.ignored_outputs:
+                connections.append(f'wfloat0')
+            else:
+                raise ValueError(f'Unable to connect unrecognized port {port.name}')
+        circuit.X('dut', cell.name, *connections)
+
+        # Run the simulation, taking all measurements
+        simulator = PySpice.Simulator.factory(simulator=settings.simulation.backend)
+        simulation = simulator.simulation(
+            circuit,
+            temperature=settings.temperature,
+            nominal_temperature=settings.temperature
+        )
+        simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
+        for measure in measurements:
+            simulation.measure(*measure, run=False)
+        analyses += [simulation.transient(step_time=data_slew/8, end_time=1000*data_slew)]
+
+    # Select the worst delay
+    print(analyses)
+
     return result
-
-def measure_delays_for_arc(cell, config, settings, target_pin):
-    """Measure combinational transient and propagation delays for a particular timing arc.
-
-    This procedure constructs harnesses and makes delay measurements for all combinations of slew
-    rate and capacitive load values with the given test arc. Results are returned in
-    CombinationalHarness objects."""
-    harness = CombinationalHarness(
-        cell_settings,
-        dict(zip([*(target_pin.function.operands), target_pin.name], test_arc))
-    )
-
-    # Set up parameters
-    vdd = charlib_settings.vdd.voltage * charlib_settings.units.voltage
-    vss = charlib_settings.vss.voltage * charlib_settings.units.voltage
-    (v_start, v_end) = (vss, vdd) if harness.in_direction == 'rise' else (vdd, vss)
-    slew_pwl = lambda t_slew: [(0, v_start), (t_slew, v_start), (2*t_slew, v_end)]
-
-    # Initialize circuit netlist
-    circuit_name = f'delay_{cell_settings.cell.name}_{harness.short_str().replace(" ", "_")}'
-    print('Running', circuit_name)
-    circuit = Circuit(circuit_name)
-    cell_settings.include_models(circuit)
-    circuit.include(cell_settings.netlist)
-    circuit.PieceWiseLinearVoltageSource(
-        'test',
-        'vin',
-        circuit.gnd,
-        values=slew_pwl(cell_settings.in_slews[0] * charlib_settings.units.time)
-    )
-    circuit.V('high', 'vhigh', circuit.gnd, vdd)
-    circuit.V('low', 'vlow', circuit.gnd, vss)
-    circuit.V('dd', 'vdd', circuit.gnd, vdd)
-    circuit.V('ss', 'vss', circuit.gnd, vss)
-    circuit.C('load', 'vout', 'vss', cell_settings.out_loads[0] * charlib_settings.units.capacitance)
-
-    # Initiialize device under test and wire up ports
-    ports = cell_settings.definition().upper().split()[1:]
-    subcircuit_name = ports.pop(0)
-    connections = []
-    for port in ports:
-        if port == harness.target_in_port.pin.name:
-            connections.append('vin')
-        elif port == harness.target_out_port.pin.name:
-            connections.append('vout')
-        elif port == charlib_settings.vdd.name.upper():
-            connections.append('vdd')
-        elif port == charlib_settings.vss.name.upper():
-            connections.append('vss')
-        elif port in [pin.pin.name for pin in harness.stable_in_ports]:
-            for stable_port in harness.stable_in_ports:
-                if port == stable_port.pin.name:
-                    match stable_port.state:
-                        case '0':
-                            connections.append('vlow')
-                        case '1':
-                            connections.append('vhigh')
-                        case s:
-                            raise ValueError(f'Invalid state identified during simulation setup for port {port}: {s}')
-        elif port in [pin.pin.name for pin in harness.nontarget_ports]:
-            for nontarget_port in harness.nontarget_ports:
-                if port == nontarget_port.pin.name:
-                    connections.append(f'wfloat{nontarget_port.state}')
-        else:
-            raise ValueError(f'Unable to connect unrecognized port {port}')
-    if len(connections) is not len(ports):
-        raise ValueError(f'Failed to conect all ports in definition "{cell_settings.definition()}"')
-    circuit.X('dut', subcircuit_name, *connections)
-
-    # Set up delay measurement thresholds
-    pct_vdd = lambda x : x * charlib_settings.vdd.voltage
-    match harness.in_direction:
-        case 'rise':
-            v_prop_start = charlib_settings.logic_threshold_low_to_high
-        case 'fall':
-            v_prop_start = charlib_settings.logic_threshold_high_to_low
-    match harness.out_direction:
-        case 'rise':
-            v_prop_end = charlib_settings.logic_threshold_low_to_high
-            v_trans_start = charlib_settings.logic_threshold_low
-            v_trans_end = charlib_settings.logic_threshold_high
-        case 'fall':
-            v_prop_end = charlib_settings.logic_threshold_high_to_low
-            v_trans_start = charlib_settings.logic_threshold_high
-            v_trans_end = charlib_settings.logic_threshold_low
-
-    # Create the simulation
-    simulator = Simulator.factory(simulator=charlib_settings.simulator)
-    simulation = simulator.simulation(
-        circuit,
-        temperature=charlib_settings.temperature,
-        nominal_temperature=charlib_settings.temperature
-    )
-    simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
-    simulation.measure(
-        'tran', 'prop_in_out',
-        f'trig v(vin) val={pct_vdd(v_prop_start)} {harness.in_direction}=1',
-        f'targ v(vout) val={pct_vdd(v_prop_end)} {harness.out_direction}=1',
-        run=False
-    )
-    simulation.measure(
-        'tran', 'trans_out',
-        f'trig v(vout) val={pct_vdd(v_trans_start)} {harness.out_direction}=1',
-        f'targ v(vout) val={pct_vdd(v_trans_end)} {harness.out_direction}=1',
-        run=False
-    )
-
-    # Test each combination of slew & load
-    for slew in cell_settings.in_slews:
-        # Assign new test slew
-        circuit['Vtest'].detach()
-        circuit.PieceWiseLinearVoltageSource(
-            'test',
-            'vin',
-            circuit.gnd,
-            values=slew_pwl(slew * charlib_settings.units.time)
-        )
-
-        # Use slew/8 for sim timestep unless user has set a custom timestep
-        # TODO: Consider allowing sim_timestep be set to a multiplied factor
-        t_step = cell_settings.sim_timestep if cell_settings.sim_timestep else slew/8
-        simulation.reset_analysis()
-        simulation.transient(
-            step_time=t_step * charlib_settings.units.time,
-            end_time=10000 * t_step * charlib_settings.units.time,
-            run=False
-        )
-
-        for load in cell_settings.out_loads:
-            # Assign new test load
-            circuit['Cload'].capacitance = load * charlib_settings.units.capacitance
-
-            # Log simulation files if debugging
-            if charlib_settings.debug:
-                debug_path = charlib_settings.debug_dir / cell_settings.cell.name / 'delay' / harness.debug_path
-                debug_path.mkdir(parents=True, exist_ok=True)
-                with open(debug_path/f'{circuit_name}_slew{slew}_load{load}.spice', 'w') as spice_file:
-                    spice_file.write(str(circuit))
-
-            # Run the simulation
-            harness.results[str(slew)][str(load)] = simulator.run(simulation)
-
-    return harness
