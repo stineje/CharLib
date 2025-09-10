@@ -152,6 +152,7 @@ def run_charlib(args):
 
     # Characterize
     library = characterizer.characterize()
+    print(library)
 
     # Export
     if args.output:

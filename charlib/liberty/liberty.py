@@ -58,14 +58,6 @@ class Group(Statement):
         # Display for debugging
         return f'Group({self.name}, {self.identifier})'
 
-    def __getattr__(self, name):
-        # Allows group.key syntax for attribute (but not subgroup) lookup
-        try:
-            return self.attributes[name]
-        except KeyError:
-            classname = type(self).__name__
-            raise AttributeError(f'{classname!r} object has no attribute {name!r}')
-
     def add_group(self, group, group_id=''):
         """Add a sub-group.
 
