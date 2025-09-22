@@ -1,3 +1,4 @@
+import itertools
 import numpy as np
 
 import charlib.liberty.liberty as liberty
@@ -83,33 +84,47 @@ class Library(liberty.Group):
 
 
 class LookupTableTemplate(liberty.Group):
-    """Convenience class for lu_table_template groups, which have slightly unusual formatting"""
+    """Convenience class for lu_table_template groups, which have slightly unusual formatting
+
+    While lut templates are normal groups, they have quite a bit of odd formatting. Indices, for
+    example, are complex attributes with a single long string value of comma-separated floats
+    corresponding to one of the variables. Moreover, we don't care about the values in the indices
+    as they are overridden by tables using these templates.
+    """
     def __init__(self, lut_name, **variables):
         """Initialize a lu_table_template group
 
         :param lut_name: The identifier for the lu_table_template group.
         :param **variables: keyword arguments consisting of variable names and integer sizes.
-
-        While lut templates are normal groups, they have quite a bit of odd formatting. Indices,
-        for example, are complex attributes with a single long string value of comma-separated
-        floats corresponding to one of the variables. Moreover, we don't care about the values in
-        the indices as they are overridden by tables using these templates.
         """
         super().__init__('lu_table_template', lut_name)
         index = 1
-        for variable, length in variables.items():
-            self.add_attribute(f'variable_{index}', variable)
-            self.add_attribute(f'index_{index}', ['"'+', '.join([str(1.0+i) for i in range(length)])+'"'])
-            index += 1
-        self.size = tuple(variables.values())
+        self.variables = variables
+
+    @property
+    def size(self):
+        """Return size as a shape-like tuple"""
+        return tuple(self.variables.values())
 
     def to_liberty(self, indent_level=0, **kwargs):
         # LUT template display order is specialized
         indent = liberty.INDENT_STR * indent_level
-        indices = range(1, len(self.size)+1)
         lut_str = [f'{indent}{self.name} ({self.identifier}) {{']
-        lut_str += [self.attributes[f'variable_{i}'].to_liberty(indent_level+1, **kwargs) for i in indices]
-        lut_str += [self.attributes[f'index_{i}'].to_liberty(indent_level+1, **kwargs) for i in indices]
+
+        # Construct & display variables
+        index = 0
+        for variable in self.variables.keys():
+            index += 1
+            lut_str += [liberty.Attribute(f'variable_{index}', variable).to_liberty(indent_level+1, **kwargs)]
+
+        # Construct & display indices
+        index = 0
+        for length in self.variables.values():
+            index += 1
+            values = ['"'+', '.join([str(1.0+i) for i in range(length)])+'"']
+            lut_str += [liberty.Attribute(f'index_{index}', values).to_liberty(indent_level+1, **kwargs)]
+
+        # LUT templates may also have sub-groups, but no attributes
         for group in self.groups.values():
             lut_str += group.to_liberty(indent_level+1, **kwargs).split('\n')
         lut_str += [f'{indent}}} /* end {self.name} */']
@@ -133,26 +148,26 @@ class LookupTable(liberty.Group):
         """
         if not isinstance(lut_template, LookupTableTemplate):
             lut_template = LookupTableTemplate(lut_template, **{k: len(v) for k, v in variable_values.items()})
-
-        # Validate variable names and sizes match up with template
-        for variable, i, template_length in zip(variable_values.keys(), range(1, len(lut_template.size)+1), lut_template.size):
-            template_variable = lut_template.attributes[f'variable_{i}'].value
-            if not variable == template_variable:
-                raise ValueError(f'Template requires variable_{i} = "{template_variable}", got "{variable}"!')
-            if not len(variable_values[variable]) == template_length:
-                raise ValueError(f'Template requires variable "{variable}" to have {template_length} values!')
+        else:
+            # Validate that variable names, lengths, and positions match up with template
+            for (var, values), (template_var, length) in zip(variable_values.items(), lut_template.variables.items()):
+                if not var == template_var:
+                    index = list(lut_template.keys()).index(template_var)
+                    raise ValueError(f'Template requires variable_{index} = "{template_var}", got "{var}"')
+                if not len(values) == length:
+                    raise ValueError(f'Template requires variable "{var}" to have {length} values, got {len(values)}')
         super().__init__(lut_name, lut_template.identifier)
         self.template = lut_template
 
         # Store index values as numpy arrays
-        self.index_values = np.array([np.array(v) for v in variable_values.values()])
+        self.index_values = [np.array(v) for v in variable_values.values()]
 
         # Store table values as a matrix
         self.values = np.zeros(self.size)
 
     @property
     def size(self):
-        """Return template size as a shape-like tuple"""
+        """Return template size"""
         return self.template.size
 
     def _get_indices(self, *index_values):
@@ -173,19 +188,56 @@ class LookupTable(liberty.Group):
         # Lookup and set value by indices
         self.values[*self._get_indices(*keys)] = value
 
+    def merge(self, other):
+        """Merge two LUTs & update templates"""
+        super().merge(other) # This will usually do nothing aside from validating hashes match
+
+        # Merge LUT templates as long as variable names are the same
+        if not self.template.variables.keys() == other.template.variables.keys():
+            raise ValueError('LUT template variable names must match in order to merge!')
+
+        # Merge LUT variable values
+        merged_template_variables = {}
+        merged_index_values = []
+        for (i, variable) in zip(range(len(self.index_values)), self.template.variables.keys()):
+            merged = set(self.index_values[i]).union(set(other.index_values[i]))
+            merged_index_values.append(np.array(sorted([*merged])))
+            merged_template_variables[variable] = len(merged)
+        print(merged_index_values)
+        print(merged_template_variables)
+
+        # Merge LUT table values
+        values = [(index_values, self[*index_values]) for index_values in itertools.product(*self.index_values)]
+        values += [(index_values, other[*index_values]) for index_values in itertools.product(*other.index_values)]
+        merged_values = np.zeros(tuple(merged_template_variables.values()))
+        print(merged_values.shape)
+        self.template.variables = merged_template_variables
+        self.index_values = merged_index_values
+        for (index_values, value) in values:
+            merged_values[*self._get_indices(*index_values)] = value
+        self.values = merged_values
+
+
     def to_liberty(self, indent_level=0, precision=1, **kwargs):
         # LUT display requires reformatting indices and variables
         indent = liberty.INDENT_STR * indent_level
         inner_indent = liberty.INDENT_STR * (indent_level + 1)
         value_indent = liberty.INDENT_STR * (indent_level + 2)
+
         lut_str = [f'{indent}{self.name} ({self.identifier}) {{']
+
+        # Display index values
         for i in range(len(self.index_values)):
             index_values = [f"{v:.{precision}f}" for v in self.index_values[i]]
             lut_str += [f'{inner_indent}index_{i+1} ("{", ".join(index_values)}") ;']
+
+        # Display LUT values
         lut_str += [f'{inner_indent}values ( \\']
-        for i in range(len(self.index_values[0])):
-            values = [f"{v:.{precision}f}" for v in self.values[i,:]]
-            lut_str += [f'{value_indent}"{", ".join(values)}" \\']
+        sets = 1 if len(self.index_values) < 3 else len(self.index_values[2])
+        for s in range(sets):
+            for i in range(len(self.index_values[0])):
+                values = [f"{v:.{precision}f}" for v in np.atleast_3d(self.values)[i,:,s]]
+                lut_str += [f'{value_indent}"{", ".join(values)}" \\']
         lut_str += [f'{inner_indent}) ;']
         lut_str += [f'{indent}}}  /* end {self.name} */']
         return '\n'.join(lut_str)
@@ -195,7 +247,7 @@ if __name__ == "__main__":
     # Test Library and LUT template classes
     library = Library('gf180')
     library.add_attribute('voltage_unit', '1V')
-    lut_template = LookupTableTemplate('delay_template_5x5', total_output_net_capacitance=5, input_net_transition=5)
+    lut_template = LookupTableTemplate('delay_template', total_output_net_capacitance=5, input_net_transition=5)
     library.add_lu_table_template(lut_template)
 
     # Add a cell with a LUT
@@ -204,12 +256,12 @@ if __name__ == "__main__":
     cell.group('pin', 'CO').add_attribute('direction', 'output')
     cell.group('pin', 'CO').add_attribute('function', 'A&B | CI&(A^B)')
     cell.group('pin', 'CO').add_group('timing')
-    lut = LookupTable('cell_rise', lut_template.identifier,
+    lut = LookupTable('cell_rise', lut_template,
                       total_output_net_capacitance=[0.0013, 0.0048, 0.0172, 0.0616, 0.2206],
                       input_net_transition=[0.0706, 0.1903, 0.5123, 1.3794, 3.714])
     # Manipulate LUT data
-    lut.values[0,2] = 0.016206
-    lut[0.0013, 0.1903] = 0.1134 # Test setitem
+    lut.values[0,2] = 3
+    lut[0.0013, 0.1903] = 2 # Test setitem
     lut[0.2206, 3.714] = lut[0.0013, 0.5123] # Test getitem
     cell.group('pin', 'CO').group('timing').add_group(lut)
     library.add_group(cell)
@@ -219,3 +271,12 @@ if __name__ == "__main__":
     library2 += library
     assert(library.to_liberty() == library2.to_liberty())
     print(library2.to_liberty(precision=6))
+
+    # Test LUT merge
+    lut2 = LookupTable('cell_rise', lut_template.identifier,
+                       total_output_net_capacitance=[0.002],
+                       input_net_transition=[0.0706])
+    lut2[0.002, 0.0706] = 5
+    print(lut2.to_liberty(precision=4))
+    cell.group('pin', 'CO').group('timing').add_group(lut2)
+    print(cell.to_liberty(precision=4))
