@@ -2,6 +2,7 @@ import numpy as np
 import PySpice
 from PySpice.Unit import *
 
+from charlib.characterizer import utils
 from charlib.characterizer.procedures import register
 from charlib.liberty import liberty
 
@@ -35,21 +36,11 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
 
     # Initialize circuit
     circuit_name = f'cell-{cell.name}-pin-{target_pin}-cap'
-    circuit = PySpice.Circuit(circuit_name)
+    circuit = utils.init_circuit(circuit_name, cell.netlist, config.models)
     circuit.V('dd', 'vdd', circuit.gnd, vdd)
     circuit.V('ss', 'vss', circuit.gnd, vss)
     circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {PySpice.Spice.unit.str_spice(i_in)}')
     circuit.R('in', circuit.gnd, 'vin', r_in)
-
-    # Include relevant circuits
-    circuit.include(cell.netlist)
-    for model in config.models:
-        if len(model) > 1:
-            circuit.lib(*model)
-        else:
-            circuit.include(model[0])
-            # TODO: if model.is_dir(), use SpiceLibrary
-            # We'll also need to know what subckts are used by the netlist
 
     # Initialize device under test and wire up ports
     connections = []

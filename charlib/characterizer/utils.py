@@ -1,5 +1,7 @@
 """Tools for building test circuits"""
 
+import PySpice
+
 class PinStateMap:
     """Connect ports of a cell to the appropriate waveforms for a test.
 
@@ -45,7 +47,7 @@ def slew_pwl(v_0, v_1, t_slew, t_wait, low_threshold, high_threshold):
     :param v_0: The initial voltage
     :param v_1: The voltage to slew to
     :param t_slew: The slew rate under test
-    :param t_wait: The amount of time to hold the signal constant before and after slewing
+    :param t_wait: The amount of time to hold the signal constant before slewing
     """
     # Determine the full time it takes to slew based on thresholds. See Figure 2-2 in  the Liberty
     # User Guide, Vol. 1 for details
@@ -53,6 +55,18 @@ def slew_pwl(v_0, v_1, t_slew, t_wait, low_threshold, high_threshold):
     return [
         (0,                         v_0),
         (t_wait,                    v_0),
-        (t_wait + t_full_slew,      v_1),
-        (2 * t_wait + t_full_slew,  v_1)
+        (t_wait + t_full_slew,      v_1) # simulator will hold this voltage until sim end
     ]
+
+def init_circuit(title, cell_netlist, models):
+    """Perform common circuit initialization tasks"""
+    circuit = PySpice.Circuit(title)
+    circuit.include(cell_netlist)
+    for model in models:
+        if len (model) > 1:
+            circuit.lib(*model)
+        else:
+            circuit.include(model[0])
+            # TODO: if model.is_dir(), use SpiceLibrary
+            #   To do this, we'll also need to know which subckts are used by the netlist
+    return circuit

@@ -1,9 +1,10 @@
 import itertools
 import PySpice
 
+from charlib.characterizer import utils
 from charlib.characterizer.procedures import register
-from charlib.characterizer.utils import PinStateMap, slew_pwl
 from charlib.liberty import liberty
+from charlib.liberty.library import LookupTable
 
 @register
 def combinational_worst_case(cell, config, settings):
@@ -34,33 +35,23 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
     :param path: A list in the format [input_port, input_transition, output_port,
                  output_transtition] describing the path under test in the cell.
     """
-    result = liberty.Group('cell', cell.name)
-    result += cell.liberty
-
     # Set up key parameters
     data_slew = variation['data_slew'] * settings.units.time
     load = variation['load'] * settings.units.capacitance
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
 
-    # Measure all nonmasking conditions and keep only the worst case
+    # Measure delays for all nonmasking conditions
     analyses = []
+    measurement_names = set()
     for state_map in cell.nonmasking_conditions_for_path(*path):
-
         # Build the test circuit
-        circuit = PySpice.Circuit('comb_delay')
-        circuit.include(cell.netlist)
-        for model in config.models:
-            if len(model) > 1:
-                circuit.lib(*model)
-            else:
-                circuit.include(model[0])
-                # TODO: if model.is_dir(), use SpiceLibrary
+        circuit = utils.init_circuit('comb_delay', cell.netlist, config.models)
         circuit.V('dd', 'vdd', circuit.gnd, vdd)
         circuit.V('ss', 'vss', circuit.gnd, vss)
 
         # Initialize device under test and wire up ports
-        pin_map = PinStateMap(cell.inputs, cell.outputs, state_map)
+        pin_map = utils.PinStateMap(cell.inputs, cell.outputs, state_map)
         connections = []
         measurements = []
         for port in cell.ports:
@@ -70,9 +61,9 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                 circuit.PieceWiseLinearVoltageSource(
                     port.name,
                     f'v{port.name}', circuit.gnd,
-                    values=slew_pwl(v_0, v_1, data_slew, 3*data_slew,
-                                    settings.logic_thresholds.low,
-                                    settings.logic_thresholds.high))
+                    values=utils.slew_pwl(v_0, v_1, data_slew, 3*data_slew,
+                                          settings.logic_thresholds.low,
+                                          settings.logic_thresholds.high))
             elif port.name in pin_map.stable_inputs:
                 connections.append('vss' if pin_map.stable_inputs[port.name] == '0' else 'vdd')
             elif port.name in pin_map.target_outputs:
@@ -95,10 +86,12 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                         threshold_prop_1 = settings.logic_thresholds.falling
                         threshold_tran_0 = settings.logic_thresholds.high
                         threshold_tran_1 = settings.logic_thresholds.low
+                    measurement_names.add(f't_{in_port}_to_{port.name}_prop'.lower())
                     measurements.append((
                         'tran', f't_{in_port}_to_{port.name}_prop',
                         f'trig v(v{in_port}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
                         f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
+                    measurement_names.add(f't_{in_port}_to_{port.name}_tran'.lower())
                     measurements.append((
                         'tran', f't_{in_port}_to_{port.name}_tran',
                         f'trig v(v{port.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
@@ -123,9 +116,16 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
         simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
         for measure in measurements:
             simulation.measure(*measure, run=False)
-        analyses += [simulation.transient(step_time=data_slew/8, end_time=1000*data_slew)]
+        simulation.transient(step_time=data_slew/8, end_time=1000*data_slew, run=False)
+        # TODO: Log to spice file
+        analyses += [simulator.run(simulation)]
 
-    # Select the worst delay
-    print(analyses)
+    # Select the worst delays
+    worst_delay = {}
+    for name in measurement_names:
+        worst_delay[name] = max([analysis.measurements[name] for analysis in analyses])
+
+    # Add results to LUTs
+    # TODO: Need a method to merge LUTs
 
     return result
