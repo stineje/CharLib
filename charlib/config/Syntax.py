@@ -1,4 +1,4 @@
-"""This module contains a schema used for configuration files, as well as tools for parsing."""
+"""This module contains a schema used for configuration files and tools for parsing them."""
 
 import json
 

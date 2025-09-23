@@ -157,7 +157,7 @@ def run_charlib(args):
         libfile_name = Path(args.output)
     else:
         results_dir = characterizer.settings.results_dir
-        libfile_name = results_dir / f'{library.name}.lib'
+        libfile_name = results_dir / f'{characterizer.library.name}.lib'
 
     libfile_name.parent.mkdir(parents=True, exist_ok=True)
 

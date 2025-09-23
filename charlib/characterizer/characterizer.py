@@ -1,11 +1,12 @@
 """Dispatches characterization jobs and manages cell data"""
 
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+from tqdm import tqdm
 
 from charlib.characterizer.cell import Cell, CellTestConfig
 from charlib.characterizer.units import UnitsSettings
-from charlib.characterizer.procedures import registered_procedures
+from charlib.characterizer.procedures import registered_procedures, ProcedureFailedException
 from charlib.liberty.library import Library
 
 import charlib.characterizer.procedures.pin_capacitance
@@ -71,11 +72,20 @@ class Characterizer:
         simulation_tasks = []
         for (cell, config) in self.cells:
             simulation_tasks += self.analyse_cell(cell, config)
-        # Use as many processes as we can to complete simulations
-        with ProcessPoolExecutor(max_workers=self.settings.jobs) as executor:
-            futures = [executor.submit(task, *args) for (task, *args) in simulation_tasks]
-            for future in futures:
-                self.library.add_group(future.result())
+        with tqdm(bar_format='{l_bar}{bar} {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
+                  total=len(simulation_tasks), desc="Characterizing") as progress_bar:
+            with ProcessPoolExecutor(max_workers=self.settings.jobs) as executor:
+                futures = [executor.submit(task, *args) for (task, *args) in simulation_tasks]
+                for future in as_completed(futures):
+                    try:
+                        cell_group = future.result()
+                    except ProcedureFailedException:
+                        if self.settings.omit_on_failure:
+                            continue
+                        else:
+                            raise
+                    self.library.add_group(cell_group)
+                    progress_bar.update(1)
         return self.library.to_liberty(precision=6)
 
 
