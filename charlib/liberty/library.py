@@ -203,18 +203,16 @@ class LookupTable(liberty.Group):
             merged = set(self.index_values[i]).union(set(other.index_values[i]))
             merged_index_values.append(np.array(sorted([*merged])))
             merged_template_variables[variable] = len(merged)
-        print(merged_index_values)
-        print(merged_template_variables)
 
-        # Merge LUT table values
+        # Merge LUT table values, always preferring nonzeros
         values = [(index_values, self[*index_values]) for index_values in itertools.product(*self.index_values)]
         values += [(index_values, other[*index_values]) for index_values in itertools.product(*other.index_values)]
         merged_values = np.zeros(tuple(merged_template_variables.values()))
-        print(merged_values.shape)
         self.template.variables = merged_template_variables
         self.index_values = merged_index_values
         for (index_values, value) in values:
-            merged_values[*self._get_indices(*index_values)] = value
+            if not merged_values[*self._get_indices(*index_values)]:
+                merged_values[*self._get_indices(*index_values)] = value
         self.values = merged_values
 
 
@@ -239,7 +237,7 @@ class LookupTable(liberty.Group):
                 values = [f"{v:.{precision}f}" for v in np.atleast_3d(self.values)[i,:,s]]
                 lut_str += [f'{value_indent}"{", ".join(values)}" \\']
         lut_str += [f'{inner_indent}) ;']
-        lut_str += [f'{indent}}}  /* end {self.name} */']
+        lut_str += [f'{indent}}} /* end {self.name} */']
         return '\n'.join(lut_str)
 
 

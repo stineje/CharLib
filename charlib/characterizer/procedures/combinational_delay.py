@@ -36,6 +36,7 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                  output_transtition] describing the path under test in the cell.
     """
     # Set up key parameters
+    [input_port, _, output_port, _] = path
     data_slew = variation['data_slew'] * settings.units.time
     load = variation['load'] * settings.units.capacitance
     vdd = settings.primary_power.voltage * settings.units.voltage
@@ -86,14 +87,16 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                         threshold_prop_1 = settings.logic_thresholds.falling
                         threshold_tran_0 = settings.logic_thresholds.high
                         threshold_tran_1 = settings.logic_thresholds.low
-                    measurement_names.add(f't_{in_port}_to_{port.name}_prop'.lower())
+                    prop_name = f'cell_{out_direction}__{in_port}_to_{port.name}'.lower()
+                    measurement_names.add(prop_name)
                     measurements.append((
-                        'tran', f't_{in_port}_to_{port.name}_prop',
+                        'tran', prop_name,
                         f'trig v(v{in_port}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
                         f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
-                    measurement_names.add(f't_{in_port}_to_{port.name}_tran'.lower())
+                    tran_name = f'{out_direction}_transition__{in_port}_to_{port.name}'.lower()
+                    measurement_names.add(tran_name)
                     measurements.append((
-                        'tran', f't_{in_port}_to_{port.name}_tran',
+                        'tran', tran_name,
                         f'trig v(v{port.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
                         f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_tran_1)} {out_direction}=1'))
             elif port.role == 'primary_power':
@@ -117,15 +120,24 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
         for measure in measurements:
             simulation.measure(*measure, run=False)
         simulation.transient(step_time=data_slew/8, end_time=1000*data_slew, run=False)
-        # TODO: Log to spice file
+
+        # If debugging, log to file
+        # if settings.debug:
+
         analyses += [simulator.run(simulation)]
 
-    # Select the worst delays
-    worst_delay = {}
+    # Select the worst-case delays and add to LUTs
+    result = cell.liberty
+    result.group('pin', output_port).add_group('timing', f'/* {input_port} */')
+    result.group('pin', output_port).group('timing', f'/* {input_port} */').add_attribute('related_pin', input_port)
     for name in measurement_names:
-        worst_delay[name] = max([analysis.measurements[name] for analysis in analyses])
-
-    # Add results to LUTs
-    # TODO: Need a method to merge LUTs
+        worst_delay = max([analysis.measurements[name] for analysis in analyses]) @ PySpice.Unit.u_s
+        lut_name, meas_path = name.split('__')
+        lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
+        lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
+                          total_output_net_capacitance=[load.convert(settings.units.capacitance.prefixed_unit).value],
+                          input_net_transition=[data_slew.convert(settings.units.time.prefixed_unit).value])
+        lut.values[0,0] = worst_delay.convert(settings.units.time.prefixed_unit).value
+        result.group('pin', output_port).group('timing', f'/* {input_port} */').add_group(lut)
 
     return result

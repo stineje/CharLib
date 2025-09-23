@@ -148,11 +148,8 @@ def run_charlib(args):
         # Add the cell
         characterizer.add_cell(name, properties)
 
-    # TODO: Add print statements to display which keys in YAML were not used
-
     # Characterize
     library = characterizer.characterize()
-    print(library)
 
     # Export
     if args.output:
@@ -174,7 +171,7 @@ def run_charlib(args):
         compare(args.comparewith, library)
 
 
-def compare(benchmark, characterized):
+def compare(benchmark, characterized): # FIXME: no longer works with recent rework
     """Compare prop delay and trans delay for each cell and make scatter plots"""
     charlib_rise_prop_data = []
     benchmark_rise_prop_data = []
