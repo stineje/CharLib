@@ -2,7 +2,7 @@ import itertools
 import PySpice
 
 from charlib.characterizer import utils
-from charlib.characterizer.procedures import register
+from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
 
@@ -124,7 +124,13 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
         # If debugging, log to file
         # if settings.debug:
 
-        analyses += [simulator.run(simulation)]
+        try:
+            analyses += [simulator.run(simulation)]
+        except Exception as e:
+            print(str(simulation))
+            msg = f'Procedure measure_worst_case_delay_for_path failed for cell {cell.name} ' \
+                  f'with variation {variation}, pin states {state_map}'
+            raise ProcedureFailedException(msg) from e
 
     # Select the worst-case delays and add to LUTs
     result = cell.liberty
@@ -132,6 +138,7 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
     result.group('pin', output_port).group('timing', f'/* {input_port} */').add_attribute('related_pin', input_port)
     for name in measurement_names:
         worst_delay = max([analysis.measurements[name] for analysis in analyses]) @ PySpice.Unit.u_s
+        # TODO: Get the worst-delay analysis and plot io voltages
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
