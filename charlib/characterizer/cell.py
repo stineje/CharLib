@@ -103,7 +103,7 @@ class Cell:
         with open(self.netlist, 'r') as file:
             for line in file:
                 if self.name in line and 'SUBCKT' in line.upper():
-                    return line
+                    return line.upper()
             raise ValueError(f'Failed to identify a .subckt in netlist "{self.netlist}"')
 
     def filter_ports(self, directions: list=[], roles: list=[],

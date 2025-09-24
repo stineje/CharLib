@@ -17,7 +17,7 @@ class Characterizer:
 
     def __init__(self, **kwargs) -> None:
         self.settings = CharacterizationSettings(**kwargs)
-        self.library = Library(kwargs.pop('lib_name', 'unnamed_lib'), **self.settings.liberty_attrs_as_dict())
+        self.library = Library(kwargs.pop('lib_name'), **self.settings.liberty_attrs_as_dict())
         self.cells = []
 
     def add_cell(self, name: str, properties: dict):
@@ -72,7 +72,7 @@ class Characterizer:
         simulation_tasks = []
         for (cell, config) in self.cells:
             simulation_tasks += self.analyse_cell(cell, config)
-        with tqdm(bar_format='{l_bar}{bar} {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
+        with tqdm(bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
                   total=len(simulation_tasks), desc="Characterizing") as progress_bar:
             with ProcessPoolExecutor(max_workers=self.settings.jobs) as executor:
                 futures = [executor.submit(task, *args) for (task, *args) in simulation_tasks]
