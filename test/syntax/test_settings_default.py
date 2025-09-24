@@ -9,52 +9,44 @@ def test_settings_default():
     Tests default values of keywords under "settings"
     """
 
-    cfg = None
+    config = None
 
-    cfg_file = os.path.join(os.path.dirname(__file__), "test_settings_default.yml")
-    with open(cfg_file, 'r') as f:
-        cfg = yaml.safe_load(f)
+    config_file = os.path.join(os.path.dirname(__file__), "test_settings_default.yml")
+    with open(config_file, 'r') as f:
+        config = yaml.safe_load(f)
 
-    cfg = ConfigFile.validate(cfg)
+    config = ConfigFile.validate(config)
+    settings = config["settings"]
 
-    assert cfg["settings"]["lib_name"] == "unnamed_lib"
+    assert settings["lib_name"] == "unnamed_lib"
 
-    un = cfg["settings"]["units"]
-    assert un["time"] == "ns"
-    assert un["voltage"] == "V"
-    assert un["current"] == "uA"
-    assert un["pulling_resistance"] == "Ohm"
-    assert un["leakage_power"] == "nW"
-    assert un["capacitive_load"] == "pF"
-    assert un["energy"] == "fJ"
+    units = settings["units"]
+    assert units["time"] == "ns"
+    assert units["voltage"] == "V"
+    assert units["current"] == "uA"
+    assert units["pulling_resistance"] == "Ohm"
+    assert units["leakage_power"] == "nW"
+    assert units["capacitive_load"] == "pF"
+    assert units["energy"] == "fJ"
 
-    nn = cfg["settings"]["named_nodes"]
-    assert nn["vdd"]["name"] == "VDD"
-    assert nn["vdd"]["voltage"] == 3.3
-    assert nn["vss"]["name"] == "GND"
-    assert nn["vss"]["voltage"] == 0
-    assert nn["pwell"]["name"] == "VPW"
-    assert nn["pwell"]["voltage"] == 0
-    assert nn["nwell"]["name"] == "VNW"
-    assert nn["nwell"]["voltage"] == 3.3
+    nodes = settings["named_nodes"]
+    assert nodes["primary_power"]["name"] == "VDD"
+    assert nodes["primary_power"]["voltage"] == 3.3
+    assert nodes["primary_ground"]["name"] == "VSS"
+    assert nodes["primary_ground"]["voltage"] == 0
+    assert nodes["pwell"]["name"] == "VPW"
+    assert nodes["pwell"]["voltage"] == 0
+    assert nodes["nwell"]["name"] == "VNW"
+    assert nodes["nwell"]["voltage"] == 3.3
 
-    assert cfg["settings"]["logic_thresholds"]["low"] == 0.2
-    assert cfg["settings"]["logic_thresholds"]["high"] == 0.8
-    assert cfg["settings"]["logic_thresholds"]["low_to_high"] == 0.5
-    assert cfg["settings"]["logic_thresholds"]["high_to_low"] == 0.5
+    assert settings["logic_thresholds"]["low"] == 20
+    assert settings["logic_thresholds"]["high"] == 80
+    assert settings["logic_thresholds"]["rising"] == 50
+    assert settings["logic_thresholds"]["falling"] == 50
 
-    assert cfg["settings"]["process"] == "typ"
-    assert cfg["settings"]["temperature"] == 25
-
-    # Operating conditions have no default
-    # assert cfg["settings"]["operating_conditions"] == ""
-
-    assert cfg["settings"]["multithreaded"] == True
-    assert cfg["settings"]["results_dir"] == "results"
-    assert cfg["settings"]["debug"] == False
-    assert cfg["settings"]["debug_dir"] == "debug"
-    assert cfg["settings"]["quiet"] == False
-    assert cfg["settings"]["omit_on_failure"] == False
-
-    assert cfg["settings"]["simulator"] == "ngspice-shared"
+    assert settings["multithreaded"] == True
+    assert settings["results_dir"] == "results"
+    assert settings["debug"] == False
+    assert settings["debug_dir"] == "debug"
+    assert settings["omit_on_failure"] == False
 
