@@ -47,14 +47,15 @@ relevant issue or reach out to one of the contacts listed under:ref:`Points-of-C
 Running tests
 ----------------------------------------------------------------------------------------------------
 
-To run tests execute
+To test your CharLib installation you can execute
 
 .. code-block:: SHELL
 
-    make osu350
+    test/pdks/osu350/fetch_spice.sh
+    charlib run test/pdks/osu350
 
-to test CharLib with a simple OSU350 characterization task. This will download the OSU350 cells and
-run characterization on several of them.
+to run a simple OSU350 characterization task. This will download the OSU350 cells and run
+characterization on several of them.
 
 .. note::
     Tests are only available when CharLib is installed from a cloned git repository. If you
