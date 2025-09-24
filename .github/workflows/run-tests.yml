@@ -1,11 +1,11 @@
-name: CharLib Tests
+name: Tests
 run-name: ${{ github.actor }} is testing CharLib
 
 on: [push, pull_request]
 
 jobs:
 
-  Regression-Tests:
+  Regression:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,7 +18,7 @@ jobs:
         run: |
           pip install -e .[docs]
 
-      - name: "Run Tests"
+      - name: "Run regression tests"
         run: |
           pytest
 

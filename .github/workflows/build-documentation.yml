@@ -1,11 +1,11 @@
-name: Documentation build
+name: Documentation
 run-name: ${{ github.actor }} is building CharLib documentation
 
 on: [push, pull_request]
 
 jobs:
 
-  Build-Documentation:
+  Build:
     runs-on: ubuntu-latest
     permissions:
       pages: write      # to deploy to Pages
@@ -33,7 +33,7 @@ jobs:
 
 
   Deploy-to-Pages:
-    needs: Build-Documentation
+    needs: Build
 
     # Run only on main branch -> It has rights to push to the pages
     if: ${{ github.ref == 'refs/heads/main' }}
