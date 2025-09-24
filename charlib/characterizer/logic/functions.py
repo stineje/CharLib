@@ -35,7 +35,7 @@ class Function:
     """Provides function evaluation and mapping faculties"""
     def __init__(self, expression: str, test_vectors: list=[]) -> None:
         """Initialize a new Function"""
-        self.expression = expression.replace('!','~')
+        self.expression = expression.replace('!','~').upper()
         self.stored_test_vectors = test_vectors
 
     @property

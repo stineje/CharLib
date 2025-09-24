@@ -22,7 +22,7 @@ jobs:
         run: |
           pytest
 
-  Characterize-GF180-inv:
+  Characterize-gf180mcu_osu_sc:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,16 +39,31 @@ jobs:
         run: |
           pip install -e .[docs]
 
-      - name: "Download gf180mcu_osu cell SPICE models"
+      - name: "Download gf180mcu_osu_sc"
         run: |
-          ./test/pdks/gf180/fetch_spice.sh
+          git clone https://github.com/infinitymdm/gf180mcu_osu_sc.git
+          pushd gf180mcu_osu_sc
+          mkdir models
+          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.ngspice > models/sm141064.ngspice
+          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.ngspice > models/design.ngspice
+          popd
 
-      - name: "Characterize (using test/pdks/gf180.yml)"
+      - name: "Characterize 9t"
         run: |
-          charlib run test/pdks/gf180 -f inv
+          pushd gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3
+          charlib run . -o charlib-test.lib -j16
+          popd
 
-      - name: "Record characterization results"
+      - name: "Characterize 12t"
+        run: |
+          pushd gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3
+          charlib run . -o charlib-test.lib -j16
+          popd
+
+      - name: "Upload results"
         uses: actions/upload-artifact@v4
         with:
           name: characterization-results
-          path: results/GF180.lib
+          path: |
+            gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3/charlib-test.lib
+            gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3/charlib-test.lib

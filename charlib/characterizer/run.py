@@ -145,7 +145,6 @@ def run_charlib(args):
                     properties = yaml.safe_load(f)
                     f.close()
                     break # Quit searching after successfully reading a match
-        # Add the cell
         characterizer.add_cell(name, properties)
 
     # Characterize
@@ -153,14 +152,14 @@ def run_charlib(args):
 
     # Export
     if args.output:
-        # Make directory if needed
         libfile_name = Path(args.output)
+        if libfile_name.is_dir():
+            libfile_name = libfile_name / characterizer.library.file_name
     else:
         results_dir = characterizer.settings.results_dir
-        libfile_name = results_dir / f'{characterizer.library.name}.lib'
+        libfile_name = results_dir / characterizer.library.file_name
 
     libfile_name.parent.mkdir(parents=True, exist_ok=True)
-
     with open(libfile_name, 'w') as libfile:
         libfile.write(str(library))
         if not characterizer.settings.quiet:
