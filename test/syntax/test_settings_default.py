@@ -2,7 +2,7 @@
 import yaml
 import os
 
-from charlib.config.Syntax import ConfigFile
+from charlib.config.syntax import ConfigFile
 
 def test_settings_default():
     """

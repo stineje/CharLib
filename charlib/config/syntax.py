@@ -112,7 +112,7 @@ class ConfigFile:
         ) : Regex('^(posedge|negedge|not|()) [a-zA-Z0-9_]+'),
         Optional(
             Literal(
-                'clock_skews',
+                'clock_slews',
                 description='A list of clock slew rates to characterize. The cell must have a ' \
                             'clock pin in order to use this parameter. Unit is specified by ' \
                             '``settings.units.time``.'
@@ -136,9 +136,42 @@ class ConfigFile:
         Optional(
             Literal(
                 'lib_name',
-                description='The library name for the liberty file. Also used for the filename.'
+                description='The library name for the liberty file. If the filename is not ' \
+                            'specified on the command line with the ``--output`` option, this ' \
+                            'is also used as the filename.'
             ), default='unnamed_lib'
         ) : str,
+
+        Optional(
+            Literal(
+                'simulation',
+                description='Specifies which simulation backend to use and which procedures to ' \
+                            'apply for acquiring various types of measurements.'
+            )
+        ) : {
+            Optional(
+                Literal(
+                    'backend',
+                    description='Which PySpice simulator backend to use. For available options, ' \
+                                'see https://pyspice.fabrice-salvaire.fr/releases/v1.4/faq.html#' \
+                                'how-to-set-the-simulator'
+                ), default='ngspice-shared'
+            ) : Or('ngspice-shared', 'ngspice-subprocess', 'xyce-serial', 'xyce-parallel'),
+            Optional(
+                Literal(
+                    'input_capacitance_procedure',
+                    description='The name of a procedure used to measure the capacitance of ' \
+                                'each input pin for each cell.' # TODO: Refer to docs for procedures
+                ), default='ac_sweep'
+            ) : str,
+            Optional(
+                Literal(
+                    'combinational_delay_procedure',
+                    description='The name of a procedure used to measure delays associated with ' \
+                                'a combinational cell.' # TODO: Refer to docs for procedures
+                ), default='combinational_worst_case'
+            ) : str
+        },
 
         Optional(
             Literal(
@@ -146,50 +179,58 @@ class ConfigFile:
                 description='Specifies physical units to use for input and output values.'
             )
         ) : {
-                Optional(
-                    Literal(
-                        'time',
-                        description='The unit of time.'
-                    ), default='ns'
-                ) : si_prefixed_syntax('(s|seconds|Seconds)'),
-                Optional(
-                    Literal(
-                        'voltage',
-                        description='The unit of electrical voltage.'
-                    ), default='V'
-                ) : si_prefixed_syntax('(v|V|volts|Volts)'),
-                Optional(
-                    Literal(
-                        'current',
-                        description='The unit of electrical current'
-                    ), default='uA'
-                ) : si_prefixed_syntax('(a|A|amp|amps|Amp|Amps)'),
-                Optional(
-                    Literal(
-                        'capacitive_load',
-                        description='The unit of capacitance'
-                    ), default='pF'
-                ) : si_prefixed_syntax('(f|F|farads|Farads)'),
-                Optional(
-                    Literal(
-                        'pulling_resistance',
-                        description='The unit of resistance'
-                    ), default='Ohm'
-                ) : si_prefixed_syntax('(Ω|ohm|ohms|Ohm|Ohms)'),
-                Optional(
-                    Literal(
-                        'leakage_power',
-                        description='The unit of power'
-                    ), default='nW'
-                ): si_prefixed_syntax('(w|W|watts|Watts)'),
-                Optional(
-                    Literal(
-                        'energy',
-                        description='The unit of energy',
-                    ), default='fJ'
-                ): si_prefixed_syntax('(j|J|joules|Joules)')
-            },
-        Optional('named_nodes') : { # TODO: refer to section 10.1.4 & table 10-2
+            Optional(
+                Literal(
+                    'time',
+                    description='The unit of time.'
+                ), default='ns'
+            ) : si_prefixed_syntax('(s|seconds|Seconds)'),
+            Optional(
+                Literal(
+                    'voltage',
+                    description='The unit of electrical voltage.'
+                ), default='V'
+            ) : si_prefixed_syntax('(v|V|volts|Volts)'),
+            Optional(
+                Literal(
+                    'current',
+                    description='The unit of electrical current'
+                ), default='uA'
+            ) : si_prefixed_syntax('(a|A|amp|amps|Amp|Amps)'),
+            Optional(
+                Literal(
+                    'capacitive_load',
+                    description='The unit of capacitance'
+                ), default='pF'
+            ) : si_prefixed_syntax('(f|F|farads|Farads)'),
+            Optional(
+                Literal(
+                    'pulling_resistance',
+                    description='The unit of resistance'
+                ), default='Ohm'
+            ) : si_prefixed_syntax('(Ω|ohm|ohms|Ohm|Ohms)'),
+            Optional(
+                Literal(
+                    'leakage_power',
+                    description='The unit of power'
+                ), default='nW'
+            ): si_prefixed_syntax('(w|W|watts|Watts)'),
+            Optional(
+                Literal(
+                    'energy',
+                    description='The unit of energy',
+                ), default='fJ'
+            ): si_prefixed_syntax('(j|J|joules|Joules)')
+        },
+
+        Optional(
+            'named_nodes',
+            description='Important nodes which share the same name and function across all ' \
+                        'cells in the cell library. Use named nodes to specify supply and ' \
+                        'biasing node names and voltages, which produce pg_pin groups in the ' \
+                        'resulting liberty file. See Section 10.1.4 and Table 10-2 in the ' \
+                        'the Liberty User Guide, Vol 1 for more information.'
+        ) : {
             Optional(
                 Literal(
                     'primary_power',
@@ -277,7 +318,8 @@ class ConfigFile:
         Optional(
             Literal(
                 'multithreaded',
-                description='Run simulations in parallel, using as many threads as possible.'
+                description='Run simulations in parallel, using as many threads as possible. ' \
+                            'Using the ``--jobs`` flag on the command line overrides this value.'
             ), default=True
         ) : bool,
         Optional(

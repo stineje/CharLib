@@ -5,7 +5,7 @@
 # Operates like so:
 #   Python Schema -> JSON Schema -> RST
 
-from charlib.config.Syntax import ConfigFile
+from charlib.config.syntax import ConfigFile
 
 import os
 
