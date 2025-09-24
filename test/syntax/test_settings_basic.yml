@@ -10,40 +10,38 @@ settings:
         capacitive_load:    pF
         energy:             aJ
 
-    temperature:            74.2
+    temperature:            23.4 # celsius
 
     logic_thresholds:
         low:  0.3
         high: 0.7
 
     named_nodes:
-        vdd:
+        primary_power:
             name:       VCC
             voltage:    1.8
-        vss:
+        primary_ground:
             name:       VEE
             voltage:    0
         pwell:
-            name:       VEE
+            name:       VPB
             voltage:    0
         nwell:
-            name:       VCC
+            name:       VNB
             voltage:    1.8
 
-    simulator: ngspice-subprocess
+    simulation:
+        backend: ngspice-subprocess
 
     logic_thresholds:
         low: 0.3
         high: 0.7
-        low_to_high: 0.55
-        high_to_low: 0.45
+        rising: 0.55
+        falling: 0.45
 
-    process: fast
-    operating_conditions: tst_ff_25c
     multithreaded: False
     results_dir: test_pdk_lib
     debug: True
-    quiet: False
     omit_on_failure: False
 
     # We don't test cell_defaults here intentionally

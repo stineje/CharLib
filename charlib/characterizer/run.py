@@ -13,7 +13,7 @@ from charlib.characterizer.characterizer import Characterizer
 from charlib.characterizer.cell import Cell
 from charlib.characterizer.logic.functions import generate_yml
 
-from charlib.config.Syntax import ConfigFile
+from charlib.config.syntax import ConfigFile
 
 
 def main():

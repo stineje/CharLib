@@ -147,8 +147,8 @@ class SimulationSettings:
     """Container for simulation backend and procedures"""
     def __init__(self, **kwargs):
         self.backend = kwargs.get('backend', 'ngspice-shared')
-        self.input_capacitance = registered_procedures[kwargs.get('input_capacitance', 'ac_sweep')]
-        self.combinational_delay = registered_procedures[kwargs.get('combinational_delay', 'combinational_worst_case')]
+        self.input_capacitance = registered_procedures[kwargs.get('input_capacitance_procedure', 'ac_sweep')]
+        self.combinational_delay = registered_procedures[kwargs.get('combinational_delay_procedure', 'combinational_worst_case')]
         # self.dff_delay = registered_procedures[kwargs.get('dff_delay', 'dff_worst_case')]
         # self.metastable_delay = registered_procedures[kwargs.get('metastable_delay', 'binary_search')]
 

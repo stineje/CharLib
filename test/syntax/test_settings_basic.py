@@ -2,61 +2,54 @@
 import yaml
 import os
 
-from charlib.config.Syntax import ConfigFile
+from charlib.config.syntax import ConfigFile
 
 def test_settings_basic():
     """
     Tests available keywords under "settings"
     """
 
-    cfg = None
+    config_file = os.path.join(os.path.dirname(__file__), "test_settings_basic.yml")
+    with open(config_file, 'r') as f:
+        config = yaml.safe_load(f)
+    config = ConfigFile.validate(config)
+    settings = config['settings']
 
-    cfg_file = os.path.join(os.path.dirname(__file__), "test_settings_basic.yml")
-    with open(cfg_file, 'r') as f:
-        cfg = yaml.safe_load(f)
+    assert settings["lib_name"] == "test_pdk"
 
-    cfg = ConfigFile.validate(cfg)
+    units = settings["units"]
+    assert units["time"] == "fs"
+    assert units["voltage"] == "mV"
+    assert units["current"] == "uA"
+    assert units["pulling_resistance"] == "kOhm"
+    assert units["leakage_power"] == "pW"
+    assert units["capacitive_load"] == "pF"
+    assert units["energy"] == "aJ"
 
-    assert cfg["settings"]["lib_name"] == "test_pdk"
+    assert settings["temperature"] == 23.4
+    assert settings["logic_thresholds"]["low"] == 0.3
+    assert settings["logic_thresholds"]["high"] == 0.7
 
-    un = cfg["settings"]["units"]
-    assert un["time"] == "fs"
-    assert un["voltage"] == "mV"
-    assert un["current"] == "uA"
-    assert un["pulling_resistance"] == "kOhm"
-    assert un["leakage_power"] == "pW"
-    assert un["capacitive_load"] == "pF"
-    assert un["energy"] == "aJ"
+    nodes = settings["named_nodes"]
+    assert nodes["primary_power"]["name"] == "VCC"
+    assert nodes["primary_power"]["voltage"] == 1.8
+    assert nodes["primary_ground"]["name"] == "VEE"
+    assert nodes["primary_ground"]["voltage"] == 0
+    assert nodes["pwell"]["name"] == "VPB"
+    assert nodes["pwell"]["voltage"] == 0
+    assert nodes["nwell"]["name"] == "VNB"
+    assert nodes["nwell"]["voltage"] == 1.8
 
-    assert cfg["settings"]["temperature"] == 74.2
+    assert settings["simulation"]["backend"] == "ngspice-subprocess"
 
-    assert cfg["settings"]["logic_thresholds"]["low"] == 0.3
-    assert cfg["settings"]["logic_thresholds"]["high"] == 0.7
-
-    assert cfg["settings"]["process"] == "fast"
-
-    nn = cfg["settings"]["named_nodes"]
-    assert nn["vdd"]["name"] == "VCC"
-    assert nn["vdd"]["voltage"] == 1.8
-    assert nn["vss"]["name"] == "VEE"
-    assert nn["vss"]["voltage"] == 0
-    assert nn["pwell"]["name"] == "VEE"
-    assert nn["pwell"]["voltage"] == 0
-    assert nn["nwell"]["name"] == "VCC"
-    assert nn["nwell"]["voltage"] == 1.8
-
-    assert cfg["settings"]["simulator"] == "ngspice-subprocess"
-
-    lt = cfg["settings"]["logic_thresholds"]
+    lt = settings["logic_thresholds"]
     assert lt["low"] == 0.3
     assert lt["high"] == 0.7
-    assert lt["low_to_high"] == 0.55
-    assert lt["high_to_low"] == 0.45
+    assert lt["rising"] == 0.55
+    assert lt["falling"] == 0.45
 
-    assert cfg["settings"]["process"] == "fast"
-    assert cfg["settings"]["operating_conditions"] == "tst_ff_25c"
-    assert cfg["settings"]["multithreaded"] == False
-    assert cfg["settings"]["results_dir"] == "test_pdk_lib"
-    assert cfg["settings"]["debug"] == True
-    assert cfg["settings"]["quiet"] == False
-    assert cfg["settings"]["omit_on_failure"] == False
+    assert settings["multithreaded"] == False
+    assert settings["results_dir"] == "test_pdk_lib"
+    assert settings["debug"] == True
+    assert settings["debug_dir"] == "debug"
+    assert settings["omit_on_failure"] == False
