@@ -240,7 +240,7 @@ class Port:
 class CellTestConfig:
     """Capture configuration information for testing one or more cells"""
 
-    def __init__(self, models: list, plots=None, timestep=None, **parameters):
+    def __init__(self, models: list, plots=[], timestep=None, **parameters):
         """Construct a new test configuration.
 
         :param models: Transistor models for the cell under test
@@ -273,13 +273,16 @@ class CellTestConfig:
         self.plots = plots
         self.parameters = parameters
 
-    def variations(self):
+    def variations(self, *keys):
         """Generator for test configuration variations
 
         Yields dictionaries containing key-value pairs for a single combination of parameters. For
         example: {data_slew: 0.01, load: 0.025}
+
+        :param *keys: If provided, only return variations of provided parameter names.
         """
-        param_names, values = zip(*self.parameters.items())
+        parameters = self.parameters if not keys else {k: self.parameters[k] for k in keys}
+        param_names, values = zip(*parameters.items())
         param_names = [n[0:-1] if n.endswith('s') else n for n in param_names]
         for combination in itertools.product(*values):
             yield dict(zip(param_names, combination))

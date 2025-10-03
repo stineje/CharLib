@@ -1,6 +1,7 @@
 """Tools for building test circuits"""
 
 import PySpice
+from matplotlib import pyplot as plt
 
 class PinStateMap:
     """Connect ports of a cell to the appropriate waveforms for a test.
@@ -70,3 +71,35 @@ def init_circuit(title, cell_netlist, models):
             # TODO: if model.is_dir(), use SpiceLibrary
             #   To do this, we'll also need to know which subckts are used by the netlist
     return circuit
+
+def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
+                     indicate_voltages=[], indicate_times=[], fig_label='', title='I/O Voltages'):
+    """Plot input and output voltages from simulation results.
+
+    Given a list of analysis objects and signals to plot, construct a series of plots showing the
+    voltage signals over time. Indicate key voltage and time values if desired.
+
+    :param analyses: A list of analysis results from simulation.
+    :param input_signals: A list of signal names in the analyses which should be displayed in the
+                          upper half of the plot.
+    :param output_signals: A list of signal names in the analyses which should be displayed in the
+                           lower half of the plot.
+    :param legend_labels: Labels corresponding to each analysis. results
+    :param indicate_voltages: Key voltage values to be indicated as horizontal lines on each ax.
+    :param indicate_times: Key time values to be indicated as vertical lines on each ax.
+    """
+    signals = input_signals + output_signals
+    ratios = [1]*len(input_signals) + [len(input_signals)]*len(output_signals)
+    figure, axes = plt.subplots(len(signals), sharex=True, height_ratios=ratios, label=fig_label)
+    for ax, signal in zip(axes, signals):
+        for voltage in indicate_voltages:
+            ax.axhline(voltage, color='0.5', linestyle=':')
+        for time in indicate_times:
+            ax.axvline(time, color='r', linestyle='--')
+        ax.set_ylabel('v' + signal)
+        for analysis, label in zip(analyses, legend_labels):
+            t = analysis.time # TODO: Figure out how to get time unit from this
+            ax.plot(t, analysis['v' + signal])
+    axes[0].set_title(title)
+    axes[-1].set_xlabel('Time')
+    return figure
