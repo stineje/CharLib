@@ -11,6 +11,7 @@ from charlib.liberty.library import Library
 
 import charlib.characterizer.procedures.pin_capacitance
 import charlib.characterizer.procedures.combinational_delay
+import charlib.characterizer.procedures.metastability_delay
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells, and schedules simulations."""
@@ -149,8 +150,8 @@ class SimulationSettings:
         self.backend = kwargs.get('backend', 'ngspice-shared')
         self.input_capacitance = registered_procedures[kwargs.get('input_capacitance_procedure', 'ac_sweep')]
         self.combinational_delay = registered_procedures[kwargs.get('combinational_delay_procedure', 'combinational_worst_case')]
+        self.metastability_delay = registered_procedures[kwargs.get('metastability_delay_procedure', 'metastability_binary_search_worst_case')]
         # self.dff_delay = registered_procedures[kwargs.get('dff_delay', 'dff_worst_case')]
-        # self.metastable_delay = registered_procedures[kwargs.get('metastable_delay', 'binary_search')]
 
 class LogicThresholds:
     """Container for logic_thresholds settings"""

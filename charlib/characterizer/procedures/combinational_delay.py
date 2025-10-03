@@ -10,7 +10,7 @@ from charlib.liberty.library import LookupTable
 def combinational_worst_case(cell, config, settings):
     """Measure worst-case combinational transient and propagation delays"""
     # Construct & yield simulation tasks for each permutation of test arc & config variation
-    for variation in config.variations():
+    for variation in config.variations('data_slews', 'loads'):
         for path in cell.paths():
             yield (measure_worst_case_delay_for_path, cell, config, settings, variation, path)
 
@@ -43,7 +43,7 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
     vss = settings.primary_ground.voltage * settings.units.voltage
 
     # Measure delays for all nonmasking conditions
-    analyses = []
+    analyses = {}
     measurement_names = set()
     for state_map in cell.nonmasking_conditions_for_path(*path):
         # Build the test circuit
@@ -121,15 +121,17 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
             simulation.measure(*measure, run=False)
         simulation.transient(step_time=data_slew/8, end_time=1000*data_slew, run=False)
 
-        # If debugging, log to file
-        # if settings.debug:
-
+        stable_pins_map_str = ', '.join(['='.join([pin, state]) for pin, state in pin_map.stable_inputs.items()])
         try:
-            analyses += [simulator.run(simulation)]
+            analyses[stable_pins_map_str] = simulator.run(simulation)
         except Exception as e:
-            print(str(simulation))
             msg = f'Procedure measure_worst_case_delay_for_path failed for cell {cell.name} ' \
                   f'with variation {variation}, pin states {state_map}'
+            if settings.debug:
+                debug_path = settings.debug_dir / cell.name / __name__
+                debug_path.mkdir(parents=True, exist_ok=True)
+                with open(debug_path / f'slew_{data_slew}_load_{load}.sp') as file:
+                    file.write(str(simulation))
             raise ProcedureFailedException(msg) from e
 
     # Select the worst-case delays and add to LUTs
@@ -137,8 +139,12 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
     result.group('pin', output_port).add_group('timing', f'/* {input_port} */')
     result.group('pin', output_port).group('timing', f'/* {input_port} */').add_attribute('related_pin', input_port)
     for name in measurement_names:
-        worst_delay = max([analysis.measurements[name] for analysis in analyses]) @ PySpice.Unit.u_s
-        # TODO: Get the worst-delay analysis and plot io voltages
+        # Get the worst delay & plot io
+        worst_delay = max([analysis.measurements[name] for analysis in analyses.values()]) @ PySpice.Unit.u_s
+        if 'io' in config.plots:
+            fig = utils.plot_io_voltages(analyses.values(), cell.inputs, cell.outputs, legend_labels=analyses.keys())
+
+        # Build LUT
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
