@@ -99,7 +99,8 @@ def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
         ax.set_ylabel('v' + signal)
         for analysis, label in zip(analyses, legend_labels):
             t = analysis.time # TODO: Figure out how to get time unit from this
-            ax.plot(t, analysis['v' + signal])
+            ax.plot(t, analysis['v' + signal], label=label)
     axes[0].set_title(title)
     axes[-1].set_xlabel('Time')
+    axes[-1].legend()
     return figure
