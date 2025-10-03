@@ -1,5 +1,5 @@
-import itertools
 import PySpice
+import matplotlib.pyplot as plt
 
 from charlib.characterizer import utils
 from charlib.characterizer.procedures import register, ProcedureFailedException
@@ -63,8 +63,8 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                     port.name,
                     f'v{port.name}', circuit.gnd,
                     values=utils.slew_pwl(v_0, v_1, data_slew, 3*data_slew,
-                                          settings.logic_thresholds.low,
-                                          settings.logic_thresholds.high))
+                                          1e-2*settings.logic_thresholds.low,
+                                          1e-2*settings.logic_thresholds.high))
             elif port.name in pin_map.stable_inputs:
                 connections.append('vss' if pin_map.stable_inputs[port.name] == '0' else 'vdd')
             elif port.name in pin_map.target_outputs:
@@ -128,9 +128,9 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
             msg = f'Procedure measure_worst_case_delay_for_path failed for cell {cell.name} ' \
                   f'with variation {variation}, pin states {state_map}'
             if settings.debug:
-                debug_path = settings.debug_dir / cell.name / __name__
+                debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
                 debug_path.mkdir(parents=True, exist_ok=True)
-                with open(debug_path / f'slew_{data_slew}_load_{load}.sp') as file:
+                with open(debug_path / f'slew = {data_slew} load = {load}.sp') as file:
                     file.write(str(simulation))
             raise ProcedureFailedException(msg) from e
 
@@ -140,11 +140,20 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
     result.group('pin', output_port).group('timing', f'/* {input_port} */').add_attribute('related_pin', input_port)
     for name in measurement_names:
         # Get the worst delay & plot io
-        worst_delay = max([analysis.measurements[name] for analysis in analyses.values()]) @ PySpice.Unit.u_s
         if 'io' in config.plots:
-            fig = utils.plot_io_voltages(analyses.values(), cell.inputs, cell.outputs, legend_labels=analyses.keys())
+            fig_label = f'{name} with slew = {data_slew} load = {load}'
+            fig = utils.plot_io_voltages(analyses.values(), list(pin_map.target_inputs.keys()),
+                                         list(pin_map.target_outputs.keys()),
+                                         legend_labels=analyses.keys(),
+                                         indicate_voltages=[settings.primary_power.voltage*1e-2*settings.logic_thresholds.low,
+                                                            settings.primary_power.voltage*1e-2*settings.logic_thresholds.high])
+            fig_path = settings.results_dir / 'plots' / cell.name / __name__.split('.')[-1] / 'io'
+            fig_path.mkdir(parents=True, exist_ok=True)
+            fig.savefig(fig_path / f'{fig_label}.png')
+            plt.close()
 
         # Build LUT
+        worst_delay = max([analysis.measurements[name] for analysis in analyses.values()]) @ PySpice.Unit.u_s
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
