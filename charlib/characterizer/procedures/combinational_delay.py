@@ -136,21 +136,24 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
 
     # Select the worst-case delays and add to LUTs
     result = cell.liberty
-    result.group('pin', output_port).add_group('timing', f'/* {input_port} */')
-    result.group('pin', output_port).group('timing', f'/* {input_port} */').add_attribute('related_pin', input_port)
+    result.group('pin', output_port).add_group('timing', f'/* {input_port} */') # FIXME: This is a \
+    # hack to allow multiple timing groups while the liberty API doesn't yet support multiple
+    # groups with the same name and no id. In practice timing groups are distinguished by
+    # their related_pin attribute.
+    result.group('pin', output_port).group('timing', f'/* {input_port} */').add_attribute('related_pin', input_port) # FIXME
     for name in measurement_names:
         # Get the worst delay & plot io
         if 'io' in config.plots:
-            fig_label = f'{name} with slew = {data_slew} load = {load}'
             fig = utils.plot_io_voltages(analyses.values(), list(pin_map.target_inputs.keys()),
                                          list(pin_map.target_outputs.keys()),
                                          legend_labels=analyses.keys(),
                                          indicate_voltages=[settings.primary_power.voltage*1e-2*settings.logic_thresholds.low,
                                                             settings.primary_power.voltage*1e-2*settings.logic_thresholds.high])
-            fig_path = settings.results_dir / 'plots' / cell.name / __name__.split('.')[-1] / 'io'
+            # FIXME: let user decide whether to show or save
+            fig_path = settings.results_dir / 'plots' / cell.name / 'io'
             fig_path.mkdir(parents=True, exist_ok=True)
-            fig.savefig(fig_path / f'{fig_label}.png')
-            plt.close()
+            fig.savefig(fig_path / f'{name} with slew = {data_slew} load = {load}.png') # FIXME: filetype should be configurable
+            plt.close(fig)
 
         # Build LUT
         worst_delay = max([analysis.measurements[name] for analysis in analyses.values()]) @ PySpice.Unit.u_s
@@ -160,6 +163,6 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                           total_output_net_capacitance=[load.convert(settings.units.capacitance.prefixed_unit).value],
                           input_net_transition=[data_slew.convert(settings.units.time.prefixed_unit).value])
         lut.values[0,0] = worst_delay.convert(settings.units.time.prefixed_unit).value
-        result.group('pin', output_port).group('timing', f'/* {input_port} */').add_group(lut)
+        result.group('pin', output_port).group('timing', f'/* {input_port} */').add_group(lut) # FIXME
 
     return result

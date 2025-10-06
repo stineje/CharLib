@@ -90,8 +90,9 @@ def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
     """
     signals = input_signals + output_signals
     ratios = [1]*len(input_signals) + [len(input_signals)]*len(output_signals)
-    figure, axes = plt.subplots(len(signals), sharex=True, height_ratios=ratios, label=fig_label)
-    for ax, signal in zip(axes, signals):
+    figure, axs = plt.subplots(nrows=len(signals), sharex=True, height_ratios=ratios,
+                                label=fig_label)
+    for ax, signal in zip(axs, signals):
         for voltage in indicate_voltages:
             ax.axhline(voltage, color='0.5', linestyle=':')
         for time in indicate_times:
@@ -100,7 +101,15 @@ def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
         for analysis, label in zip(analyses, legend_labels):
             t = analysis.time # TODO: Figure out how to get time unit from this
             ax.plot(t, analysis['v' + signal], label=label)
-    axes[0].set_title(title)
-    axes[-1].set_xlabel('Time')
-    axes[-1].legend()
+    axs[0].set_title(title)
+    axs[-1].set_xlabel('Time')
+    axs[-1].legend()
     return figure
+
+def plot_delay_surfaces(lut_groups, fig_label='', title='Cell Delays'):
+    """Plot delay surfaces from a series of liberty.LookupTable groups.
+
+    Given a list of 2D LUTs which share common index variables, plot each as a 3D surface.
+
+    :param lut_groups: A list of liberty.LookupTable groups containing delay data.
+    """
