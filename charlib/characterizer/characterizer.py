@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
+from charlib.characterizer import utils
 from charlib.characterizer.cell import Cell, CellTestConfig
 from charlib.characterizer.units import UnitsSettings
 from charlib.characterizer.procedures import registered_procedures, ProcedureFailedException
@@ -101,8 +102,8 @@ class Characterizer:
         # Plot delay surfaces (if desired)
         for (cell, config) in self.cells:
             if 'delay' in config.plots:
-                for timing_group in cell.subgroups_with_name('timing'):
-                    fig = utils.plot_delay_surfaces(timing_group.groups.values())
+                for timing_group in self.library.group('cell', cell.name).subgroups_with_name('timing'):
+                    fig = utils.plot_delay_surfaces(list(timing_group.groups.values()))
                     # FIXME: let user decide whether to show or save
                     fig_path = self.settings.results_dir / 'plots' / cell.name
                     fig_path.mkdir(parents=True, exist_ok=True)

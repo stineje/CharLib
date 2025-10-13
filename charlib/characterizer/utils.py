@@ -1,7 +1,10 @@
 """Tools for building test circuits"""
 
 import PySpice
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
+
 
 class PinStateMap:
     """Connect ports of a cell to the appropriate waveforms for a test.
@@ -91,7 +94,7 @@ def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
     signals = input_signals + output_signals
     ratios = [1]*len(input_signals) + [len(input_signals)]*len(output_signals)
     figure, axs = plt.subplots(nrows=len(signals), sharex=True, height_ratios=ratios,
-                                label=fig_label)
+                               label=fig_label)
     for ax, signal in zip(axs, signals):
         for voltage in indicate_voltages:
             ax.axhline(voltage, color='0.5', linestyle=':')
@@ -113,4 +116,15 @@ def plot_delay_surfaces(lut_groups, fig_label='', title='Cell Delays'):
 
     :param lut_groups: A list of liberty.LookupTable groups containing delay data.
     """
-    [print(lut.to_liberty(precision=6)) for lut in lut_groups]
+    figure, ax = plt.subplots(label=fig_label, subplot_kw={'projection': '3d'})
+    ax.set(
+        xlabel=list(lut_groups[0].template.variables.keys())[0],
+        ylabel=list(lut_groups[0].template.variables.keys())[1],
+        zlabel='Delay',
+        title=title
+    )
+    indices = np.meshgrid(*(lut_groups[0].index_values))
+    for lut, color in zip(lut_groups, list(mcolors.TABLEAU_COLORS)[:len(lut_groups)]):
+        ax.plot_wireframe(*indices, lut.values, label=lut.name, color=color)
+    figure.legend(loc='center left')
+    return figure
