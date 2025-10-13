@@ -93,21 +93,21 @@ class Characterizer:
                     progress_bar.update(1)
 
         # Post-processing: Fetch generated table templates and add them to the library
-        # TODO
+        lut_templates = []
+        for timing_group in self.library.subgroups_with_name('timing'):
+            lut_templates += [lut_group.template for lut_group in timing_group.groups.values()]
+        [self.library.add_group(lut_template) for lut_template in lut_templates]
 
         # Plot delay surfaces (if desired)
         for (cell, config) in self.cells:
             if 'delay' in config.plots:
-                for output_port in cell.outputs:
-                    pin_group = self.library.group('cell', cell.name).group('pin', output_port)
-                    for input_port in cell.inputs:
-                        timing_group = pin_group.group('timing', f'/* {input_port} */') # FIXME
-                        fig = utils.plot_delay_surfaces(timing_group.groups)
-                        # FIXME: let user decide whether to show or save
-                        fig_path = self.settings.results_dir / 'plots' / cell.name
-                        fig_path.mkdir(parents=True, exist_ok=True)
-                        fig.savefig(fig_path / 'delay.png') # FIXME: filetype should be configurable
-                        plt.close()
+                for timing_group in cell.subgroups_with_name('timing'):
+                    fig = utils.plot_delay_surfaces(timing_group.groups.values())
+                    # FIXME: let user decide whether to show or save
+                    fig_path = self.settings.results_dir / 'plots' / cell.name
+                    fig_path.mkdir(parents=True, exist_ok=True)
+                    fig.savefig(fig_path / 'delay.png') # FIXME: filetype should be configurable
+                    plt.close()
         return self.library.to_liberty(precision=6)
 
 
