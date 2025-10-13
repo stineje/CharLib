@@ -6,7 +6,7 @@ import charlib.liberty.liberty as liberty
 class Library(liberty.Group):
     """Convenience class for liberty library groups with pre-populated defaults"""
 
-    # These attributes must be displayed first if present, and in the order below
+    # These must be displayed first if present, and in the order below
     ordered_attributes = [
         'technology',
         'delay_model',
@@ -21,6 +21,11 @@ class Library(liberty.Group):
         'capacitive_load_unit',
         'revision',
         'in_place_swap_mode'
+    ]
+    ordered_groups = [
+        'operating_conditions',
+        'lu_table_template',
+        'cell',
     ]
 
     def __init__(self, name, **attrs):
@@ -47,17 +52,6 @@ class Library(liberty.Group):
         op_conditions.add_attribute('temperature', self.attributes['nom_temperature'].value, self.attributes['nom_temperature'].precision)
         self.add_group(op_conditions)
 
-    def add_lu_table_template(self, lut, **variables):
-        if isinstance(lut, LookupTableTemplate):
-            self.add_group(lut)
-        else:
-            self.add_group(LookupTableTemplate(lut, **variables))
-
-    @property
-    def lu_table_templates(self) -> list:
-        """Return lu_table_template groups."""
-        return [group for group in self.groups if group.name == 'lu_table_template']
-
     @property
     def cells(self) -> list:
         """Return cell groups."""
@@ -77,8 +71,12 @@ class Library(liberty.Group):
         for key, attr in self.attributes.items():
             if key not in self.ordered_attributes:
                 lib_str += [attr.to_liberty(1, **kwargs)]
+        for group_name in self.ordered_groups:
+            for group in self.subgroups_with_name(group_name):
+                lib_str += group.to_liberty(1, **kwargs).split('\n')
         for group in self.groups.values():
-            lib_str += group.to_liberty(1, **kwargs).split('\n')
+            if group.name not in self.ordered_groups:
+                lib_str += group.to_liberty(1, **kwargs).split('\n')
         lib_str += [f'}} /* end {self.name} */']
         return '\n'.join(lib_str)
 
@@ -268,13 +266,14 @@ if __name__ == "__main__":
     library2 = Library('gf180')
     library2 += library
     assert(library.to_liberty() == library2.to_liberty())
-    print(library2.to_liberty(precision=6))
 
     # Test LUT merge
     lut2 = LookupTable('cell_rise', lut_template.identifier,
                        total_output_net_capacitance=[0.002],
                        input_net_transition=[0.0706])
     lut2[0.002, 0.0706] = 5
-    print(lut2.to_liberty(precision=4))
     cell.group('pin', 'CO').group('timing').add_group(lut2)
-    print(cell.to_liberty(precision=4))
+    library2.add_group(cell)
+    print(library2.to_liberty(precision=4))
+
+    [print(lut.to_liberty(precision=4)) for lut in library2.subgroups_with_name('timing')]

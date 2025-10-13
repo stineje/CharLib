@@ -113,3 +113,4 @@ def plot_delay_surfaces(lut_groups, fig_label='', title='Cell Delays'):
 
     :param lut_groups: A list of liberty.LookupTable groups containing delay data.
     """
+    [print(lut.to_liberty(precision=6)) for lut in lut_groups]

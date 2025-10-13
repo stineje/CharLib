@@ -76,7 +76,33 @@ class Group(Statement):
 
     def group(self, name, identifier=''):
         """Look up a sub-group by name and id"""
-        return self.groups[hash((name, identifier))]
+        try:
+            return self.groups[hash((name, identifier))]
+        except KeyError as e:
+            # Use the non-hashed key in error display
+            raise KeyError((name, identifier)) from e
+
+    def subgroups_with_name(self, name: str):
+        """Yield subgroups with the specified name.
+
+        :param name: The subgroup name (i.e. 'timing' or 'cell') to search for.
+        """
+        for group in self.groups.values():
+            if group.name == name:
+                yield group
+            elif group.groups:
+                yield from group.subgroups_with_name(name)
+
+    def subgroups_with_identifier(self, identifier: str):
+        """Yield subgroups with the specified identifier.
+
+        :param identifier: The subgroup identifier to search for.
+        """
+        for group in self.groups.values():
+            if group.identifier == identifier:
+                yield group
+            elif group.groups:
+                yield from group.subgroups_with_identifier(identifier)
 
     def add_attribute(self, attr: str, value=None, precision=None):
         """Add a simple or complex attribute.
@@ -199,18 +225,23 @@ if __name__ == "__main__":
     library = Group('library', 'gf180mcu_osu_sc_gp9t3v3_tt_25c')
     library.add_attribute('technology', 'cmos')
     library.add_attribute('delay_model', 'table_lookup')
-    library.add_group('cell', 'gf180mcu_osu_sc_gp9t3v3__addf_1')
-    library.group('cell', 'gf180mcu_osu_sc_gp9t3v3__addf_1').add_attribute('area', 128)
-    library.group('cell', 'gf180mcu_osu_sc_gp9t3v3__addf_1').add_group('pg_pin', 'VDD')
-    library.group('cell', 'gf180mcu_osu_sc_gp9t3v3__addf_1').group('pg_pin', 'VDD').add_attribute('voltage_name', 'VDD')
+    library.add_group('cell', 'gf180mcu_osu_sc_gp9t3v3__inv_1')
+    library.group('cell', 'gf180mcu_osu_sc_gp9t3v3__inv_1').add_attribute('area', 128)
+    library.group('cell', 'gf180mcu_osu_sc_gp9t3v3__inv_1').add_group('pg_pin', 'VDD')
+    library.group('cell', 'gf180mcu_osu_sc_gp9t3v3__inv_1').group('pg_pin', 'VDD').add_attribute('voltage_name', 'VDD')
 
     # Try merging another library built in a different way
     library_2 = Group('library', 'gf180mcu_osu_sc_gp9t3v3_tt_25c')
-    cell = Group('cell', 'gf180mcu_osu_sc_gp9t3v3__addf_1')
+    cell = Group('cell', 'gf180mcu_osu_sc_gp9t3v3__inv_1')
     cell.add_group('pin', 'A')
     cell.group('pin', 'A').add_attribute('direction', 'input')
-    cell.add_attribute(Attribute('capacitance', 0.012821))
+    cell.group('pin', 'A').add_attribute(Attribute('capacitance', 0.012821))
+    cell.add_group('pin', 'Y')
+    cell.group('pin', 'Y').add_attribute('direction', 'output')
     library_2.add_group(cell)
     library.merge(library_2)
 
     print(library.to_liberty())
+
+    [print(g) for g in library.subgroups_with_name('spoon')] # Should print nothing
+    [print(g) for g in library.subgroups_with_name('pin')] # Should print 2 pins
