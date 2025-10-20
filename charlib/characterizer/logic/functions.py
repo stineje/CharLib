@@ -121,7 +121,41 @@ class Function:
                     test_vectors.append(delta_row)
                     # Append a second copy with each element reversed
                     test_vectors.append([s[::-1] for s in delta_row])
+        self.stored_test_vectors = test_vectors
         return test_vectors
+
+
+class StateFunction(Function):
+    """A Function with internal state"""
+    def __init__(self, expression: str, state_name: str, clock=None, enable=None,
+                 preset=None, clear=None):
+        """Initialize a function with internal recurrence and optional state-related inputs.
+
+        :param expression:
+        :param state_name:
+        :param clock:
+        :param enable:
+        :param preset:
+        :param clear:
+        """
+        self.base_expression = str(expression)
+
+        # Add each state-related input cumulatively, if present
+        if clock:
+            (clock_prefix, not_clock_prefix) = ('~', '') if clock.is_inverted() else ('', '~')
+            expression = f'{clock_prefix}{clock.name} & ({expression}) | ' \
+                         f'{not_clock_prefix}{clock.name} & {state_name}'
+        if enable:
+            (enable_prefix, not_enable_prefix) = ('~', '') if enable.is_inverted() else ('', '~')
+            expression = f'{enable_prefix}{enable.name} & ({expression}) | ' \
+                         f'{not_enable_prefix}{enable.name} & {state_name}'
+        if preset:
+            preset_prefix = '~' if preset.is_inverted() else ''
+            expression = f'{preset_prefix}{preset.name} | ({expression})'
+        if clear:
+            not_clear_prefix = '' if clear.is_inverted() else '~'
+            expression = f'{not_clear_prefix}{clear.name} & ({expression})'
+        super().__init__(expression)
 
 
 def generate_yml():
