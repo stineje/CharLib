@@ -4,23 +4,31 @@ import itertools
 from enum import StrEnum, Flag
 from pathlib import Path
 
-from charlib.characterizer.logic import Function
+from charlib.characterizer.logic.functions import Function, StateFunction
 from charlib.characterizer.logic.Parser import parse_logic
 from charlib.liberty import liberty
 
 class Cell:
     """A standard cell and its functional details"""
 
-    def __init__(self, name: str, netlist: str|Path, functions: list,
-                 logic_pins={}, special_pins={}, area=0.0):
+    def __init__(self, name: str, netlist: str|Path, functions: list, state_paths: list=[],
+                 input_pins: list=[], output_pins: list=[], special_pins: dict={},
+                 area: float=0.0):
         """Construct a new cell, detecting ports from netlist & functions
 
-        :param name: The cell name as it appears in the spice netlist
-        :param netlist: Path to the cell spice netlist
-        :param functions: A list of functions this cell implements in verilog syntax
-        :param logic_pins: A dictionary with keys "inputs" and "outputs" containing lists of pin
-                           names. Used to validate pins parsed from netlist if included.
-        :param special_pins: A dict of pin names with non-logic roles
+        Cells must provide at least a name, netlist, and a complete listing of pins. Pin names
+        included in functions will be inferred as outputs if on the LHS, or inputs if on the RHS.
+
+        :param name: The cell name as it appears in the spice netlist.
+        :param netlist: Path to the cell spice netlist.
+        :param functions: A list of functions this cell implements as verilog-syntax Boolean
+                          expressions.
+        :param state_paths: A list of feedback paths which encode cell state.
+        :param input_pins: A lists of input pin names used to validate pins parsed from netlist
+                           (if included).
+        :param output_pins: A list of output pin names used to validate pins parsed from netlist
+                            (if included).
+        :param special_pins: A dict of pin names with special (i.e. non-logic) roles.
         """
         self.name = name
         self.liberty = liberty.Group('cell', name)
@@ -59,7 +67,7 @@ class Cell:
             edge_triggered = False
             # Special pins may override role, direction, etc.
             if port in special_pins:
-                *modifiers, role = special_pins[port].split()
+                *modifiers, role = special_pins[port]
                 if len(modifiers) > 1:
                     raise ValueError(f'A maximum of 2 components are allowed in role, but pin "{port}" has role "{special_pins[port]}"')
                 if any([substr in role for substr in ['primary', 'well', 'set', 'enable', 'clock']]):
@@ -75,14 +83,22 @@ class Cell:
                         inverted = True
             self.ports.append(Port(port, direction, role, inverted, edge_triggered))
 
-        # If logic_pins kwarg is present, use it to validate port names
-        if logic_pins:
-            # Note that we do not validate that all self.ports etc. are in logic_pins. This is
-            # because self.ports also includes pg_pins and others that are not related to functions
-            if not all([input_pin in self.inputs for input_pin in logic_pins['inputs']]):
-                raise ValueError(f'Failed to validate input pins! Expected {logic_pins["inputs"]}, found {self.inputs}')
-            if not all([output_pin in self.outputs for output_pin in logic_pins['outputs']]):
-                raise ValueError(f'Failed to validate output pins! Expected {logic_pins["outputs"]}, found {self.outputs}')
+        # If we have feedback paths, convert corresponding functions to FSMs
+        for state_path in state_paths:
+            state_name, output = state_path.split('=')
+            self.functions[output] = StateFunction(self.functions[output], state_name,
+                                                   enable=cell.filter_ports(role='enable'),
+                                                   clock=cell.filter_ports(role='clock'),
+                                                   preset=cell.filter_ports(role='set'),
+                                                   clear=cell.filter_ports(role='reset'))
+
+        # Validate port names (if given)
+        if input_pins:
+            if not all([input_pin in self.inputs for input_pin in input_pins]):
+                raise ValueError(f'Failed to validate input pins! Expected {input_pins}, found {self.inputs}')
+        if output_pins:
+            if not all([output_pin in self.outputs for output_pin in output_pins]):
+                raise ValueError(f'Failed to validate output pins! Expected {output_pins}, found {self.outputs}')
 
         # Add ports to liberty data
         # TODO: Handle other port roles
@@ -180,6 +196,10 @@ class Cell:
             if states[input_port] == input_transition and states[output_port] == output_transition:
                 yield states
 
+    @property
+    def is_sequential(self) -> bool:
+        return any([isinstance(f, StateFunction) for f in self.functions.values()])
+
 
 class Port:
     """Encapsulate port names with roles and directions"""
@@ -221,7 +241,7 @@ class Port:
         self.name = name
         self.direction = self.Direction(direction)
         self.role = self.Role(role)
-        self.inversion = False
+        self.inversion = inverted
         self.trigger = self.Trigger(edge_triggered)
 
     def is_inverted(self) -> bool:

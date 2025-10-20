@@ -29,31 +29,27 @@ class Characterizer:
         netlist = properties.pop('netlist')
         functions = properties.pop('functions')
 
-        # If logic_pins are present, unpack and organize
-        logic_pins = {}
-        if 'inputs' in properties and 'outputs' in properties:
-            logic_pins['inputs'] = properties.pop('inputs')
-            logic_pins['outputs'] = properties.pop('outputs')
-
         # Get pg_pins from library config, then handle other special pins
         special_pins = {self.settings.primary_power.name: 'primary_power',
                         self.settings.primary_ground.name: 'primary_ground',
                         self.settings.pwell.name: 'pwell',
                         self.settings.nwell.name: 'nwell'}
         for role in ['clock', 'set', 'reset', 'enable']:
-            match properties.pop(role, '').split():
+            match properties.pop(role, '').replace('!', 'not ').split():
                 case [edge_or_level, pin]:
-                    special_pins[pin] = f'{edge_or_level} {role}'
+                    special_pins[pin] = (edge_or_level, role)
                 case [pin]:
-                    special_pins[pin] = role
+                    special_pins[pin] = (role)
 
         # Handle keywords for plots
         plots = properties.pop('plots', [])
         if plots == 'all':
             plots = ['delay', 'io']
 
-        area = properties.pop('area', 0.0)
-        cell = Cell(name, netlist, functions, logic_pins, special_pins, area)
+        cell = Cell(name, netlist, functions, special_pins=special_pins,
+                    state_paths=properties.pop('state', []),
+                    input_pins=properties.pop('inputs', []),
+                    output_pins=properties.pop('outputs', []), area=properties.pop('area', 0.0))
         models = properties.pop('models')
         config = CellTestConfig(models, plots=plots, **properties)
         self.cells.append((cell, config))
@@ -62,16 +58,19 @@ class Characterizer:
         """Return a list of callable simulation tasks required for this cell."""
         simulations = []
 
-        # Every cell needs input capacitance
+        # Measure input pin capacitances
         simulations += self.settings.simulation.input_capacitance(cell, config, self.settings)
 
         # Identify which delay sims to run based on cell & config
-        if cell.filter_ports(roles=['clock']) and 'clock_slews' in config.parameters:
-            # TODO: clk_inv cells will show up here. Need a way to determine if cell is a flop
-            # TODO: Determine FF type and test as appropriate
-            pass # TODO: add metastability tests & sequential delay tests
+        if cell.is_sequential:
+            # TODO: Find setup & hold constraints (clock-to-q, en-to-q)
+            # TODO: Find minimum pulse width constraints (set, reset, enable, clock)
+            # TODO: Find recovery & removal constraints (clk/en-to-set, clk/en-to-reset)
+            # TODO: Measure preset & clear delays (set-to-q, reset-to-q)
+            # TODO: Measure sequential propagation and transient delays (d-to-q, en-to-q)
+            pass
         else:
-            # Run combinational delay measurements
+            # Measure combinational propagation and transient delays
             simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
         return simulations
 
