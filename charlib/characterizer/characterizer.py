@@ -48,6 +48,7 @@ class Characterizer:
 
         cell = Cell(name, netlist, functions, special_pins=special_pins,
                     state_paths=properties.pop('state', []),
+                    diff_pairs=properties.pop('pairs', []),
                     input_pins=properties.pop('inputs', []),
                     output_pins=properties.pop('outputs', []), area=properties.pop('area', 0.0))
         models = properties.pop('models')
