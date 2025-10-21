@@ -11,9 +11,9 @@ from charlib.liberty import liberty
 class Cell:
     """A standard cell and its functional details"""
 
-    def __init__(self, name: str, netlist: str|Path, functions: list, state_paths: list=[],
-                 input_pins: list=[], output_pins: list=[], special_pins: dict={},
-                 area: float=0.0):
+    def __init__(self, name: str, netlist: str|Path, functions: list, feedback_paths: list=[],
+                 diff_pairs: list=[], input_pins: list=[], output_pins: list=[],
+                 special_pins: dict={}, area: float=0.0):
         """Construct a new cell, detecting ports from netlist & functions
 
         Cells must provide at least a name, netlist, and a complete listing of pins. Pin names
@@ -24,6 +24,7 @@ class Cell:
         :param functions: A list of functions this cell implements as verilog-syntax Boolean
                           expressions.
         :param state_paths: A list of feedback paths which encode cell state.
+        :param diff_pairs: A list of pairs of pin names which make up differential pairs.
         :param input_pins: A lists of input pin names used to validate pins parsed from netlist
                            (if included).
         :param output_pins: A list of output pin names used to validate pins parsed from netlist
@@ -69,7 +70,8 @@ class Cell:
             if port in special_pins:
                 *modifiers, role = special_pins[port]
                 if len(modifiers) > 1:
-                    raise ValueError(f'A maximum of 2 components are allowed in role, but pin "{port}" has role "{special_pins[port]}"')
+                    raise ValueError(f'A maximum of 2 components are allowed in role, but pin ' \
+                                     f'"{port}" has role "{special_pins[port]}"')
                 if any([substr in role for substr in ['primary', 'well', 'set', 'enable', 'clock']]):
                     direction = 'input'
                 match modifiers:
@@ -83,6 +85,9 @@ class Cell:
                         inverted = True
             self.ports.append(Port(port, direction, role, inverted, edge_triggered))
 
+        # Set up diff pairs
+        # TODO
+
         # If we have feedback paths, convert corresponding functions to FSMs
         for state_path in state_paths:
             state_name, output = state_path.split('=')
@@ -95,10 +100,12 @@ class Cell:
         # Validate port names (if given)
         if input_pins:
             if not all([input_pin in self.inputs for input_pin in input_pins]):
-                raise ValueError(f'Failed to validate input pins! Expected {input_pins}, found {self.inputs}')
+                raise ValueError(f'Failed to validate input pins! Expected {input_pins}, found' \
+                                 f'{self.inputs}')
         if output_pins:
             if not all([output_pin in self.outputs for output_pin in output_pins]):
-                raise ValueError(f'Failed to validate output pins! Expected {output_pins}, found {self.outputs}')
+                raise ValueError(f'Failed to validate output pins! Expected {output_pins}, found' \
+                                 f'{self.outputs}')
 
         # Add ports to liberty data
         # TODO: Handle other port roles
@@ -122,11 +129,12 @@ class Cell:
                     return line.upper()
             raise ValueError(f'Failed to identify a .subckt in netlist "{self.netlist}"')
 
-    def filter_ports(self, directions: list=[], roles: list=[],
-                     inverted: bool|None=None, edge_triggered: bool|None=None):
+    def filter_ports(self, directions: list=[], roles: list=[], inverted: bool|None=None,
+                     edge_triggered: bool|None=None):
         """Return a collection of ports matching the given directions, roles, etc.
 
-        :param direction: A list of port directions to match. Elements must be values in Port.Direction.
+        :param direction: A list of port directions to match. Elements must be values in
+                          Port.Direction.
         :param role: A list of port roles to match. Elements must be values in Port.Role.
         :param inverted: Return only ports with inversion matching this argument.
         :param edge_triggered: Return only ports with trigger matching this argument.
@@ -162,7 +170,8 @@ class Cell:
     @property
     def pg_pins(self) -> list:
         """Return a list of supply and bias pin names"""
-        return [port.name for port in self.filter_ports(roles=['primary_power', 'primary_ground', 'pwell', 'nwell'])]
+        return [port.name for port in self.filter_ports(roles=['primary_power', 'primary_ground',
+                                                               'pwell', 'nwell'])]
 
     def paths(self):
         """Generator for input-to-output paths through a cell
@@ -284,7 +293,8 @@ class CellTestConfig:
             if not Path(filename).exists():
                 raise ValueError(f'Unable to locate model at "{filename}"')
             if len(libname) > 1:
-                raise ValueError(f'Expected 1 libname in model "{model}", got {len(libname)}: {libname}')
+                raise ValueError(f'Expected 1 libname in model "{model}", got {len(libname)}:' \
+                                 f'{libname}')
             elif not len(libname) == 1:
                 libname = []
             self.models.append((Path(filename), *libname))
