@@ -26,9 +26,6 @@ class Characterizer:
 
     def add_cell(self, name: str, properties: dict):
         """Add a cell to be characterized"""
-        netlist = properties.pop('netlist')
-        functions = properties.pop('functions')
-
         # Get pg_pins from library config, then handle other special pins
         special_pins = {self.settings.primary_power.name: 'primary_power',
                         self.settings.primary_ground.name: 'primary_ground',
@@ -37,22 +34,22 @@ class Characterizer:
         for role in ['clock', 'set', 'reset', 'enable']:
             match properties.pop(role, '').replace('!', 'not ').split():
                 case [edge_or_level, pin]:
-                    special_pins[pin] = (edge_or_level, role)
+                    special_pins[pin.upper()] = f'{edge_or_level} {role}'
                 case [pin]:
-                    special_pins[pin] = (role)
+                    special_pins[pin.upper()] = role
 
         # Handle keywords for plots
         plots = properties.pop('plots', [])
         if plots == 'all':
             plots = ['delay', 'io']
 
-        cell = Cell(name, netlist, functions, special_pins=special_pins,
-                    state_paths=properties.pop('state', []),
+        # Construct the cell. All remaining properties go into config
+        cell = Cell(name, properties.pop('netlist'), properties.pop('functions'),
+                    special_pins=special_pins, state_aliases=properties.pop('state', []),
                     diff_pairs=properties.pop('pairs', []),
                     input_pins=properties.pop('inputs', []),
                     output_pins=properties.pop('outputs', []), area=properties.pop('area', 0.0))
-        models = properties.pop('models')
-        config = CellTestConfig(models, plots=plots, **properties)
+        config = CellTestConfig(properties.pop('models'), plots=plots, **properties)
         self.cells.append((cell, config))
 
     def analyse_cell(self, cell, config) -> list:

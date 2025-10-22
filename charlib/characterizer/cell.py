@@ -11,7 +11,7 @@ from charlib.liberty import liberty
 class Cell:
     """A standard cell and its functional details"""
 
-    def __init__(self, name: str, netlist: str|Path, functions: list, feedback_paths: list=[],
+    def __init__(self, name: str, netlist: str|Path, functions: list, state_aliases: list=[],
                  diff_pairs: list=[], input_pins: list=[], output_pins: list=[],
                  special_pins: dict={}, area: float=0.0):
         """Construct a new cell, detecting ports from netlist & functions
@@ -23,8 +23,10 @@ class Cell:
         :param netlist: Path to the cell spice netlist.
         :param functions: A list of functions this cell implements as verilog-syntax Boolean
                           expressions.
-        :param state_paths: A list of feedback paths which encode cell state.
-        :param diff_pairs: A list of pairs of pin names which make up differential pairs.
+        :param state_aliases: A list of 'alias=output' statements describing feedback paths within
+                              the cell. These are used to explicitly identify recurrence
+                              relations within the cell's function, usually encoding cell state.
+        :param diff_pairs: A list of 'A B' pairs of pin names which make up differential pairs.
         :param input_pins: A lists of input pin names used to validate pins parsed from netlist
                            (if included).
         :param output_pins: A list of output pin names used to validate pins parsed from netlist
@@ -55,49 +57,51 @@ class Cell:
             self.functions[output] = Function(expr)
 
         # Use netlist .subckt line and function operands to validate and bind ports
-        self.ports = list()
+        self.pins = list()
+        self.diff_pairs = list()
         function_outputs = set(self.functions.keys())
         function_inputs = set.union(*[set(function.operands) for function in self.functions.values()])
-        for port in self.subckt().split()[2:]:
-            role = 'logic'
+        diff_pairs = [tuple(pair.split()) for pair in diff_pairs]
+        unassigned_ports = self.subckt().split()[2:]
+        while unassigned_ports:
+            port = unassigned_ports.pop(0)
             direction = 'inout' if port in function_outputs and port in function_inputs \
                     else 'output' if port in function_outputs \
                     else 'input' if port in function_inputs \
-                    else f'unable to determine direction for port {port}'
-            inverted = False
-            edge_triggered = False
-            # Special pins may override role, direction, etc.
+                    else f'unable to determine direction for pin "{port}"'
             if port in special_pins:
-                *modifiers, role = special_pins[port]
+                # This pin has a special (i.e. non-logic) role
+                *modifiers, role = special_pins[port].split()
                 if len(modifiers) > 1:
                     raise ValueError(f'A maximum of 2 components are allowed in role, but pin ' \
                                      f'"{port}" has role "{special_pins[port]}"')
-                if any([substr in role for substr in ['primary', 'well', 'set', 'enable', 'clock']]):
+                if any([sub in role for sub in ['primary', 'well', 'set', 'enable', 'clock']]):
                     direction = 'input'
-                match modifiers:
-                    case ['posedge']:
-                        inverted = False
-                        edge_triggered = True
-                    case ['negedge']:
-                        inverted = True
-                        edge_triggered = True
-                    case ['not']:
-                        inverted = True
-            self.ports.append(Port(port, direction, role, inverted, edge_triggered))
+                edge_triggered = any(['edge' in m for m in modifiers])
+                inverted = any(['not' in m for m in modifiers]) \
+                        or any(['neg' in m for m in modifiers])
+                self.pins.append(Pin(port, direction, role, inverted, edge_triggered))
+            elif not any([port in pair for pair in diff_pairs]):
+                # This pin is not a member of a diff pair; assume defaults
+                self.pins.append(Pin(port, direction))
+            else:
+                # This pin is a member of a diff pair; find and build the pair
+                [pair] = [pair for pair in diff_pairs if port in pair]
+                (noninv_pin, inv_pin) = pair
+                self.diff_pairs.append(DifferentialPair(noninv_pin, inv_pin, direction))
+                unassigned_ports.remove(pair[pair.index(port)-1]) # Don't add the other port twice
 
-        # Set up diff pairs
-        # TODO
+        # If we have feedback paths, convert corresponding functions
+        self.state_aliases = {k.strip(): a.strip() for a, k in [s.split('=') for s in state_aliases]}
+        for output, state_name in self.state_aliases.items():
+            try:
+                self.functions[output] = StateFunction(self.functions[output], state_name,
+                                                       enable=self.enable, clock=self.clock,
+                                                       preset=self.preset, clear=self.clear)
+            except KeyError as e:
+                raise KeyError(f'Cell {self.name} has no port {output}') from e
 
-        # If we have feedback paths, convert corresponding functions to FSMs
-        for state_path in state_paths:
-            state_name, output = state_path.split('=')
-            self.functions[output] = StateFunction(self.functions[output], state_name,
-                                                   enable=cell.filter_ports(role='enable'),
-                                                   clock=cell.filter_ports(role='clock'),
-                                                   preset=cell.filter_ports(role='set'),
-                                                   clear=cell.filter_ports(role='reset'))
-
-        # Validate port names (if given)
+        # Validate pin names (if given)
         if input_pins:
             if not all([input_pin in self.inputs for input_pin in input_pins]):
                 raise ValueError(f'Failed to validate input pins! Expected {input_pins}, found' \
@@ -108,18 +112,19 @@ class Cell:
                                  f'{self.outputs}')
 
         # Add ports to liberty data
-        # TODO: Handle other port roles
-        for port in [p for p in self.ports if p.name in self.pg_pins]:
-            pin = liberty.Group('pg_pin', port.name)
-            pin.add_attribute('voltage_name', port.name)
-            pin.add_attribute('pg_type', port.role)
-            self.liberty.add_group(pin)
-        for port in self.filter_ports(roles='logic'):
-            pin = liberty.Group('pin', port.name)
-            pin.add_attribute('direction', port.direction)
-            if port.name in function_outputs:
-                pin.add_attribute('function', str(self.functions[port.name]))
-            self.liberty.add_group(pin)
+        for port in self.ports:
+            if port.name in self.pg_pins:
+                pin_group = liberty.Group('pg_pin', port.name)
+                pin_group.add_attribute('voltage_name', port.name)
+                pin_group.add_attribute('pg_type', port.role)
+            else:
+                pin_group = liberty.Group('pin', port.name)
+                pin_group.add_attribute('direction', port.direction)
+                if port.name in self.outputs:
+                    pin_group.add_attribute('function', str(self.functions[port.name]))
+                elif port.role == Port.Role.CLOCK:
+                    pin_group.add_attribute('clock', "true")
+            self.liberty.add_group(pin_group)
 
     def subckt(self) -> str:
         """Return the subckt line from the spice file"""
@@ -128,6 +133,13 @@ class Cell:
                 if self.name in line and 'SUBCKT' in line.upper():
                     return line.upper()
             raise ValueError(f'Failed to identify a .subckt in netlist "{self.netlist}"')
+
+    @property
+    def ports(self):
+        """Yield all ports as pins, including those stored as members of differential pairs"""
+        yield from self.pins
+        for pair in self.diff_pairs:
+            yield from pair.as_pins()
 
     def filter_ports(self, directions: list=[], roles: list=[], inverted: bool|None=None,
                      edge_triggered: bool|None=None):
@@ -173,6 +185,36 @@ class Cell:
         return [port.name for port in self.filter_ports(roles=['primary_power', 'primary_ground',
                                                                'pwell', 'nwell'])]
 
+    def _get_singular_port_by_role(self, role):
+        """Return the first port with the specified role. If there is no such port, return None."""
+        if not self.ports:
+            return None
+        try:
+            port = next(self.filter_ports(roles=[role]))
+        except StopIteration:
+            port = None
+        return port
+
+    @property
+    def enable(self):
+        """Return the cell's enable port, if present"""
+        return self._get_singular_port_by_role('enable')
+
+    @property
+    def clock(self):
+        """Return the cell's clock port, if present"""
+        return self._get_singular_port_by_role('clock')
+
+    @property
+    def preset(self):
+        """Return the cell's set port, if present"""
+        return self._get_singular_port_by_role('set')
+
+    @property
+    def clear(self):
+        """Return the cell's reset port, if present"""
+        return self._get_singular_port_by_role('reset')
+
     def paths(self):
         """Generator for input-to-output paths through a cell
 
@@ -211,7 +253,7 @@ class Cell:
 
 
 class Port:
-    """Encapsulate port names with roles and directions"""
+    """Encapsulate port names with role and signaling characteristics"""
 
     class Direction(StrEnum):
         """Enumerate valid port directions
@@ -245,25 +287,58 @@ class Port:
         EDGE = True
         LEVEL = False
 
-    def __init__(self, name: str, direction: str, role='logic', inverted=False, edge_triggered=False):
-        """Construct a new port"""
+    def __init__(self, name: str, direction: str, role: str, trigger: bool):
+        """Construct a new port.
+
+        :param name: The port's name as it appears in the netlist
+        :param direction: The port's direction. See the Port.Direction enum for details.
+        :param role: The port's role. See the Port.Role enum for details.
+        :param edge_triggered: Whether the port is edge-sensitive or level-sensitive. See the
+                               Port.Trigger enum for details.
+        """
         self.name = name
         self.direction = self.Direction(direction)
         self.role = self.Role(role)
+        self.trigger = self.Trigger(trigger)
+
+    def __repr__(self) -> str:
+        return f'Port({self.name}, {self.direction}, {self.role}, {self.trigger})'
+
+    def is_edge_triggered(self) -> bool:
+        """Return whether this port is edge-triggered."""
+        return bool(self.trigger)
+
+
+class Pin(Port):
+    """A port with a single physical pin."""
+    def __init__(self, name: str, direction: str, role='logic', inverted=False,
+                 edge_triggered=False):
+        """Construct a new pin."""
+        super().__init__(name, direction, role, edge_triggered)
         self.inversion = inverted
-        self.trigger = self.Trigger(edge_triggered)
 
     def is_inverted(self) -> bool:
         """Return whether this port is inverted.
 
         Inputs which are inverted are either falling-edge triggered or logic-0 active. Useful for
-        differential complementary inputs, inverting flip-flop outputs, inverted set and enable
+        differential complementary inputs, inverting flip-flop outputs, active-low set and enable
         pins, etc."""
         return self.inversion
 
-    def is_edge_triggered(self) -> bool:
-        """Return whether this port is edge-triggered."""
-        return bool(self.trigger)
+
+class DifferentialPair(Port):
+    """Encapsulate a port consisting of a differential pair of physical pins"""
+    def __init__(self, noninverting_port_name: str, inverting_port_name: str, direction: str,
+                 role='logic', edge_triggered=False):
+        super().__init__(noninverting_port_name, direction, role, edge_triggered)
+        self.noninverting_port_name = noninverting_port_name
+        self.inverting_port_name = inverting_port_name
+
+    def as_pins(self):
+        yield Pin(self.noninverting_port_name, self.direction, self.role, inverted=False,
+                  edge_triggered=self.trigger)
+        yield Pin(self.inverting_port_name, self.direction, self.role, inverted=True,
+                  edge_triggered=self.trigger)
 
 
 class CellTestConfig:
