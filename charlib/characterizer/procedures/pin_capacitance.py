@@ -10,8 +10,9 @@ from charlib.liberty import liberty
 def ac_sweep(cell, config, settings):
     """Measure input capacitance for each input pin using ac sweep and return a liberty cell group"""
     # Yield simulation tasks for measuring capacitance of each pin
-    for target_pin in cell.inputs:
-        yield (measure_pin_cap_by_ac_sweep, cell, settings, config, target_pin)
+    for target_pin in cell.filter_ports(directions=['input'],
+                                        roles=['logic', 'clock', 'set', 'reset', 'enable']):
+        yield (measure_pin_cap_by_ac_sweep, cell, settings, config, target_pin.name)
 
 def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     """Use an AC frequency sweep to measure the capacitance of target_pin

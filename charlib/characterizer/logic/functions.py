@@ -2,35 +2,6 @@
 
 import re
 
-registered_expressions = {
-    'BUF': 'a',
-    'INV': '!a',
-    'AND2': 'a&b',
-    'AND3': 'a&b&c',
-    'AND4': 'a&b&c&d',
-    'OR2': 'a|b',
-    'OR3': 'a|b|c',
-    'OR4': 'a|b|c|d',
-    'XOR2': 'a^b',
-    'XOR3': 'a^b^c',
-    'XOR4': 'a^b^c^d',
-    'NAND2': '!(a&b)',
-    'NAND3': '!(a&b&c)',
-    'NAND4': '!(a&b&c&d)',
-    'NOR2': '!(a|b)',
-    'NOR3': '!(a|b|c)',
-    'NOR4': '!(a|b|c|d)',
-    'XNOR2': '!(a^b)',
-    'XNOR3': '!(a^b^c)',
-    'XNOR4': '!(a^b^c^d)',
-    'AOI21': '!((a&b)|c)',
-    'AOI22': '!((a&b)|(c&d))',
-    'OAI21': '!((a|b)&c)',
-    'OAI22': '!((a|b)&(c|d))',
-    'SEL2': '(a&(!s))|(b&s)',
-}
-
-
 class Function:
     """Provides function evaluation and mapping faculties"""
     def __init__(self, expression: str, test_vectors: list=[]) -> None:
@@ -156,6 +127,10 @@ class StateFunction(Function):
             not_clear_prefix = '' if clear.is_inverted() else '~'
             expression = f'{not_clear_prefix}{clear.name} & ({expression})'
         super().__init__(expression)
+
+    def __str__(self) -> str:
+        """Return str(self)"""
+        return self.base_expression.replace('~', '!')
 
 
 def generate_yml():

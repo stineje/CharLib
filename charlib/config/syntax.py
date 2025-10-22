@@ -79,7 +79,44 @@ class ConfigFile:
                 description='The clock pin name and trigger type, in the format ' \
                             f'{TRIGGER_FORMAT} (For example: ``posedge CLK`` or ``negedge CKB``)'
             )
-        ) : Regex('^(posedge|negedge|not|()) [a-zA-Z0-9_]+'),
+        ) : Regex('^(posedge|negedge)[ ]*[a-zA-Z0-9_]+'),
+        Optional(
+            Literal(
+                'enable',
+                description='The enable pin name and trigger type, in the format ' \
+                            f'{TRIGGER_FORMAT} (For example: ``not CLK`` or ``GE``)'
+            )
+        ) : Regex('^(not |())[ ]*[a-zA-Z0-9_]+'),
+        Optional(
+            Literal(
+                'set',
+                description='The name and trigger type of the cell\'s set pin, in  the format ' \
+                            f'{TRIGGER_FORMAT} (for example: ``not SN`` defines an active-low ' \
+                            'synchronous set pin).'
+            )
+        ) : Regex('^(posedge|negedge|not|!|())[ ]*[a-zA-Z0-9_]+'),
+        Optional(
+            Literal(
+                'reset',
+                description='The name and trigger type of the cell\'s reset pin, in the format ' \
+                            '{TRIGGER_FORMAT} (for example: ``negedge RN`` defines an active-low ' \
+                            'asynchronous reset pin).'
+            )
+        ) : Regex('^(posedge|negedge|not|!|())[ ]*[a-zA-Z0-9_]+'),
+        Optional(
+            Literal(
+                'state',
+                description='A list of feedback paths which encode state in a sequential cell. ' \
+                            'Paths should be specified as ``<internal node> = <output pin>``.'
+            )
+        ) : [str],
+        Optional(
+            Literal(
+                'pairs',
+                description='A list of pairs of pins to treat as differential pairs. Pairs must ' \
+                            'be listed in the format ``<noninverting_pin> <inverting_pin>``.'
+            )
+        ) : [str],
         Optional(
             Literal(
                 'setup_time_range',
@@ -96,35 +133,19 @@ class ConfigFile:
         ) : [Or(float, int)],
         Optional(
             Literal(
-                'set',
-                description='The name and trigger type of the cell\'s set pin, in  the format ' \
-                            f'{TRIGGER_FORMAT} (for example: ``not SN`` defines an active-low ' \
-                            'synchronous set pin).'
-            )
-        ) : Regex('^(posedge|negedge|not|()) [a-zA-Z0-9_]+'),
-        Optional(
-            Literal(
-                'reset',
-                description='The name and trigger type of the cell\'s reset pin, in the format ' \
-                            '{TRIGGER_FORMAT} (for example: ``negedge RN`` defines an active-low ' \
-                            'asynchronous reset pin).'
-            )
-        ) : Regex('^(posedge|negedge|not|()) [a-zA-Z0-9_]+'),
-        Optional(
-            Literal(
                 'clock_slews',
                 description='A list of clock slew rates to characterize. The cell must have a ' \
                             'clock pin in order to use this parameter. Unit is specified by ' \
                             '``settings.units.time``.'
             )
-        ) : Or(float, int),
+        ) : [Or(float, int)],
         Optional(
             Literal(
                 'plots',
                 description='A string (or list of strings) specifying which plot(s) to show ' \
                             'for this cell.'
             )
-        ) : Or('all', 'none', 'io', 'delay')
+        ) : Or('all', 'none', 'io', 'delay', [str])
     }, description='Keys under a ``cell`` entry may be omitted by instead specifying them in ' \
                    'under ``settings.cell_defaults``. CharLib automatically merges any ' \
                    'key-value pairs from ``settings.cell_defaults`` into each cell entry prior ' \
