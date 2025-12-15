@@ -1,5 +1,6 @@
 import PySpice
 import matplotlib.pyplot as plt
+from numpy import average
 
 from charlib.characterizer import utils
 from charlib.characterizer.procedures import register, ProcedureFailedException
@@ -9,22 +10,32 @@ from charlib.liberty.library import LookupTable
 @register
 def combinational_worst_case(cell, config, settings):
     """Measure worst-case combinational transient and propagation delays"""
-    # Construct & yield simulation tasks for each permutation of test arc & config variation
     for variation in config.variations('data_slews', 'loads'):
         for path in cell.paths():
-            yield (measure_worst_case_delay_for_path, cell, config, settings, variation, path)
+            yield (measure_delay_for_path_with_criterion, cell, config, settings, variation, path,
+                   max)
 
-def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -> liberty.Group:
-    """Given a particular path through the cell, find the worst-case delay for this test variation.
+@register
+def combinational_average(cell, config, settings):
+    """Measure combinational transient and propagation delays using a uniform average"""
+    for variation in config.variations('data_slews', 'loads'):
+        for path in cell.paths():
+            yield (measure_delay_for_path_with_criterion, cell, config, settings, variation, path,
+                   average)
+
+def measure_delay_for_path_with_criterion(cell, config, settings, variation, path,
+                                          criterion=max) -> liberty.Group:
+    """Given a particular path through the cell, find delay according to a selection criterion.
 
     This method tests all nonmasking conditions for the path through the cell from target_input to
-    target_output with the given slew rate and capacitive load, then returns data for the
-    worst-case (i.e. largest) delay.
+    target_output with the given slew rate and capacitive load, then returns the delay selected
+    using the passed criterion function.
 
-    This is in theory an overly pessimistic method of delay estimation. A more accurate method
-    would be to perform a weighted average of each delay based on the likelihood of the
-    corresponding state transition. However, at the time of writing this function, CharLib has no
-    mechanism for accepting prior transition likelihood information.
+    The default criterion selects the worst-case (i.e. maximum) delay. This is in theory an overly
+    pessimistic method of delay estimation. A more accurate method would be to perform a weighted
+    average of each delay based on the likelihood of the corresponding state transition. However,
+    at the time of writing this function, CharLib has no mechanism for accepting prior transition
+    likelihood information.
 
     :param cell: A Cell object to test.
     :param config: A CellTestConfig object containing cell-specific test configuration details.
@@ -34,6 +45,8 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                       as slew rates and loads.
     :param path: A list in the format [input_port, input_transition, output_port,
                  output_transtition] describing the path under test in the cell.
+    :param criterion: A function which returns a single value given a list of numeric values.
+                      Default max.
     """
     # Set up key parameters
     [input_port, _, output_port, _] = path
@@ -150,19 +163,19 @@ def measure_worst_case_delay_for_path(cell, config, settings, variation, path) -
                                          indicate_voltages=[settings.primary_power.voltage*1e-2*settings.logic_thresholds.low,
                                                             settings.primary_power.voltage*1e-2*settings.logic_thresholds.high])
             # FIXME: let user decide whether to show or save
-            fig_path = settings.results_dir / 'plots' / cell.name / 'io'
+            fig_path = settings.plots_dir / cell.name / 'io'
             fig_path.mkdir(parents=True, exist_ok=True)
             fig.savefig(fig_path / f'{name} with slew = {data_slew} load = {load}.png') # FIXME: filetype should be configurable
             plt.close(fig)
 
         # Build LUT
-        worst_delay = max([analysis.measurements[name] for analysis in analyses.values()]) @ PySpice.Unit.u_s
+        delay = criterion([analysis.measurements[name] for analysis in analyses.values()]) @ PySpice.Unit.u_s
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
                           total_output_net_capacitance=[load.convert(settings.units.capacitance.prefixed_unit).value],
                           input_net_transition=[data_slew.convert(settings.units.time.prefixed_unit).value])
-        lut.values[0,0] = worst_delay.convert(settings.units.time.prefixed_unit).value
+        lut.values[0,0] = delay.convert(settings.units.time.prefixed_unit).value
         result.group('pin', output_port).group('timing', f'/* {input_port} */').add_group(lut) # FIXME
 
     return result
