@@ -47,10 +47,15 @@ class Characterizer:
                 case [pin]:
                     special_pins[pin] = role
 
+        # Handle keywords for plots
+        plots = properties.pop('plots', [])
+        if plots == 'all':
+            plots = ['delay', 'io']
+
         area = properties.pop('area', 0.0)
         cell = Cell(name, netlist, functions, logic_pins, special_pins, area)
         models = properties.pop('models')
-        config = CellTestConfig(models, **properties)
+        config = CellTestConfig(models, plots=plots, **properties)
         self.cells.append((cell, config))
 
     def analyse_cell(self, cell, config) -> list:
@@ -101,14 +106,19 @@ class Characterizer:
 
         # Plot delay surfaces (if desired)
         for (cell, config) in self.cells:
+            cell_group = self.library.group('cell', cell.name)
             if 'delay' in config.plots:
-                for timing_group in self.library.group('cell', cell.name).subgroups_with_name('timing'):
-                    fig = utils.plot_delay_surfaces(list(timing_group.groups.values()))
-                    # FIXME: let user decide whether to show or save
-                    fig_path = self.settings.results_dir / 'plots' / cell.name
-                    fig_path.mkdir(parents=True, exist_ok=True)
-                    fig.savefig(fig_path / 'delay.png') # FIXME: filetype should be configurable
-                    plt.close()
+                for pin_group in cell_group.subgroups_with_name('pin'):
+                    pin = pin_group.identifier
+                    for timing_group in pin_group.subgroups_with_name('timing'):
+                        related_pin = timing_group.attributes['related_pin'].value
+                        fig = utils.plot_delay_surfaces(list(timing_group.groups.values()),
+                                                        title=f'Cell delays ({related_pin} to {pin})')
+                        # FIXME: let user decide whether to show or save
+                        fig_path = self.settings.plots_dir / cell.name
+                        fig_path.mkdir(parents=True, exist_ok=True)
+                        fig.savefig(fig_path / f'{related_pin} to {pin} delay.png') # FIXME: filetype should be configurable
+                        plt.close()
         return self.library.to_liberty(precision=6)
 
 
@@ -119,6 +129,7 @@ class CharacterizationSettings:
         # Behavioral settings
         self.jobs = None if kwargs.pop('multithreaded', True) else 1
         self.results_dir = Path(kwargs.pop('results_dir', 'results'))
+        self.plots_dir = self.results_dir / 'plots'
         self.debug = kwargs.pop('debug', False)
         self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))
         self.quiet = kwargs.pop('quiet', False)
