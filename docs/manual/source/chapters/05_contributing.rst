@@ -30,43 +30,30 @@ Code Contributions
 
 Things to Know Before Contributing
 ----------------------------------------------------------------------------------------------------
-CharLib is composed of three main components:
+CharLib is composed of two main components:
 
-* The ``liberty`` module: An object-based Python interface for writing standard cell
-  libraries to liberty files. This includes objects to manage standard cell libraries and
-  represent individual combinational and sequential cells.
+* The ``liberty`` module: A collection of tools for building and manipulating Liberty files. This
+  facilitates the creation of Liberty ``Group``s and ``Attribute``s and adheres closely to the
+  Liberty User Guide.
 * The ``characterizer`` module: A set of tools for running spice simulations against standard cells.
   This includes tools for managing collections of standard cells and dispatching simulation jobs,
   as well as simulation procedures for characterizing cells.
-* ``charlib``: A command-line tool that facilitates interaction with the ``characterizer`` and
-  ``liberty`` components. This is the primary user interface for CharLib.
 
 If you have questions about where to direct your efforts for a particular task, please reply to the
-relevant issue or reach out to one of the contacts listed under:ref:`Points-of-Contact`.
+relevant issue or reach out to one of the contacts listed under :ref:`Points-of-Contact`.
 
-Running tests
+Regression Tests
 ----------------------------------------------------------------------------------------------------
 
-To test your CharLib installation you can execute
+Regression tests are run automatically when you push your code to GitHub. You can also run tests
+locally using ``pytest``.
 
-.. code-block:: SHELL
-
-    test/pdks/osu350/fetch_spice.sh
-    charlib run test/pdks/osu350
-
-to run a simple OSU350 characterization task. This will download the OSU350 cells and run
-characterization on several of them.
+To run all regression tests locally, simply run ``pytest`` from the root directory of your cloned
+CharLib repository.
 
 .. note::
-    Tests are only available when CharLib is installed from a cloned git repository. If you
-    installed CharLib from a cloned repository, running tests is a great way to make sure you have
-    installed CharLib correctly.
-
-.. note::
-    If you get PySpice errors in the file "PySpice/Spice/NgSpice/SimulationType.py", the most
-    likely culprit is that PySpice hasn't yet been validated against the version of ngspice that
-    you have installed. The latest validated version is found in the PySpice code
-    `here <https://github.com/infinitymdm/PySpice/blob/master/PySpice/Spice/NgSpice/SimulationType.py#L85>`_.
+    Tests are not available to run locally if you installed CharLib from pip without cloning the
+    git repository.
 
 Procedure for Code Contributions
 ----------------------------------------------------------------------------------------------------
@@ -76,7 +63,8 @@ Procedure for Code Contributions
 2. Fork the CharLib repository and make changes to fix the identified issue.
 3. Open a draft Pull Request as early as possible in the process. This helps us work as a team and
    work out potential issues ahead of time.
-4. Extensively test your changes.
+4. Extensively test your changes. This should include creating a regression test that proves the
+   issue is solved with your fix.
 5. Once you're done making changes, mark your PR as ready for review. Maintainers will review your
    code and accept your PR or request changes as needed.
 
@@ -99,10 +87,11 @@ Pull Request Guidelines
   review than large changes. Keeping PRs small also helps us limit scope creep.
 * Provide a detailed description of changes. Add as much context and rational for your
   decision-making process as possible.
-* Add ``Fixes #[issue number]`` to the pull request description or commit message if your PR targets
-  a specific issue. See the
-  `github docs <https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue>`_
-  for more information.
+* If your PR targets a specific issue:
+    * Add ``Fixes #[issue number]`` to the pull request description or commit message. See the
+      `github docs <https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue>`_
+      for more information.
+    * Make sure your PR includes a regression test demonstrating that the issue is fixed.
 
 Python Code
 ----------------------------------------------------------------------------------------------------

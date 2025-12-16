@@ -123,7 +123,7 @@ def plot_delay_surfaces(lut_groups, fig_label='', title='Cell Delays'):
         zlabel='Delay',
         title=title
     )
-    indices = np.meshgrid(*(lut_groups[0].index_values))
+    indices = np.meshgrid(*(lut_groups[0].index_values), indexing='ij')
     for lut, color in zip(lut_groups, list(mcolors.TABLEAU_COLORS)[:len(lut_groups)]):
         ax.plot_wireframe(*indices, lut.values, label=lut.name, color=color)
     figure.legend(loc='center left')

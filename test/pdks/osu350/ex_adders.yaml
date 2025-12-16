@@ -1,0 +1,25 @@
+settings:
+    lib_name: test_OSU350
+    units:
+        pulling_resistance: kOhm # This is the only unit that differs from the defaults
+    named_nodes:
+        primary_ground:
+            name: GND
+    cell_defaults: # The key-value pairs below get copied to all cell configurations
+        models:     [model.sp]
+        data_slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        loads:      [0.06, 0.18, 0.42, 0.6, 1.2]
+cells:
+    FAX1:
+        netlist:    osu350_spice_temp/FAX1.sp
+        area:       480
+        functions:
+            - YC=(A&B)|(C&(A^B))
+            - YS=A^B^C
+    HAX1:
+        netlist:    osu350_spice_temp/HAX1.sp
+        area:       320
+        functions:
+            - YC=A&B
+            - YS=A^B
+        loads: [0.012, 0.036, 0.06] # This overrides the value from cell_defaults

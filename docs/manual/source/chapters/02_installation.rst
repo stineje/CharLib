@@ -62,11 +62,11 @@ Install from a cloned repository
 You should use this method to install CharLib if you want to make tweaks to its code or contribute
 to its development.
 
-Begin by using git to clone CharLib:
+Begin by using git to clone CharLib (or your fork):
 
 .. code-block:: SHELL
 
-    git clone https://github.com/stineje/CharLib # If you plan to contribute, clone your fork instead
+    git clone https://github.com/stineje/CharLib
 
 and then install the cloned repository:
 
@@ -74,3 +74,10 @@ and then install the cloned repository:
 
     cd CharLib
     pip install -e .
+
+If you plan to make changes to the documentation, you should also install the tools for compiling
+the manual:
+
+.. code-block:: SHELL
+
+    pip install -e .[docs]
