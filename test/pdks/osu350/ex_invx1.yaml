@@ -1,0 +1,24 @@
+settings:
+    lib_name: test_OSU350
+    units:
+        # Specify all units for clarity, even though only resistance differs from the default
+        time:               ns
+        voltage:            V
+        current:            uA
+        pulling_resistance: kOhm
+        leakage_power:      nW
+        capacitive_load:    pF
+        energy:             fJ
+    named_nodes:
+        primary_ground: # Tell CharLib the ground node name is different from the default "VSS"
+            name:    GND
+cells:
+    INVX1:
+        netlist:    osu350_spice_temp/INVX1.sp
+        models:     [model.sp]
+        area:       128
+        inputs:     [A]
+        outputs:    ['Y'] # Must be in quotes because YAML interprets Y as boolean True
+        functions:  [Y=!A]
+        data_slews: [0.015, 0.04, 0.08, 0.2, 0.4]
+        loads:      [0.06, 0.18, 0.42, 0.6, 1.2]
