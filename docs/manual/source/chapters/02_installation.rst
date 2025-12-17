@@ -48,7 +48,7 @@ Execute the following to install CharLib:
 
 .. code-block:: SHELL
 
-    python -m pip install git+https://github.com/stineje/CharLib
+    python -m pip install git+https://github.com/stineje/CharLib.git@2.0.0
 
 .. note::
     If you have any trouble installing CharLib, please
