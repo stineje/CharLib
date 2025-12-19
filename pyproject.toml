@@ -34,7 +34,7 @@ repository = "https://github.com/stineje/CharLib"
 documentation = "https://stineje.github.io/CharLib/"
 
 [project.scripts]
-charlib = "charlib.characterizer.run:main"
+charlib = "charlib.cli.main:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

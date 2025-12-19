@@ -133,10 +133,10 @@ class StateFunction(Function):
         return self.base_expression.replace('~', '!')
 
 
-def generate_yml():
+def generate_yml(expressions):
     """Generates a YAML map of the registered expressions"""
     document = ""
-    for name, expr in registered_expressions.items():
+    for expr in expressions:
         func = Function(expr)
-        document += func.to_yaml(name) + "\n"
+        document += func.to_yaml(expr) + "\n"
     print(document)
