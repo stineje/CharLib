@@ -9,7 +9,7 @@ def find_yaml_files(path) -> list:
     if path.is_file():
         return [path]
     elif path.is_dir():
-        return [path.rglob('*.yaml')] + [path.rglob('*.yml')]
+        return list(path.rglob('*.yaml')) + list(path.rglob('*.yml'))
     else:
         return []
 

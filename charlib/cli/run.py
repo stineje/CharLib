@@ -23,14 +23,16 @@ def run(args):
     characterizer = Characterizer(**settings)
     logger = Logging.setup_logging(logging_level='ERROR') # FIXME: logging level should be configurable
 
-    # Override settings with command line flags
+    # Override settings with relevant command line flags
     characterizer.settings.debug = characterizer.settings.debug or args.debug
     characterizer.settings.quiet = characterizer.settings.quiet or args.quiet
     characterizer.settings.jobs = args.jobs if args.jobs else characterizer.settings.jobs
 
     # Filter and add cells
     if args.filters:
-        cells = utils.filter_cells(cells, filters)
+        cells = utils.filter_cells(cells, args.filters)
+        if not cells:
+            raise RuntimeError("No cells left after filtering!")
     [characterizer.add_cell(n, p) for (n, p) in utils.read_cell_configs(cells)]
 
     # Characterize
