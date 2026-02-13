@@ -60,10 +60,12 @@ class ConfigFile:
             description='A list of input pin slew rates to characterize. Unit is specified by ' \
                         '``settings.units.time``.'
         ) : [Or(float, int)],
-        Literal(
-            'loads',
-            description='A list of output capacitive loads to characterize. Unit is specified ' \
-                        'by ``settings.units.capacitive_load``.'
+        Optional(
+            Literal(
+                'loads',
+                description='A list of output capacitive loads to characterize. Unit is specified ' \
+                            'by ``settings.units.capacitive_load``.'
+            )
         ) : [Or(float, int)],
         Optional(
             Literal(
@@ -103,6 +105,13 @@ class ConfigFile:
                             'asynchronous reset pin).'
             )
         ) : Regex('^(posedge|negedge|not|!|())[ ]*[a-zA-Z0-9_]+'),
+        Optional(
+            Literal(
+                'flops',
+                description='A list of internal node names used as state storage elements in a ' \
+                            'sequential cell (e.g. internal latch nodes).'
+            )
+        ) : [str],
         Optional(
             Literal(
                 'state',

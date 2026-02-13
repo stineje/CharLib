@@ -6,11 +6,9 @@ settings:
         primary_ground:
             name: GND
     cell_defaults:
-        models: [test/pdks/osu350/model.sp]
-        data_slews: [0.06, 0.3, 0.6]
-        loads:      [0.06, 0.18, 0.42, 0.6, 1.2]
-        setup_time_range: [0.001, 1]
-        hold_time_range: [0.001, 1]
+        models: [model.sp]
+        loads:      [0.015, 0.04, 0.08, 0.2, 0.4]
+        data_slews: [0.06, 0.18, 0.42, 0.6, 1.2]
 cells:
     AND2X1:
         netlist:    osu350_spice_temp/AND2X1.sp
@@ -76,16 +74,16 @@ cells:
     #     functions:  [Q<=D]
     #     setup_time_range: [0.1, 10]
     #     hold_time_range: [0.1, 10]
-    # DFFPOSX1:
-    #     netlist:    osu350_spice_temp/DFFPOSX1.sp
-    #     area:       384
-    #     clock:      posedge CLK
-    #     inputs:     [D]
-    #     outputs:    [Q]
-    #     flops:      [DS0000,P0002]
-    #     functions:  [Q<=D]
-    #     setup_time_range: [0.1, 10]
-    #     hold_time_range: [0.1, 10]
+    #DFFPOSX1:
+    #    netlist:    osu350_spice_temp/DFFPOSX1.sp
+    #    area:       384
+    #    clock:      posedge CLK
+    #    inputs:     [D]
+    #    outputs:    [Q]
+    #    flops:      [DS0000,P0002]
+    #    functions:  [Q<=D]
+    #    setup_time_range: [0.1, 10]
+    #    hold_time_range: [0.1, 10]
     # DFFSR:
     #     netlist:    osu350_spice_temp/DFFSR.sp
     #     area:       704
