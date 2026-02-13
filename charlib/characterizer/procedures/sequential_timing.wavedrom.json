@@ -1,0 +1,25 @@
+{
+  "signal": [
+    {"name": "CLK", "wave": "0..1...0.........1......", "node": "a..b...c.........d......"},
+    {},
+    {"name": "D",   "wave": "0.............1.....0...", "node": "..............e.....f..."},
+    {},
+    {"name": "Q",   "wave": "x..0...............1....", "node": "...................g...."}
+  ],
+  "edge": [
+    "a~b t_stabilizing",
+    "b~c edge_1 rise + high + edge_2 fall (init state)",
+    "c~e t_stabilizing (post edge_2)",
+    "e<->d t_setup_skew (data_edge_1_start → clk_edge_3_mid)",
+    "d<->f t_hold_skew (clk_edge_3_mid → data_edge_2_start)",
+    "d<->g C2Q delay"
+  ],
+  "head": {"text": "Sequential Setup/Hold Waveform (posedge CLK, D rising)"},
+  "foot": {"text": [
+    "tspan",
+    "Setup skew = clk_edge_3_midpoint - data_edge_1_start  |  ",
+    "Hold skew = data_edge_2_start - clk_edge_3_midpoint  |  ",
+    "C2Q = Q transition - clk_edge_3"
+  ]},
+  "config": {"hscale": 2}
+}
