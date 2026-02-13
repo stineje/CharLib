@@ -3,6 +3,7 @@ import PySpice
 from PySpice.Unit import *
 
 from charlib.characterizer import utils
+from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register
 from charlib.liberty import liberty
 
@@ -37,28 +38,33 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
 
     # Initialize circuit
     circuit_name = f'cell-{cell.name}-pin-{target_pin}-cap'
-    circuit = utils.init_circuit(circuit_name, cell.netlist, config.models)
-    circuit.V('dd', 'vdd', circuit.gnd, vdd)
-    circuit.V('ss', 'vss', circuit.gnd, vss)
+    circuit = utils.init_circuit(circuit_name, cell.netlist, config.models,
+                                 settings.named_nodes, settings.units)
     circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {PySpice.Spice.unit.str_spice(i_in)}')
     circuit.R('in', circuit.gnd, 'vin', r_in)
 
     # Initialize device under test and wire up ports
     connections = []
     for port in cell.ports:
-        if port.name == target_pin:
-            connections.append('vin')
-        elif port.name == settings.primary_power.name:
-            connections.append('vdd')
-        elif port.name == settings.primary_ground.name:
-            connections.append('vss')
-        else:
-            # Add a resistor and capacitor to each other port
-            # TODO: Determine whether the capacitors are actually needed.
-            # In general this method for cap measurement needs further investigation.
-            circuit.C(port.name, f'v{port.name}', circuit.gnd, c_out)
-            circuit.R(port.name, f'v{port.name}', circuit.gnd, r_out)
-            connections.append(f'v{port.name}')
+        match port.role:
+            case Port.Role.POWER:
+                connections.append(settings.primary_power.name)
+            case Port.Role.GROUND:
+                connections.append(settings.primary_ground.name)
+            case Port.Role.NWELL:
+                connections.append(settings.nwell.name)
+            case Port.Role.PWELL:
+                connections.append(settings.pwell.name)
+            case _: # Any other role (logic, clock, analog, clear, enable, set, or preset)
+                if port.name == target_pin:
+                    connections.append('vin')
+                else:
+                    # Add a resistor and capacitor to each other port
+                    # TODO: Determine whether the capacitors are actually needed.
+                    # In general this method for cap measurement needs further investigation.
+                    circuit.C(port.name, f'v{port.name}', circuit.gnd, c_out)
+                    circuit.R(port.name, f'v{port.name}', circuit.gnd, r_out)
+                    connections.append(f'v{port.name}')
     circuit.X('dut', cell.name, *connections)
 
     simulator = PySpice.Simulator.factory(simulator=settings.simulation.backend)

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from numpy import average
 
 from charlib.characterizer import utils
+from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
@@ -60,66 +61,76 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
     measurement_names = set()
     for state_map in cell.nonmasking_conditions_for_path(*path):
         # Build the test circuit
-        circuit = utils.init_circuit('comb_delay', cell.netlist, config.models)
-        circuit.V('dd', 'vdd', circuit.gnd, vdd)
-        circuit.V('ss', 'vss', circuit.gnd, vss)
+        circuit = utils.init_circuit('comb_delay', cell.netlist, config.models,
+                                     settings.named_nodes, settings.units)
 
         # Initialize device under test and wire up ports
         pin_map = utils.PinStateMap(cell.inputs, cell.outputs, state_map)
         connections = []
         measurements = []
         for port in cell.ports:
-            if port.name in pin_map.target_inputs:
-                connections.append(f'v{port.name}')
-                (v_0, v_1) = (vss, vdd) if pin_map.target_inputs[port.name] == '01' else (vdd, vss)
-                circuit.PieceWiseLinearVoltageSource(
-                    port.name,
-                    f'v{port.name}', circuit.gnd,
-                    values=utils.slew_pwl(v_0, v_1, data_slew, 3*data_slew,
-                                          1e-2*settings.logic_thresholds.low,
-                                          1e-2*settings.logic_thresholds.high))
-            elif port.name in pin_map.stable_inputs:
-                connections.append('vss' if pin_map.stable_inputs[port.name] == '0' else 'vdd')
-            elif port.name in pin_map.target_outputs:
-                connections.append(f'v{port.name}')
-                circuit.C(port.name, f'v{port.name}', circuit.gnd, load)
-                for in_port in pin_map.target_inputs:
-                    if pin_map.target_inputs[in_port] == '01':
-                        in_direction = 'rise'
-                        threshold_prop_0 = settings.logic_thresholds.rising
+            match port.role:
+                case Port.Role.LOGIC: # Digital logic inputs or outputs
+                    if port.name in pin_map.target_inputs:
+                        connections.append(f'v{port.name}')
+                        (v_0, v_1) = (vss, vdd) if pin_map.target_inputs[port.name] == '01' else (vdd, vss)
+                        circuit.PieceWiseLinearVoltageSource(
+                            port.name,
+                            f'v{port.name}', circuit.gnd,
+                            values=utils.slew_pwl(v_0, v_1, data_slew, 3*data_slew,
+                                                  1e-2*settings.logic_thresholds.low,
+                                                  1e-2*settings.logic_thresholds.high))
+                    elif port.name in pin_map.target_outputs:
+                        connections.append(f'v{port.name}')
+                        circuit.C(port.name, f'v{port.name}', circuit.gnd, load)
+                        for in_port in pin_map.target_inputs:
+                            if pin_map.target_inputs[in_port] == '01':
+                                in_direction = 'rise'
+                                threshold_prop_0 = settings.logic_thresholds.rising
+                            else:
+                                in_direction = 'fall'
+                                threshold_prop_0 = settings.logic_thresholds.falling
+                            if pin_map.target_outputs[port.name] == '01':
+                                out_direction = 'rise'
+                                threshold_prop_1 = settings.logic_thresholds.rising
+                                threshold_tran_0 = settings.logic_thresholds.low
+                                threshold_tran_1 = settings.logic_thresholds.high
+                            else:
+                                out_direction = 'fall'
+                                threshold_prop_1 = settings.logic_thresholds.falling
+                                threshold_tran_0 = settings.logic_thresholds.high
+                                threshold_tran_1 = settings.logic_thresholds.low
+                            prop_name = f'cell_{out_direction}__{in_port}_to_{port.name}'.lower()
+                            measurement_names.add(prop_name)
+                            measurements.append((
+                                'tran', prop_name,
+                                f'trig v(v{in_port}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
+                                f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
+                            tran_name = f'{out_direction}_transition__{in_port}_to_{port.name}'.lower()
+                            measurement_names.add(tran_name)
+                            measurements.append((
+                                'tran', tran_name,
+                                f'trig v(v{port.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
+                                f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_tran_1)} {out_direction}=1'))
+                    elif port.name in pin_map.stable_inputs:
+                        if pin_map.stable_inputs[port.name] == '0':
+                            connections.append(settings.primary_ground.name)
+                        else:
+                            connections.append(settings.primary_power.name)
+                    elif port.name in pin_map.ignored_outputs:
+                        connections.append('wfloat0')
                     else:
-                        in_direction = 'fall'
-                        threshold_prop_0 = settings.logic_thresholds.falling
-                    if pin_map.target_outputs[port.name] == '01':
-                        out_direction = 'rise'
-                        threshold_prop_1 = settings.logic_thresholds.rising
-                        threshold_tran_0 = settings.logic_thresholds.low
-                        threshold_tran_1 = settings.logic_thresholds.high
-                    else:
-                        out_direction = 'fall'
-                        threshold_prop_1 = settings.logic_thresholds.falling
-                        threshold_tran_0 = settings.logic_thresholds.high
-                        threshold_tran_1 = settings.logic_thresholds.low
-                    prop_name = f'cell_{out_direction}__{in_port}_to_{port.name}'.lower()
-                    measurement_names.add(prop_name)
-                    measurements.append((
-                        'tran', prop_name,
-                        f'trig v(v{in_port}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
-                        f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
-                    tran_name = f'{out_direction}_transition__{in_port}_to_{port.name}'.lower()
-                    measurement_names.add(tran_name)
-                    measurements.append((
-                        'tran', tran_name,
-                        f'trig v(v{port.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
-                        f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_tran_1)} {out_direction}=1'))
-            elif port.role == 'primary_power':
-                connections.append('vdd')
-            elif port.role == 'primary_ground':
-                connections.append('vss')
-            elif port.name in pin_map.ignored_outputs:
-                connections.append(f'wfloat0')
-            else:
-                raise ValueError(f'Unable to connect unrecognized port {port.name}')
+                        raise ValueError(f'Unable to connect unrecognized logic port {port.name} in cell {cell.name}')
+                case Port.Role.POWER:
+                    connections.append(settings.primary_power.name)
+                case Port.Role.GROUND:
+                    connections.append(settings.primary_ground.name)
+                case Port.Role.NWELL:
+                    connections.append(settings.nwell.name)
+                case Port.Role.PWELL:
+                    connections.append(settings.pwell.name)
+                case _:
+                    raise ValueError(f'Unable to connect unrecognized port {port.name} in cell {cell.name}')
         circuit.X('dut', cell.name, *connections)
 
         # Run the simulation, taking all measurements

@@ -152,6 +152,11 @@ class CharacterizationSettings:
         # Operating conditions
         self.temperature = kwargs.get('temperature', 25)
 
+    @property
+    def named_nodes(self):
+        """Convenience accessor returning a tuple of all named nodes"""
+        return (self.primary_power, self.primary_ground, self.nwell, self.pwell)
+
     def liberty_attrs_as_dict(self):
         """Return a dict of library-wide settings that should be written to the liberty file."""
         spice_unit = lambda unit: f'1{unit.prefixed_unit.str_spice()}'
@@ -202,3 +207,8 @@ class NamedNode:
 
     def __repr__(self) -> str:
         return f'NamedNode({self.name}, {self.voltage})'
+
+    @property
+    def subscript(self) -> str:
+        """Return the 'subscript' portion of the voltage name e.g. Vdd -> dd"""
+        return self.name[1:] if self.name.lower().startswith('v') else self.name
