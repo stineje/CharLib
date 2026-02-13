@@ -1,0 +1,23 @@
+{
+  "signal": [
+    {"name": "CLK", "wave": "0..1..0.....1......", "node": "a..b..c..d..e......"},
+    {},
+    {"name": "D",   "wave": "0........1.....0...", "node": ".........g..f..h..."},
+    {},
+    {"name": "Q",   "wave": "x..0..........1....", "node": "............i.j...."}
+  ],
+  "edge": [
+    "a~b t_stabilizing",
+    "b~c t_stabilizing",
+    "c~d t_stabilizing",
+    "f->g t_setup_skew",
+    "f->h t_hold_skew",
+    "i->j C2Q delay"
+  ],
+  "head": {"text": "get_c2q() from sequential_delay.py Waveform (posedge CLK, D rising)"},
+  "foot": {"text": [
+    "tspan",
+    "t_stabilizing = 5 * (t_setup_skew + t_hold_skew)"
+  ]},
+  "config": {"hscale": 2}
+}
