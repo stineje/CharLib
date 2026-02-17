@@ -62,8 +62,19 @@ def slew_pwl(v_0, v_1, t_slew, t_wait, low_threshold, high_threshold):
         (t_wait + t_full_slew,      v_1) # simulator will hold this voltage until sim end
     ]
 
-def init_circuit(title, cell_netlist, models):
-    """Perform common circuit initialization tasks"""
+def init_circuit(title, cell_netlist, models, supplies, units):
+    """Perform common circuit initialization tasks
+
+    :param title: The title for the created circuit object
+    :param cell_netlist: A path-like object pointing to a cell's SPICE netlist (from Cell.netlist)
+    :param models: A list of path-likes or tuples to be imported (from CellTestConfig.models)
+    :param supplies: Key voltage supplies to create (from CharacterizationSettings.named_nodes)
+    :param units: An object describing which unit to use (from CharacterizationSettings.units)
+
+    1. Sets up a new circuit with the given title
+    2. Imports cell_netlist and models using the appropriate .lib or .include syntax
+    3. Sets up voltage supplies in the circuit
+    """
     circuit = PySpice.Circuit(title)
     circuit.include(cell_netlist)
     for model in models:
@@ -73,6 +84,8 @@ def init_circuit(title, cell_netlist, models):
             circuit.include(model[0])
             # TODO: if model.is_dir(), use SpiceLibrary
             #   To do this, we'll also need to know which subckts are used by the netlist
+    for supply in supplies:
+        circuit.V(supply.subscript, supply.name, circuit.gnd, supply.voltage*units.voltage)
     return circuit
 
 def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,

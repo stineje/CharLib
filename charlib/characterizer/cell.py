@@ -185,7 +185,7 @@ class Cell:
         return [port.name for port in self.filter_ports(roles=['primary_power', 'primary_ground',
                                                                'pwell', 'nwell'])]
 
-    def _get_singular_port_by_role(self, role):
+    def _get_first_port_with_role(self, role):
         """Return the first port with the specified role. If there is no such port, return None."""
         if not self.ports:
             return None
@@ -198,22 +198,22 @@ class Cell:
     @property
     def enable(self):
         """Return the cell's enable port, if present"""
-        return self._get_singular_port_by_role('enable')
+        return self._get_first_port_with_role('enable')
 
     @property
     def clock(self):
         """Return the cell's clock port, if present"""
-        return self._get_singular_port_by_role('clock')
+        return self._get_first_port_with_role('clock')
 
     @property
     def preset(self):
         """Return the cell's set port, if present"""
-        return self._get_singular_port_by_role('set')
+        return self._get_first_port_with_role('set')
 
     @property
     def clear(self):
         """Return the cell's reset port, if present"""
-        return self._get_singular_port_by_role('reset')
+        return self._get_first_port_with_role('reset')
 
     def paths(self):
         """Generator for input-to-output paths through a cell
