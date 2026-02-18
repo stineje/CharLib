@@ -58,10 +58,10 @@ def sweep_setup_hold_skew_for_c2q(cell, config, settings, variation, path):
     and runs every single combination of the two to find the C2Q delay.
     Giving us the 3D C2Q vs setup time (ts) vs hold time (th) surface.
     """
-    t_setup_skew_range = (100e-12, 2e-9)
-    t_setup_skew_step = 100e-12
-    t_hold_skew_range = (0, 1e-9)
-    t_hold_skew_step = 100e-12
+    t_setup_skew_range = (0e-12, 700e-12)
+    t_setup_skew_step = 10e-12
+    t_hold_skew_range = (-500e-12, 200e-12)
+    t_hold_skew_step = 10e-12
 
     # index 1 is setup skew, index 2 is hold skew
     c2q_values = []
@@ -77,7 +77,7 @@ def sweep_setup_hold_skew_for_c2q(cell, config, settings, variation, path):
         c2q_values.append(c2q_hold_skew_values)
 
     if settings.debug:
-        debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
+        debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1] / f'{path[0]}_{path[1]}_to_{path[2]}_{path[3]}'
         debug_path.mkdir(parents=True, exist_ok=True)
         plot_c2q_surface(setup_skews, hold_skews, np.array(c2q_values), cell.name, debug_path)
         write_c2q_csv(setup_skews, hold_skews, c2q_values, cell.name, debug_path)
@@ -92,6 +92,14 @@ def plot_c2q_surface(setup_skews, hold_skews, c2q_values, cell_name, debug_path)
     fig = plt.figure(figsize=(10, 7))
     ax = fig.add_subplot(111, projection='3d')
     surf = ax.plot_surface(hold_grid, setup_grid, c2q_ns, cmap='viridis', edgecolor='none', alpha=0.9)
+
+    # Plot red dots where C2Q failed to converge (NaN)
+    nan_mask = np.isnan(c2q_ns)
+    if np.any(nan_mask):
+        z_min = np.nanmin(c2q_ns) if not np.all(nan_mask) else 0
+        ax.scatter(hold_grid[nan_mask], setup_grid[nan_mask],
+                   np.full(np.sum(nan_mask), z_min), color='red', s=20, label='did not converge')
+        ax.legend()
 
     ax.set_xlabel('Hold Skew (ns)')
     ax.set_ylabel('Setup Skew (ns)')
@@ -117,12 +125,6 @@ def get_c2q(cell, config, settings, clk_slew, data_slew, t_setup_skew, t_hold_sk
     """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
     for a given setup skew / hold skew, load capacitance and stabilizing time."""
 
-    if t_setup_skew <= 0 and t_hold_skew <= 0:
-        # only one of setup skew and hold skew can be negative, otherwise the testbench will be unstable
-        # negative hold + positive setup means sampling window is entirely before clock edge
-        # negative setup + positive hold means sampling window is entirely after clock edge
-        return float('nan') # this negative value will be caught by plotting function
-
     # Set up parameters
     t_clk_slew = clk_slew * settings.units.time
     t_data_slew = data_slew * settings.units.time
@@ -144,6 +146,12 @@ def get_c2q(cell, config, settings, clk_slew, data_slew, t_setup_skew, t_hold_sk
     t['data_edge_2_end'] = t['data_edge_2_start'] + t_data_slew
 
     t['sim_end'] = t['data_edge_2_end'] + t_stabilizing # wait for the system to stabilize
+
+    # check for invalid timing conditions (all PWL timepoints must be non-decreasing)
+    if t['data_edge_1_end'] >= t['data_edge_2_start']:
+        print(f'Invalid point setup_skew = {t_setup_skew*1e12:.3g}ps, hold_skew = {t_hold_skew*1e12:.3g}ps: data rise overlaps with data fall')
+        return float('nan')
+    print(f'Running simulation for setup_skew = {t_setup_skew*1e12:.3g}ps, hold_skew = {t_hold_skew*1e12:.3g}ps')
 
     # Initialize circuit
     circuit = utils.init_circuit("sequential_setup_hold", cell.netlist, config.models)
@@ -202,14 +210,7 @@ def get_c2q(cell, config, settings, clk_slew, data_slew, t_setup_skew, t_hold_sk
         temperature=settings.temperature,
         nominal_temperature=settings.temperature
     )
-    simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
-
-    # measure c2q
-    simulation.measure('tran',
-                     't_c2q',
-                     f'trig v(vclk) val={float(vdd/2)} RISE=2',
-                     f'targ v(vout) val={float(vdd/2)} RISE=1',
-                     run=False)
+    simulation.options('nopage', 'nomod', post=1, ingold=2, trtol=1)
 
     # hardcode the simulation step and time for now, to be reviewed
     simulation.transient(step_time=t_data_slew/16, end_time=t['sim_end'], run=False)
@@ -219,6 +220,7 @@ def get_c2q(cell, config, settings, clk_slew, data_slew, t_setup_skew, t_hold_sk
         with open(debug_path / f'{cell.name}_ts_{t_setup_skew*1e12:.3g}ps_th_{t_hold_skew*1e12:.3g}ps_cl_{c_load*1e15:.3g}fF.spice', 'w') as f:
             f.write(str(simulation))
 
+    # run the simulation
     try:
         analysis = simulator.run(simulation)
 
@@ -226,9 +228,32 @@ def get_c2q(cell, config, settings, clk_slew, data_slew, t_setup_skew, t_hold_sk
         msg = f'Procedure get_c2q failed for cell {cell.name}, setup_skew = {t_setup_skew}, hold_skew = {t_hold_skew}'
         raise ProcedureFailedException(msg) from e
 
-    t_c2q = analysis.measurements['t_c2q']
+    # Check whether Q latched the D value by looking at vout after the 3rd clock edge
+    time = np.array(analysis.time)
+    vout = np.array(analysis['vout'])
+    vclk = np.array(analysis['vclk'])
+    v_half = float(vdd / 2)
 
-    return t_c2q
+    # Find the 50% crossing of the 3rd clock rising edge (RISE=2 in 0-indexed terms)
+    clk_crossings = np.where(np.diff(np.sign(vclk - v_half)) > 0)[0]
+    if len(clk_crossings) < 2:
+        return float('nan')
+    t_clk_edge = np.interp(v_half, [vclk[clk_crossings[1]], vclk[clk_crossings[1] + 1]],
+                                    [time[clk_crossings[1]], time[clk_crossings[1] + 1]])
+
+    # Check if vout crosses 50% after the clock edge (i.e. Q latched)
+    after_clk = time >= t_clk_edge
+    vout_after = vout[after_clk]
+    time_after = time[after_clk]
+    q_crossings = np.where(np.diff(np.sign(vout_after - v_half)) > 0)[0]
+    if len(q_crossings) < 1:
+        return float('nan')
+
+    # Interpolate the exact 50% crossing time on Q
+    t_q_edge = np.interp(v_half, [vout_after[q_crossings[0]], vout_after[q_crossings[0] + 1]],
+                                  [time_after[q_crossings[0]], time_after[q_crossings[0] + 1]])
+
+    return t_q_edge - t_clk_edge
 
 def sequential_setup_hold_search(cell, config, settings, variation, path):
     """The goal of this fucntion is to find the minimum setup and hold time of a sequential cell,
