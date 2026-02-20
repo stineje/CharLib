@@ -200,6 +200,13 @@ class ConfigFile:
                     description='The name of a procedure used to measure delays associated with ' \
                                 'a combinational cell.' # TODO: Refer to docs for procedures
                 ), default='combinational_worst_case'
+            ) : str,
+            Optional(
+                Literal(
+                    'sequential_setup_hold_procedure',
+                    description='The name of a procedure used to measure setup and hold time ' \
+                                'constraints for a sequential cell.' # TODO: Refer to docs for procedures
+                ), default='sequential_setup_hold_simple'
             ) : str
         },
 

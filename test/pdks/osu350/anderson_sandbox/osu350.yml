@@ -85,6 +85,7 @@ cells:
         functions:  [Q<=D]
         clock_slews: [0.06] # related_pin
         data_slews:  [0.06] # constraint_pin
+        sequential_setup_hold_procedure:  sequential_setup_hold_simple
     #    clock_slews: [0.06, 0.3, 0.6] # related_pin
     #    data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin
     #    setup_time_range: [0.1, 10]
