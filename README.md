@@ -16,7 +16,7 @@ See the [documentation](https://stineje.github.io/CharLib/) for more details, in
 - [Configuration syntax reference](https://stineje.github.io/CharLib/chapters/04_syntax_reference.html)
 - [Information for developers & contributors](https://stineje.github.io/CharLib/chapters/05_contributing.html)
 
-## Video
+## Videos
 - Introduction to using CharLib: [https://youtu.be/QYgwKUkUTOc?si=QH0ajlIu4vUQsxAa]
 
 ## Troubleshooting
