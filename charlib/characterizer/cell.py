@@ -242,10 +242,10 @@ class Cell:
                                   '10'.
         """
         function = self.functions[output_port]
-        for test_vector in function.test_vectors:
-            states = dict(zip([*(function.operands), output_port], test_vector))
-            if states[input_port] == input_transition and states[output_port] == output_transition:
-                yield states
+        for tv in function.test_vectors:
+            if tv[input_port] == input_transition and tv[Function.OUT] == output_transition:
+                tv[output_port] = tv.pop(Function.OUT)
+                yield tv
 
     @property
     def is_sequential(self) -> bool:

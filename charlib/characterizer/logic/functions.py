@@ -3,6 +3,8 @@
 import re
 
 class Function:
+    OUT = '__output' # key for function outputs in test vectors and truth tables
+
     """Provides function evaluation and mapping faculties"""
     def __init__(self, expression: str, test_vectors: list=[]) -> None:
         """Initialize a new Function"""
@@ -39,7 +41,7 @@ class Function:
         length = len(self.operands)
         for n in range(2**length):
             result = dict(zip(self.operands, [int(c) for c in f'{n:0{length}b}']))
-            result['output'] = self.eval(**result)
+            result[self.OUT] = self.eval(**result)
             table.append(result)
         return table
 
@@ -87,7 +89,7 @@ class Function:
         while table:
             top_row = table.pop(0) # Get top row of table
             # Compare to each later row with a differing output
-            for compared_row in [cr for cr in table if not cr['output'] == top_row['output']]:
+            for compared_row in [cr for cr in table if not cr[self.OUT] == top_row[self.OUT]]:
                 # Check if input differs by only one pin
                 deltas = {}
                 for pin in top_row.keys():
@@ -143,11 +145,9 @@ class StateFunction(Function):
     @property
     def test_vectors(self) -> list:
         """Generate valid test vectors, accounting for internal state"""
-        # Start with superclass test vectors, but filter with two criteria:
-        # 1. Remove all TVs where internal state does not match output initial state
-        # 2. Afterwards, remove internal state variable from all test vectors
-        # for tv in super().test_vectors:
-        return super().test_vectors # FIXME
+        # Remove all TVs where internal state does not match output initial state
+        return [t for t in super().test_vectors if t[self.state_variable] == t[self.OUT][0]]
+
 
 
 def generate_yml(expressions):
