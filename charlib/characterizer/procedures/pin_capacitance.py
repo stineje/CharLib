@@ -72,9 +72,9 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     simulation.ac('dec', 100, f_start, f_stop, run=False)
 
     if settings.debug:
-        debug_path = settings.debug_dir / cell.name / __name__
+        debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
         debug_path.mkdir(parents=True, exist_ok=True)
-        with open(debug_path/f'{target_pin}.spice', 'w') as spice_file:
+        with open(debug_path/f'{target_pin}.spice', 'w', encoding='utf-8') as spice_file:
             spice_file.write(str(simulation))
 
     # Measure capacitance as the slope of the conductance with respect to frequency

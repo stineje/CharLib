@@ -154,7 +154,7 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
             if settings.debug:
                 debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
                 debug_path.mkdir(parents=True, exist_ok=True)
-                with open(debug_path / f'slew = {data_slew} load = {load}.sp') as file:
+                with open(debug_path / f'slew = {data_slew} load = {load}.sp', 'w', encoding='utf-8') as file:
                     file.write(str(simulation))
             raise ProcedureFailedException(msg) from e
 

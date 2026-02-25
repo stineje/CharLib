@@ -198,66 +198,6 @@ def parse_logic(expression: str) -> list:
     """
     return _parse(_lex(expression))
 
-def _resolve_unates(syntax_tree: list, target: str):
-    """Determine the 'unateness' of the function with respect to the target input."""
-    op = syntax_tree.pop(0)
-    if op == '~':
-        unate_l = -1
-        unate_r = None
-    elif op == '&' or op == '*':
-        unate_l = 1
-        unate_r = 1
-    elif str(op) in ['|', '+', '^', '~^']:
-        # can't determine these yet - have to check which side contains the target
-        unate_l = 0
-        unate_r = 0
-    else:
-        return syntax_tree, {op: 1} # Return symbol
-    # Resolve left side
-    syntax_tree, unates = _resolve_unates(syntax_tree, target)
-    # Check for target in left side
-    if unate_l == 0 and target in unates:
-        unate_l = 1
-    else:
-        unate_l = -1
-    for k,u in unates.items():
-        unates[k] = unate_l * u
-    # Resolve right side
-    if unate_r is not None:
-        syntax_tree, unates_r = _resolve_unates(syntax_tree, target)
-        # Check for target in right side
-        if unate_r == 0 and target in unates_r:
-            unate_r = 1
-        else:
-            unate_r = -1
-        for k,u in unates_r.items():
-            unates[k] = unate_r * u
-    return syntax_tree, unates
-
-def generate_test_vectors(expression: str, inputs: list) -> list:
-    # This method doesn't work correctly for some expressions, and will be revisited and fixed later.
-    # Might be fixed now, since the parser has been entirely rewritten. Needs more testing.
-    test_vectors = []
-    for target_port in inputs:
-        # Generate two test vectors for each input: one rising, one falling
-        for state in ['01', '10']:
-            input_vector = []
-            for port in inputs:
-                # Get unates for each variable
-                _, unates = _resolve_unates(parse_logic(expression), target_port)
-                # Make sure we don't have any unexpected ports
-                for k in unates.keys():
-                    if k not in inputs:
-                        raise ValueError(f'Unexpected port name {k} encountered during test vector generation')
-                # Use unates to determine port states
-                if port is target_port:
-                    input_vector.append(state)
-                    output_state = state if unates[port] > 0 else state[::-1]
-                else:
-                    input_vector.append(str(int(unates[port] > 0)))
-            test_vectors.append([output_state, input_vector])
-    return test_vectors
-
 
 if __name__ == '__main__':
     # If run as main, test lexer & parser
@@ -285,6 +225,3 @@ if __name__ == '__main__':
     assert parse_logic('a^b|c^d') == ['|', '^', 'a', 'b', '^', 'c', 'd']
     assert parse_logic('a|b^c|d') == ['|', 'a', '|', '^', 'b', 'c', 'd']
     assert parse_logic('a&(b|c)&d') == ['&', 'a', '&', '|', 'b', 'c', 'd']
-
-    # Test TV generation
-    assert generate_test_vectors('~A', ['A']) == [['10', ['01']], ['01', ['10']]]
