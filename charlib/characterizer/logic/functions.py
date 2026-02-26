@@ -2,6 +2,8 @@
 
 import re
 
+from charlib.characterizer.port import Port
+
 class Function:
     OUT = '__output' # key for function outputs in test vectors and truth tables
 
@@ -120,6 +122,7 @@ class StateFunction(Function):
         """
         self.base_expression = expression
         self.state_variable = state_name
+        self.trigger_pins = (clock, enable, preset, clear)
 
         # Add each state-related input cumulatively, if present
         if clock:
@@ -142,13 +145,35 @@ class StateFunction(Function):
         """Return str(self)"""
         return str(self.base_expression)
 
+    def _validate_triggers(self, test_vector) -> bool:
+        """Check that this test vector triggers at least one of the StateFunction's trigger pins.
+
+        Special pins have two trigger types:
+        - Port.Trigger.LEVEL triggers on static 1 (or 0 if inverting)
+        - Port.Trigger.EDGE triggers on rise (or fall if inverting)
+        This method returns True if at least one pin triggers.
+        """
+        for pin in [p for p in self.trigger_pins if p is not None]:
+            match pin.trigger, pin.inversion, test_vector[pin.name]:
+                case (Port.Trigger.LEVEL, False, '1'):
+                    return True # active-high trigger
+                case (Port.Trigger.LEVEL, True, '0'):
+                    return True # active-low trigger
+                case (Port.Trigger.EDGE, False, '01'):
+                    return True # rising posedge trigger
+                case (Port.Trigger.EDGE, True, '10'):
+                    return True # falling negedge trigger
+                case _:
+                    continue
+        return False
+
     @property
     def test_vectors(self) -> list:
         """Generate valid test vectors, accounting for internal state"""
-        # Remove all TVs where internal state does not match output initial state
-        return [t for t in super().test_vectors if t[self.state_variable] == t[self.OUT][0]]
-
-
+        # Remove all vectorss where internal state does not match output initial state
+        tvs = [t for t in super().test_vectors if t[self.state_variable] == t[self.OUT][0]]
+        # Remove any vectors where no trigger is active
+        return list(filter(self._validate_triggers, tvs))
 
 def generate_yml(expressions):
     """Generates a YAML map of the registered expressions"""
