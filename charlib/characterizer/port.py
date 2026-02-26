@@ -34,6 +34,22 @@ class Port:
         ENABLE = 'enable' # Tristate enable
 
     class Trigger(Flag):
+        """Enumerate how we expect an input to be stimulated, or how an output should respond.
+
+        This field describes how a values in a truth table or test vector ate to be interpreted
+        and applied as stimulus or measured as output.
+
+        Most pins are level-triggered, meaning they are sensitive to either logical 1 or logical 0.
+        These pins should be stimulated with static high- or low-voltage signals. Edge-sensitive
+        pins, on the other hand, should be stimulated with rising or falling signals.
+
+        Applying this to truth tables and test vectors:
+        - For level-triggered pins, 0 corresponds to low voltage and 1 corresponds to high voltage.
+        - For edge-triggered pins, 0 corresponds to a "fall" (slewing from 1 to 0) and 1
+            corresponds to a "rise" (slewing from 0 to 1).
+        This means that a 01 in a test vector should be applied to an edge-sensitive pin as a fall
+        followed by a rise, whereas the same 01 on a level-sensitive pin would simply be a rise.
+        """
         EDGE = True
         LEVEL = False
 

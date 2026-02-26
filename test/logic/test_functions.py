@@ -35,6 +35,26 @@ def test_noninverting_dff():
         assert(vector in expected_test_vectors)
     assert(len(expected_test_vectors) == len(function.test_vectors))
 
-# TODO: test DFFSR
-# TODO: test SR latch
-# TODO: test combinational functions
+def test_inverting_dffsr():
+    """Verify truth table and test vectors for the inverting output of a DFFSR
+
+    This test uses a DFF with posedge clock and active low set & reset.
+    """
+    pass # TODO
+
+def test_noninverting_srlat():
+    """Verify truth table and test vectors for the noninverting function of an SR latch"""
+    pass # TODO
+
+def test_inverting_dlat()
+    """Verify truth table and test vectors for the inverting function of a D-latch"""
+    pass # TODO
+
+def test_and2()
+    pass # TODO
+
+def test_xor2()
+    pass # TODO
+
+def test_addf()
+    pass # TODO
