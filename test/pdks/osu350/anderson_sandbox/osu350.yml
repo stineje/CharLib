@@ -83,8 +83,8 @@ cells:
         flops:      [DS0000,P0002]
         state:      ['DS0000 = Q']
         functions:  [Q<=D]
-        clock_slews: [0.06] # related_pin
-        data_slews:  [0.06] # constraint_pin
+        clock_slews: [0.06, 0.3, 0.6] # related_pin
+        data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin
         sequential_setup_hold_procedure:  sequential_setup_hold_simple
     #    clock_slews: [0.06, 0.3, 0.6] # related_pin
     #    data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin

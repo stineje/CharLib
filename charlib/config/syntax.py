@@ -150,6 +150,14 @@ class ConfigFile:
         ) : [Or(float, int)],
         Optional(
             Literal(
+                'sequential_setup_hold_procedure',
+                description='The name of a procedure used to measure setup and hold time ' \
+                            'constraints for a sequential cell. Overrides the library-wide ' \
+                            'setting in ``settings.simulation.sequential_setup_hold_procedure``.'
+            ), default='sequential_setup_hold_simple'
+        ) : str,
+        Optional(
+            Literal(
                 'plots',
                 description='A string (or list of strings) specifying which plot(s) to show ' \
                             'for this cell.'
