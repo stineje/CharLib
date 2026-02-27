@@ -120,7 +120,7 @@ class StateFunction(Function):
         :param preset: The Cell.Pin with the set/preset role (if any).
         :param clear: The Cell.Pin with the clear/reset role (if any).
         """
-        self.base_expression = expression
+        self.base_expression = expression.replace('!','~').upper()
         self.state_variable = state_name
         self.trigger_pins = (clock, enable, preset, clear)
 
