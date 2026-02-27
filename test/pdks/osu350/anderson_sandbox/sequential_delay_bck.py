@@ -67,92 +67,99 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
     Note: both setup time and hold time may be negative (data can arrive after the
     clock edge / change before the clock edge and the cell still latches).
     """
+    TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
+    INIT_STEP = 5 @ PySpice.Unit.u_ps # 10 ps initial bound-finding step
+    T_STABILZING = 20 * max(cell_settings.parameters['clock_slews']) * charlib_settings.units.time # 20x worst case clock slew
+    # C_LOAD = 4x the data pin's input capacitance from the prior ac_sweep, (fanout of 4)
+    # C_LOAD = 4 * cell.liberty.group('pin', data_pin).attributes['capacitance'].value * settings.units.capacitance
+    C_LOAD = 0.004 @ PySpice.Unit.u_pF # TODO: remove this line for actual characterization, default to 40 fF
+    constants = (TOLERANCE, INIT_STEP, T_STABILZING, C_LOAD)
+
     for variation in cell_settings.variations('data_slews', 'clock_slews'):
-        yield (find_setup_hold_simple_for_variation, cell, cell_settings, charlib_settings, variation)
 
-def find_setup_hold_simple_for_variation(cell, config, settings, variation):
-    """Worker: find worst-case setup & hold across all paths for one slew variation."""
-    clock_pin = cell.clock
-    if clock_pin is None:
-        raise ProcedureFailedException(
-            f"Cell {cell.name} has no clock pin; cannot measure setup/hold time")
+        # write logs and results per-variantion
+        ds = variation['data_slew'] * charlib_settings.units.time
+        cs = variation['clock_slew'] * charlib_settings.units.time
+        variation_debug_path = charlib_settings.debug_dir / cell.name / __name__.split('.')[-1] / f'variation_data_slew_{str(ds).replace(' ', '')}_clock_slew_{str(cs).replace(' ', '')}'
+        variation_debug_path.mkdir(parents=True, exist_ok=True)
 
-    # binary search stops when iternation n - (n-1) < TOLERANCE
-    TOLERANCE   = 10 @ PySpice.Unit.u_ps 
+        variation_log = [
+            f"Cell: {cell.name}",
+            f"Variation: data_slew={ds}, clock_slew={cs}",
+            f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, init_step={INIT_STEP}, c_load={C_LOAD}",
+        ]
+        for path in cell.paths():
+            # cell.nonmasking_conditions_for_path filter out the impossible paths
+            # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
+            state_maps = list(cell.nonmasking_conditions_for_path(*path))
+            if state_maps == []:
+                continue
 
-    # 10 ps initial bound-finding step
-    INIT_STEP   = 5 @ PySpice.Unit.u_ps
+            yield (find_setup_hold_simple_for_variation, cell, cell_settings, charlib_settings, variation, path, state_maps, constants, variation_debug_path)
+
+        with open(variation_debug_path / f'variation_log.txt', 'w') as f:
+            f.write('\n'.join(variation_log))
+
+
+def find_setup_hold_simple_for_variation(cell, config, settings, variation, path, state_maps, constants, variation_debug_path=None):
+    """Worker: find worst-case setup & hold across all paths for one variation."""
+
+    TOLERANCE, INIT_STEP, T_STABILZING, C_LOAD = constants
 
     ds = variation['data_slew'] * settings.units.time
     cs = variation['clock_slew'] * settings.units.time
-    # t_stabilizing is 10x clock slew in seconds. It serves two purposes:
-    #   1. Passed to get_c2q to set the waveform padding time.
-    #   2. Used as the guaranteed-valid starting point for all searches (setup and hold
-    #      times can be negative, so we search downward from a known-valid value).
-    t_stabilizing = 20 * cs
-    variation_debug_path = None
-    if settings.debug:
-        variation_debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1] / f'variation_data_slew_{str(ds).replace(' ', '')}_clock_slew_{str(cs).replace(' ', '')}'
-        variation_debug_path.mkdir(parents=True, exist_ok=True)
+    data_pin, data_transition, output_pin, output_transition = path
+    path_str = f'{data_pin}_{data_transition}__{output_pin}_{output_transition}'
 
-    result_per_path = {}
+    result_per_state = {}
 
-    for path in cell.paths():
-        data_pin, data_transition, output_pin, output_transition = path
-        path_str = f'{data_pin}={data_transition}, {output_pin}={output_transition}'
+    # there could be multiple state maps for a given path
+    # ex. in a scan dff with pins D, Q, CLK, SE (scan enable) and SD (scan data)
+    # for path D, 01 -> Q, 01, SD can be either 0 or 1, that will affect setup / hold time
+    for state_map in state_maps:
+        state_str = ', '.join(f"{k}={v}" for k, v in state_map.items())
 
-        # filter out the impossible paths
-        # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
-        state_maps = list(cell.nonmasking_conditions_for_path(*path))
-        if not state_maps:
-            continue
-
-        # c_load = 4x the data pin's input capacitance from the prior ac_sweep, (fanout of 4)
-        # c_load = 4 * cell.liberty.group('pin', data_pin).attributes['capacitance'].value * settings.units.capacitance
-        c_load = 0.004 @ PySpice.Unit.u_pF # TODO: remove this line for actual characterization, default to 40 pF
-
-        result_per_state = {}
-
-        for state_map in state_maps:
-            state_str = ', '.join(f"{k}={v}" for k, v in state_map.items())
-
-            # Per-state debug subfolder
+        # Per-state debug subfolder
+        if settings.debug:
             step1_debug_path = step2_debug_path = step3_debug_path = None
             if variation_debug_path is not None:
                 state_folder = '__'.join(f"{k}_{v}" for k, v in state_map.items())
-                state_debug_path = variation_debug_path / f'{state_folder}'
+                path_debug_folder = variation_debug_path / path_str 
+                state_debug_path = path_debug_folder / state_folder
                 step1_debug_path = state_debug_path / 'step1'
                 step2_debug_path = state_debug_path / 'step2'
                 step3_debug_path = state_debug_path / 'step3'
                 for p in (step1_debug_path, step2_debug_path, step3_debug_path):
                     p.mkdir(parents=True, exist_ok=True)
 
-            # Step 1: setup time with hold fixed at t_stabilizing
-            step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = find_min_valid(
-                lambda s: get_c2q(cell, config, settings, cs, ds, s, t_stabilizing, c_load, t_stabilizing, state_map, step1_debug_path),
-                start=t_stabilizing, step=INIT_STEP, tolerance=TOLERANCE)
-            
-            # write step1 log
+        # Step 1: setup time with hold fixed at T_STABILZING
+        step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = find_min_valid(
+            lambda s: get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_debug_path),
+            start=T_STABILZING, step=INIT_STEP, tolerance=TOLERANCE)
+        
+        # write step1 log
+        if settings.debug:
             step1_log = [
                 f"Cell: {cell.name}",
                 f"Variation: data_slew={ds}, clock_slew={cs}",
                 f"path_str: {path_str}",
                 f"state_str: {state_str}",
-                f"step1 : find setup given hold= {t_stabilizing}",
+                f"step1 : find setup given hold= {T_STABILZING}",
                 f"\nstep1 final setup result = {step1_setup_result}",
                 f"step1_phase1_candidates = \n{"\n".join(f"  [{i}] {c}" for i, c in enumerate(step1_phase1_candidates))}",
                 f"step1_phase2_candidates = \n{"\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}"
-                                             for i, (lo, mid, hi) in enumerate(step1_phase2_candidates))}",
+                                                for i, (lo, mid, hi) in enumerate(step1_phase2_candidates))}",
             ]
-            with open(step1_debug_path / f'log.txt', 'w') as f:
+            with open(step1_debug_path / f'step1_log.txt', 'w') as f:
                 f.write('\n'.join(step1_log))
 
-            # Step 2: hold time with setup fixed at setup_1
-            step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = find_min_valid(
-                lambda h: get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, c_load, t_stabilizing, state_map, step2_debug_path),
-                start=t_stabilizing, step=INIT_STEP, tolerance=TOLERANCE)
+        # Step 2: hold time with setup fixed at setup_1
+        step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = find_min_valid(
+            lambda h: get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_debug_path),
+            start=T_STABILZING, step=INIT_STEP, tolerance=TOLERANCE)
 
-            # write step2 log
+        # write step2 log
+        if settings.debug:
             step2_log = [
                 f"Cell: {cell.name}",
                 f"Variation: data_slew={ds}, clock_slew={cs}",
@@ -162,16 +169,18 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation):
                 f"\nstep2 final hold result = {step2_hold_result}",
                 f"step2_phase1_candidates = \n{"\n".join(f"  [{i}] {c}" for i, c in enumerate(step2_phase1_candidates))}",
                 f"step2_phase2_candidates = \n{"\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}"
-                                             for i, (lo, mid, hi) in enumerate(step2_phase2_candidates))}",
+                                                for i, (lo, mid, hi) in enumerate(step2_phase2_candidates))}",
             ]
-            with open(step2_debug_path / f'log.txt', 'w') as f:
+            with open(step2_debug_path / f'step2_log.txt', 'w') as f:
                 f.write('\n'.join(step2_log))
 
-            # Step 3: setup time again with hold fixed at found hold
-            step3_setup_result, step3_phase1_candidates, step3_phase2_candidates = find_min_valid(
-                lambda s: get_c2q(cell, config, settings, cs, ds, s, step2_hold_result, c_load, t_stabilizing, state_map, step3_debug_path),
-                start=t_stabilizing, step=INIT_STEP, tolerance=TOLERANCE)
+        # Step 3: setup time again with hold fixed at found hold
+        step3_setup_result, step3_phase1_candidates, step3_phase2_candidates = find_min_valid(
+            lambda s: get_c2q(cell, config, settings, cs, ds, s, step2_hold_result, C_LOAD, T_STABILZING, path, state_map, step3_debug_path),
+            start=T_STABILZING, step=INIT_STEP, tolerance=TOLERANCE)
 
+        # write step3 log
+        if settings.debug:
             step3_log = [
                 f"Cell: {cell.name}",
                 f"Variation: data_slew={ds}, clock_slew={cs}",
@@ -181,102 +190,84 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation):
                 f"\nstep3 final setup result = {step3_setup_result}",
                 f"step3_phase1_candidates = \n{"\n".join(f"  [{i}] {c}" for i, c in enumerate(step3_phase1_candidates))}",
                 f"step3_phase2_candidates = \n{"\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}"
-                                             for i, (lo, mid, hi) in enumerate(step3_phase2_candidates))}",
+                                                for i, (lo, mid, hi) in enumerate(step3_phase2_candidates))}",
             ]
-            with open(step3_debug_path / f'log.txt', 'w') as f:
+            with open(step3_debug_path / f'step3_log.txt', 'w') as f:
                 f.write('\n'.join(step3_log))
 
-            # setup hold result selection
-            setup = step3_setup_result
-            hold  = step2_hold_result
+        # setup hold result selection
+        setup = step3_setup_result
+        hold  = step2_hold_result
 
-            # store results per state and per path for later analysis
-            result_per_state[state_str] = (setup, hold)
-        
-        # store a result dictionary per path
-        result_per_path[path_str] = result_per_state
+        # store results per state and per path for later analysis
+        result_per_state[state_str] = (setup, hold)
 
-    # find worst-case across all paths for this variation
+    # find worst-case across all states for this variation + path
     worst_setup = None
     worst_hold  = None
-    worst_setup_path = None
     worst_setup_state = None
-    worst_hold_path = None
-    worst_hold_state = None
+    worst_hold_state  = None
 
-    for path_str, result_per_state in result_per_path.items():
+    for state_str, (setup, hold) in result_per_state.items():
+        if worst_setup is None or setup > worst_setup:
+            worst_setup = setup
+            worst_setup_state = state_str
+        if worst_hold is None or hold > worst_hold:
+            worst_hold = hold
+            worst_hold_state = state_str
+
+    if settings.debug:
+        path_log = [
+            f"Cell: {cell.name}",
+            f"Variation: data_slew={ds}, clock_slew={cs}",
+            f"",
+            f"path_str: {path_str}",
+            f"Worst-case setup time = {worst_setup} in state {worst_setup_state}",
+            f"Worst-case hold time = {worst_hold} in state {worst_hold_state}",
+        ]
+        tree_lines = ['', 'result_per_state:']
         for state_str, (setup, hold) in result_per_state.items():
-            if worst_setup is None or setup > worst_setup:
-                worst_setup = setup
-                worst_setup_path = path_str
-                worst_setup_state = state_str
-            if worst_hold is None or hold > worst_hold:
-                worst_hold = hold
-                worst_hold_path = path_str
-                worst_hold_state = state_str
-
-    # write logs and results per-variantion
-    tree_lines = ['', 'result_per_path:']
-    for path_str, result_per_state in result_per_path.items():
-        tree_lines.append(f'    path: {path_str}')
-        for state_str, (setup, hold) in result_per_state.items():
-            tree_lines.append(f'        state: {state_str}')
-            tree_lines.append(f'            setup = {setup}')
-            tree_lines.append(f'            hold  = {hold}')
-
-    variation_log = [
-        f"Cell: {cell.name}",
-        f"Variation: data_slew={ds}, clock_slew={cs}",
-        f"Constants: stabilizing=10x clk_slew={t_stabilizing}, tolerance={TOLERANCE}, init_step={INIT_STEP}, c_load={c_load}",
-    ]
-    variation_log.extend(tree_lines)
-    variation_log.extend([
-        '',
-        'worst-case selection:',
-        f'  worst_setup = {worst_setup}  (path: {worst_setup_path}, state: {worst_setup_state})',
-        f'  worst_hold  = {worst_hold}  (path: {worst_hold_path}, state: {worst_hold_state})',
-    ])
-    with open(variation_debug_path / f'variation_log.txt', 'w') as f:
-        f.write('\n'.join(variation_log))
+            tree_lines.append(f'    state: {state_str}')
+            tree_lines.append(f'        setup = {setup}')
+            tree_lines.append(f'        hold  = {hold}')
+        path_log.extend(tree_lines)
+        with open(path_debug_folder / f'path_log.txt', 'w') as f:
+             f.write('\n'.join(path_log))
 
     # Build liberty output
     result = cell.liberty
-    clock_name = clock_pin.name
-    n_data = len(config.parameters['data_slews'])
-    n_clk  = len(config.parameters['clock_slews'])
+    clock_pin = cell.clock
+    n_ds = len(config.parameters['data_slews'])
+    n_cs  = len(config.parameters['clock_slews'])
     lut_template_size = f'{len(config.parameters["clock_slews"])}x{len(config.parameters["data_slews"])}'
 
-    for data_pin, transitions in by_pin.items():
-        setup_tid = f'/* {clock_name}_setup */'
-        hold_tid  = f'/* {clock_name}_hold */'
+    # Setup timing group
+    result.group('pin', data_pin).add_group('timing', "/* setup */")
+    stg = result.group('pin', data_pin).group('timing', "/* setup */")
+    stg.add_attribute('related_pin', clock_pin.name)
+    stg.add_attribute('timing_type', 'setup_falling' if clock_pin.is_inverted() else 'setup_rising')
 
-        # Setup timing group
-        result.group('pin', data_pin).add_group('timing', setup_tid)
-        stg = result.group('pin', data_pin).group('timing', setup_tid)
-        stg.add_attribute('related_pin', clock_name)
-        stg.add_attribute('timing_type', 'setup_falling' if clock_pin.is_inverted() else 'setup_rising')
+    # Hold timing group
+    result.group('pin', data_pin).add_group('timing', "/* hold */")
+    htg = result.group('pin', data_pin).group('timing', "/* hold */")
+    htg.add_attribute('related_pin', clock_pin.name)
+    htg.add_attribute('timing_type', 'hold_falling' if clock_pin.is_inverted() else 'hold_rising')
 
-        # Hold timing group
-        result.group('pin', data_pin).add_group('timing', hold_tid)
-        htg = result.group('pin', data_pin).group('timing', hold_tid)
-        htg.add_attribute('related_pin', clock_name)
-        htg.add_attribute('timing_type', 'hold_falling' if clock_pin.is_inverted() else 'hold_rising')
+    # add lut to timing group
+    # rise_constraint when D rises (01), fall_constraint when D falls (10)
+    cname = 'rise_constraint' if data_transition == '01' else 'fall_constraint'
 
-        for data_transition, vals in transitions.items():
-            # rise_constraint when D rises (01), fall_constraint when D falls (10)
-            cname = 'rise_constraint' if data_transition == '01' else 'fall_constraint'
+    setup_lut = LookupTable(cname, f'setup_template_{n_cs}x{n_ds}',
+                            related_pin_transition=[cs.convert(settings.units.time.prefixed_unit).value],
+                            constraint_pin_transition=[ds.convert(settings.units.time.prefixed_unit).value])
+    setup_lut.values[0, 0] = worst_setup.convert(settings.units.time.prefixed_unit).value
+    stg.add_group(setup_lut)
 
-            setup_lut = LookupTable(cname, f'setup_template_{lut_template_size}',
-                                    input_net_transition=[ds.convert(settings.units.time.prefixed_unit).value],
-                                    related_pin_transition=[cs.convert(settings.units.time.prefixed_unit).value])
-            setup_lut.values[0, 0] = worst_setup.convert(settings.units.time.prefixed_unit).value
-            stg.add_group(setup_lut)
-
-            hold_lut = LookupTable(cname, f'hold_template_{lut_template_size}',
-                                   input_net_transition=[ds.convert(settings.units.time.prefixed_unit).value],
-                                   related_pin_transition=[cs.convert(settings.units.time.prefixed_unit).value])
-            hold_lut.values[0, 0] = worst_hold.convert(settings.units.time.prefixed_unit).value
-            htg.add_group(hold_lut)
+    hold_lut = LookupTable(cname, f'hold_template_{n_cs}x{n_ds}',
+                           related_pin_transition=[cs.convert(settings.units.time.prefixed_unit).value],
+                           constraint_pin_transition=[ds.convert(settings.units.time.prefixed_unit).value])
+    hold_lut.values[0, 0] = worst_hold.convert(settings.units.time.prefixed_unit).value
+    htg.add_group(hold_lut)
 
     return result
 
@@ -319,6 +310,7 @@ def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
         return hi  # never found invalid; hi is the lowest valid point tried
 
     # Phase 2 — binary search between lo (NaN) and hi (valid)
+    # Continue until the interval is within tolerance AND the last probe was valid (non-NaN)
     while (hi - lo) > tolerance:
         mid = (lo + hi) / 2
         phase2_candidates.append((lo, mid, hi))
@@ -327,11 +319,16 @@ def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
         else:
             hi = mid
 
+    # return hi as the final result because such result will be used in subsquent steps
+    # in other words, the setup time returned here must be able to successfully latch the ff, otherwise in step 2
+    # no matter how big the hold time is the start condition for the ff to latch might not be statisfied
     return hi, phase1_candidates, phase2_candidates
 
-def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hold_skew, c_load, t_stabilizing, state_map, debug_path=None):
+def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hold_skew, c_load, t_stabilizing, path, state_map, debug_path=None):
     """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
     for a given setup skew / hold skew, load capacitance, and stabilizing time."""
+
+    data_pin, data_transition, output_pin, output_transition = path
 
     # Set up parameters
     vdd = settings.primary_power.voltage * settings.units.voltage
@@ -343,12 +340,12 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     t['clk_edge_1_end'] = t['clk_edge_1_start'] + t_clk_slew
     t['clk_edge_2_start'] = t['clk_edge_1_end'] + t_stabilizing
     t['clk_edge_2_end'] = t['clk_edge_2_start'] + t_clk_slew
-    t['clk_edge_3_start'] = t['clk_edge_2_end'] + 2 * t_stabilizing - t_clk_slew / 2
+    t['clk_edge_3_start'] = t['clk_edge_2_end'] + 2 * t_stabilizing
     t['clk_edge_3_end'] = t['clk_edge_3_start'] + t_clk_slew
 
-    t['data_edge_1_start'] = ( t['clk_edge_3_start'] + t_clk_slew / 2 ) - t_setup_skew - t_clk_slew / 2
+    t['data_edge_1_start'] = (t['clk_edge_3_start'] + t_clk_slew/2) - t_setup_skew - t_data_slew/2 # 50% clk edge to 50% data edge
     t['data_edge_1_end'] = t['data_edge_1_start'] + t_data_slew
-    t['data_edge_2_start'] = ( t['clk_edge_3_start'] + t_clk_slew / 2 ) + t_hold_skew
+    t['data_edge_2_start'] = (t['clk_edge_3_start'] + t_clk_slew/2) + t_hold_skew - t_data_slew/2 # 50% clk edge to 50% data edge
     t['data_edge_2_end'] = t['data_edge_2_start'] + t_data_slew
     t['sim_end'] = t['data_edge_2_end'] + t_stabilizing
 
@@ -366,7 +363,7 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     circuit.C('c_load', 'wout', circuit.gnd, c_load)
 
     # Set up clock input
-    (v0, v1) = (vdd, vss) if False else (vss, vdd)
+    (v0, v1) = (vdd, vss) if cell.clock.is_inverted() else (vss, vdd)
     circuit.PieceWiseLinearVoltageSource('clk', 'vclk', circuit.gnd, values=[
         (0, v0),
         (t['clk_edge_1_start'], v0),
@@ -379,7 +376,7 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     ])
 
     # Set up data input node
-    (v0, v1) = (vss, vdd) if state_map['D'] == '01' else (vdd, vss)
+    (v0, v1) = (vss, vdd) if data_transition == '01' else (vdd, vss)
     circuit.PieceWiseLinearVoltageSource('data', 'vdata', circuit.gnd, values=[
         (0, v0),
         (t['data_edge_1_start'], v0),
@@ -394,9 +391,9 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     for port in cell.ports:
       if port.role == 'clock':
           connections.append('vclk')
-      elif port.name == 'D':
-          connections.append('vdata')         
-      elif port.name == 'Q':
+      elif port.name == data_pin:
+          connections.append('vdata')
+      elif port.name == output_pin:
           connections.append('vout')          
       elif port.role == 'primary_power':
           connections.append('vdd')
@@ -416,8 +413,8 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     simulation.options('nopage', 'nomod', post=1, ingold=2, trtol=1)
 
     # hardcode the simulation step and time for now, to be reviewed
-    simulation.transient(step_time=t_data_slew/16, end_time=t['sim_end'], run=False)
-    if debug_path is not None:
+    simulation.transient(step_time=min(t_data_slew, t_clk_slew)/4, end_time=t['sim_end'], run=False)
+    if settings.debug:
         with open(debug_path / f'{cell.name}_ts_{str(t_setup_skew).replace(" ", "")}_th_{str(t_hold_skew).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}.spice', 'w') as f:
             f.write(str(simulation))
 
@@ -426,7 +423,10 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
         analysis = simulator.run(simulation)
 
     except Exception as e:
-        msg = f'Procedure get_c2q failed for cell {cell.name}, setup_skew = {t_setup_skew}, hold_skew = {t_hold_skew}'
+        if settings.debug:
+            with open(debug_path / f'{cell.name}_ts_{str(t_setup_skew).replace(" ", "")}_th_{str(t_hold_skew).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}_failure.spice', 'w') as f:
+                f.write(str(simulation))
+        msg = f'Procedure get_c2q failed for cell {cell.name}, data_slew = {t_data_slew}, clk_slew = {t_clk_slew}, setup_skew = {t_setup_skew}, hold_skew = {t_hold_skew}'
         raise ProcedureFailedException(msg) from e
 
     # Check whether Q latched the D value by looking at vout after the 3rd clock edge
@@ -457,9 +457,9 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     idx = q_crossings[0]
     if state_map['Q'] == '01':
         t_q_edge = np.interp(v_half, [vout_after[idx], vout_after[idx + 1]],
-                                      [time_after[idx], time_after[idx + 1]])
+                                     [time_after[idx], time_after[idx + 1]])
     else:
         t_q_edge = np.interp(v_half, [vout_after[idx + 1], vout_after[idx]],
-                                      [time_after[idx + 1], time_after[idx]])
+                                     [time_after[idx + 1], time_after[idx]])
 
     return t_q_edge - t_clk_edge
