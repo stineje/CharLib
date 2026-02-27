@@ -120,9 +120,9 @@ class StateFunction(Function):
         :param preset: The Cell.Pin with the set/preset role (if any).
         :param clear: The Cell.Pin with the clear/reset role (if any).
         """
-        self.base_expression = expression.replace('!','~').upper()
+        self.base_expression = str(expression).replace('!','~').upper()
         self.state_variable = state_name
-        self.trigger_pins = (clock, enable, preset, clear)
+        self.trigger_pins = [p for p in (clock, enable, preset, clear) if p is not None]
 
         # Add each state-related input cumulatively, if present
         if clock:
@@ -153,7 +153,7 @@ class StateFunction(Function):
         - Port.Trigger.EDGE triggers on rise (or fall if inverting)
         This method returns True if at least one pin triggers.
         """
-        for pin in [p for p in self.trigger_pins if p is not None]:
+        for pin in self.trigger_pins:
             match pin.trigger, pin.inversion, test_vector[pin.name]:
                 case (Port.Trigger.LEVEL, False, '1'):
                     return True # active-high trigger
@@ -166,6 +166,10 @@ class StateFunction(Function):
                 case _:
                     continue
         return False
+
+    def _validate_set_reset(self, test_vector) -> bool:
+        """Check that this test vector does not simultaneously assert clear and preset"""
+        pass # TODO
 
     @property
     def test_vectors(self) -> list:
