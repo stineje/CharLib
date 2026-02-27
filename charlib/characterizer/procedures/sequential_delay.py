@@ -50,30 +50,15 @@ def sequential_min_pulse_width(cell_settings, charlib_settings, data_pin, trigge
 
 @register
 def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
-    """Find setup and hold time using an iterative 3-step binary search.
+    """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
 
-    For each (data_slew × clock_slew) variation, the algorithm runs as follows:
-      1. Find minimum setup time with hold held at 'infinite' (data never de-asserts
-         during the simulation window).  Binary search starts from setup_skew = 0.
-      2. Fix setup = result of step 1, then find minimum hold time.
-         Binary search starts from hold_skew = stabilizing time.
-      3. Fix hold = result of step 2, then find minimum setup time again.
-         Binary search starts from setup_time found in step 1.
-
-    Results from steps 2 and 3 are the final hold and setup times.  The worst-case
-    (largest) setup and hold across all paths and nonmasking conditions is used for
-    the liberty output.
-
-    Note: both setup time and hold time may be negative (data can arrive after the
-    clock edge / change before the clock edge and the cell still latches).
-    """
     TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
-    INIT_STEP = 5 @ PySpice.Unit.u_ps # 10 ps initial bound-finding step
+    STEP = 5 @ PySpice.Unit.u_ps # 10 ps initial bound-finding step
     T_STABILZING = 20 * max(cell_settings.parameters['clock_slews']) * charlib_settings.units.time # 20x worst case clock slew
     # C_LOAD = 4x the data pin's input capacitance from the prior ac_sweep, (fanout of 4)
     # C_LOAD = 4 * cell.liberty.group('pin', data_pin).attributes['capacitance'].value * settings.units.capacitance
     C_LOAD = 0.004 @ PySpice.Unit.u_pF # TODO: remove this line for actual characterization, default to 40 fF
-    constants = (TOLERANCE, INIT_STEP, T_STABILZING, C_LOAD)
+    constants = (TOLERANCE, STEP, T_STABILZING, C_LOAD)
 
     for variation in cell_settings.variations('data_slews', 'clock_slews'):
 
@@ -86,7 +71,7 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
         variation_log = [
             f"Cell: {cell.name}",
             f"Variation: data_slew={ds}, clock_slew={cs}",
-            f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, init_step={INIT_STEP}, c_load={C_LOAD}",
+            f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}",
         ]
         for path in cell.paths():
             # cell.nonmasking_conditions_for_path filter out the impossible paths
@@ -102,9 +87,24 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
 
 
 def find_setup_hold_simple_for_variation(cell, config, settings, variation, path, state_maps, constants, variation_debug_path=None):
-    """Worker: find worst-case setup & hold across all paths for one variation."""
+    """Find setup and hold time using an approach from https://ieeexplore.ieee.org/document/4167994, which is exploits
+    the interdependence between setup time, hold time. 
 
-    TOLERANCE, INIT_STEP, T_STABILZING, C_LOAD = constants
+    For each (data_slew × clock_slew) variation, the algorithm runs as follows:
+      1. Find setup time with hold held at 'infinite'. Binary search starts from setup_skew = T_STABILZING.
+      2. Fix setup = result of step 1, then find hold time.Binary search starts from hold_skew = T_STABILZING.
+      ---- at this point we have min setup and max hold ----
+      3. Find hold time with setup held at 'infinite'. Binary search starts from hold_skew = T_STABILZING.
+      4. Fix hold = result of step 3, then find setup time.Binary search starts from setup_skew = T_STABILZING.
+      ---- at this point we have max setup and min hold ----
+      5. with the boundries we obtained, simulate every single setup vs hold combination and get a 3D surface of c2q time
+      6. set a c2q threshold (20% worst than c2q obtains from max setup & max hold), and get a 2D contour 
+      7. pick the knee point on the contour as the final setup and hold result for the current variation
+
+    Note: both setup time and hold time may be negative (data can arrive after the
+    clock edge / change before the clock edge and the cell still latches).
+    """
+    TOLERANCE, STEP, T_STABILZING, C_LOAD = constants
 
     ds = variation['data_slew'] * settings.units.time
     cs = variation['clock_slew'] * settings.units.time
@@ -135,7 +135,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         # Step 1: setup time with hold fixed at T_STABILZING
         step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = find_min_valid(
             lambda s: get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_debug_path),
-            start=T_STABILZING, step=INIT_STEP, tolerance=TOLERANCE)
+            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
         
         # write step1 log
         if settings.debug:
@@ -156,7 +156,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         # Step 2: hold time with setup fixed at setup_1
         step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = find_min_valid(
             lambda h: get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_debug_path),
-            start=T_STABILZING, step=INIT_STEP, tolerance=TOLERANCE)
+            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
 
         # write step2 log
         if settings.debug:
@@ -177,7 +177,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         # Step 3: setup time again with hold fixed at found hold
         step3_setup_result, step3_phase1_candidates, step3_phase2_candidates = find_min_valid(
             lambda s: get_c2q(cell, config, settings, cs, ds, s, step2_hold_result, C_LOAD, T_STABILZING, path, state_map, step3_debug_path),
-            start=T_STABILZING, step=INIT_STEP, tolerance=TOLERANCE)
+            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
 
         # write step3 log
         if settings.debug:
