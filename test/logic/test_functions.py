@@ -90,8 +90,21 @@ def test_inverting_dffsr():
     assert(len(expected_truth_table) == len(function.truth_table()))
 
     expected_test_vectors = [
-        {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 1, 'R': 1, Function.OUT: 0},
+        {'CLK': '0', 'D': '0', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
+        {'CLK': '0', 'D': '1', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
+        {'CLK': '1', 'D': '0', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
+        {'CLK': '1', 'D': '1', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
+        {'CLK': '0', 'D': '0', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
+        {'CLK': '0', 'D': '1', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
+        {'CLK': '1', 'D': '0', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
+        {'CLK': '1', 'D': '1', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
+        {'CLK': '01', 'D': '0', 'IQN': '0', 'S': '1', 'R': '1', Function.OUT: '01'},
+        {'CLK': '01', 'D': '1', 'IQN': '1', 'S': '1', 'R': '1', Function.OUT: '10'},
     ]
+    for vector in function.test_vectors:
+        print(vector)
+        assert(vector in expected_test_vectors)
+    assert(len(expected_test_vectors) == len(function.test_vectors))
 
 
 def test_noninverting_srlat():
