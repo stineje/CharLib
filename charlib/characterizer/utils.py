@@ -85,7 +85,8 @@ def init_circuit(title, cell_netlist, models, supplies, units):
             # TODO: if model.is_dir(), use SpiceLibrary
             #   To do this, we'll also need to know which subckts are used by the netlist
     for supply in supplies:
-        circuit.V(supply.subscript, supply.name, circuit.gnd, supply.voltage*units.voltage)
+        if supply.name.upper() not in ['GND', '0']:
+            circuit.V(supply.subscript, supply.name, circuit.gnd, supply.voltage*units.voltage)
     return circuit
 
 def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
