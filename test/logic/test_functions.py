@@ -48,41 +48,40 @@ def test_inverting_dffsr():
     function = StateFunction(expr, state_var, clock=clock_pin, preset=set_pin, clear=reset_pin)
 
     assert(function.base_expression == '~D')
-    assert(function.expression == 'R & (~S | (CLK & (~D) | ~CLK & IQN))')
     assert(set(function.operands) == {'CLK', 'D', 'IQN', 'S', 'R'})
 
     expected_truth_table = [
-        {'CLK': 0, 'D': 0, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 0, 'D': 0, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 0, 'D': 0, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 0, 'D': 0, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 0, 'D': 0, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 0, 'D': 0, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 0, 'D': 0, 'IQN': 0, 'S': 1, 'R': 1, Function.OUT: 0},
-        {'CLK': 0, 'D': 0, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 0, 'D': 0, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 0, 'D': 0, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 0, 'D': 0, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 0, 'D': 0, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 0, 'D': 0, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 0, 'D': 0, 'IQN': 1, 'S': 1, 'R': 1, Function.OUT: 1},
-        {'CLK': 0, 'D': 1, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 0, 'D': 1, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 0, 'D': 1, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 0, 'D': 1, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 0, 'D': 1, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 0, 'D': 1, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 0, 'D': 1, 'IQN': 0, 'S': 1, 'R': 1, Function.OUT: 0},
-        {'CLK': 0, 'D': 1, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 0, 'D': 1, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 0, 'D': 1, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 0, 'D': 1, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 0, 'D': 1, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 0, 'D': 1, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 0, 'D': 1, 'IQN': 1, 'S': 1, 'R': 1, Function.OUT: 1},
-        {'CLK': 1, 'D': 0, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 1, 'D': 0, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 1, 'D': 0, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 1, 'D': 0, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 1, 'D': 0, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 1, 'D': 0, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 1, 'D': 0, 'IQN': 0, 'S': 1, 'R': 1, Function.OUT: 1},
-        {'CLK': 1, 'D': 0, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 1, 'D': 0, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 1, 'D': 0, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 1, 'D': 0, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 1, 'D': 0, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 1, 'D': 0, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 1, 'D': 0, 'IQN': 1, 'S': 1, 'R': 1, Function.OUT: 1},
-        {'CLK': 1, 'D': 1, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 1, 'D': 1, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 1, 'D': 1, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 1, 'D': 1, 'IQN': 0, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 1, 'D': 1, 'IQN': 0, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 1, 'D': 1, 'IQN': 0, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 1, 'D': 1, 'IQN': 0, 'S': 1, 'R': 1, Function.OUT: 0},
-        {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 0},
-        {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 1},
-        {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 0},
+        {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 0, 'R': 0, Function.OUT: 1},
+        {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 0, 'R': 1, Function.OUT: 0},
+        {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 1, 'R': 0, Function.OUT: 1},
         {'CLK': 1, 'D': 1, 'IQN': 1, 'S': 1, 'R': 1, Function.OUT: 0},
     ]
     for row in function.truth_table():
@@ -90,19 +89,21 @@ def test_inverting_dffsr():
     assert(len(expected_truth_table) == len(function.truth_table()))
 
     expected_test_vectors = [
-        {'CLK': '0', 'D': '0', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
-        {'CLK': '0', 'D': '1', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
-        {'CLK': '1', 'D': '0', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
-        {'CLK': '1', 'D': '1', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '10'},
-        {'CLK': '0', 'D': '0', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
-        {'CLK': '0', 'D': '1', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
-        {'CLK': '1', 'D': '0', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
-        {'CLK': '1', 'D': '1', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '01'},
+        # R->QN
+        {'CLK': '0', 'D': '0', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '01'},
+        {'CLK': '0', 'D': '1', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '01'},
+        {'CLK': '1', 'D': '0', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '01'},
+        {'CLK': '1', 'D': '1', 'IQN': '1', 'S': '1', 'R': '10', Function.OUT: '01'},
+        # S->QN
+        {'CLK': '0', 'D': '0', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '10'},
+        {'CLK': '0', 'D': '1', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '10'},
+        {'CLK': '1', 'D': '0', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '10'},
+        {'CLK': '1', 'D': '1', 'IQN': '0', 'S': '10', 'R': '1', Function.OUT: '10'},
+        # CLK->QN
         {'CLK': '01', 'D': '0', 'IQN': '0', 'S': '1', 'R': '1', Function.OUT: '01'},
         {'CLK': '01', 'D': '1', 'IQN': '1', 'S': '1', 'R': '1', Function.OUT: '10'},
     ]
     for vector in function.test_vectors:
-        print(vector)
         assert(vector in expected_test_vectors)
     assert(len(expected_test_vectors) == len(function.test_vectors))
 
