@@ -243,9 +243,19 @@ class Cell:
         """
         function = self.functions[output_port]
         for tv in function.test_vectors:
-            if tv[input_port] == input_transition and tv[Function.OUT] == output_transition:
-                tv[output_port] = tv.pop(Function.OUT)
-                yield tv
+            pin_val = tv[input_port]
+
+            # Combinational: pin_val is '01' or '10' (the pin is transitioning in the vector)
+            # Sequential: pin_val is '0' or '1' (the pin is static because the clock transitions)
+            if len(pin_val) == 2:
+                input_match = (pin_val == input_transition)
+            else:
+                input_match = (pin_val == input_transition[-1])
+
+            if input_match and tv[Function.OUT] == output_transition:
+                result = {**tv}
+                result[output_port] = result.pop(Function.OUT)
+                yield result
 
     @property
     def is_sequential(self) -> bool:

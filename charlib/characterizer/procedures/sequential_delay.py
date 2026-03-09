@@ -1,12 +1,11 @@
 from charlib.characterizer.procedures import register, ProcedureFailedException
-from charlib.characterizer import utils
+from charlib.characterizer import utils, plots
 from charlib.liberty.library import LookupTable
 
 import PySpice
 import numpy as np
 import csv
 import math
-import matplotlib.pyplot as plt
 from collections import defaultdict
 
 def measure_recovery_constraint(cell_settings, charlib_settings, control_pin, trigger_pin, state_pin):
@@ -68,11 +67,6 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
         variation_debug_path = charlib_settings.debug_dir / cell.name / __name__.split('.')[-1] / f'variation_data_slew_{str(ds).replace(' ', '')}_clock_slew_{str(cs).replace(' ', '')}'
         variation_debug_path.mkdir(parents=True, exist_ok=True)
 
-        variation_log = [
-            f"Cell: {cell.name}",
-            f"Variation: data_slew={ds}, clock_slew={cs}",
-            f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}",
-        ]
         for path in cell.paths():
             # cell.nonmasking_conditions_for_path filter out the impossible paths
             # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
@@ -82,8 +76,24 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
 
             yield (find_setup_hold_simple_for_variation, cell, cell_settings, charlib_settings, variation, path, state_maps, constants, variation_debug_path)
 
-        with open(variation_debug_path / f'variation_log.txt', 'w') as f:
-            f.write('\n'.join(variation_log))
+
+def write_step_log(debug_path, step_label, cell_name, ds, cs, path_str, state_str, description, result, phase1_candidates, phase2_candidates):
+    """Write a debug log for a find_min_valid step. No-ops if debug_path is None."""
+    if debug_path is None:
+        return
+    debug_path.mkdir(parents=True, exist_ok=True)
+    log = [
+        f"Cell: {cell_name}",
+        f"Variation: data_slew={ds}, clock_slew={cs}",
+        f"path_str: {path_str}",
+        f"state_str: {state_str}",
+        f"{description}",
+        f"\n{step_label} final result = {result}",
+        f"{step_label}_phase1_candidates = \n" + "\n".join(f"  [{i}] {c}" for i, c in enumerate(phase1_candidates)),
+        f"{step_label}_phase2_candidates = \n" + "\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}" for i, (lo, mid, hi) in enumerate(phase2_candidates)),
+    ]
+    with open(debug_path / f'{step_label}_log.txt', 'w') as f:
+        f.write('\n'.join(log))
 
 
 def find_setup_hold_simple_for_variation(cell, config, settings, variation, path, state_maps, constants, variation_debug_path=None):
@@ -119,88 +129,120 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     for state_map in state_maps:
         state_str = ', '.join(f"{k}={v}" for k, v in state_map.items())
 
-        # Per-state debug subfolder
+        state_debug_path = path_debug_folder = None
         if settings.debug:
-            step1_debug_path = step2_debug_path = step3_debug_path = None
-            if variation_debug_path is not None:
-                state_folder = '__'.join(f"{k}_{v}" for k, v in state_map.items())
-                path_debug_folder = variation_debug_path / path_str 
-                state_debug_path = path_debug_folder / state_folder
-                step1_debug_path = state_debug_path / 'step1'
-                step2_debug_path = state_debug_path / 'step2'
-                step3_debug_path = state_debug_path / 'step3'
-                for p in (step1_debug_path, step2_debug_path, step3_debug_path):
-                    p.mkdir(parents=True, exist_ok=True)
+            state_folder = '__'.join(f"{k}_{v}" for k, v in state_map.items())
+            path_debug_folder = variation_debug_path / path_str
+            state_debug_path = path_debug_folder / state_folder
 
-        # Step 1: setup time with hold fixed at T_STABILZING
-        step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = find_min_valid(
-            lambda s: get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_debug_path),
+        # Step 1: setup time with hold fixed at T_STABILZING, this gives min setup
+        step1_path = (state_debug_path / 'step1') if settings.debug else None
+        step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = utils.find_min_valid(
+            lambda s: get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_path),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+        write_step_log(step1_path, 'step1', cell.name, ds, cs, path_str, state_str,
+                        f"step1 : find setup given hold= {T_STABILZING}",
+                        step1_setup_result, step1_phase1_candidates, step1_phase2_candidates)
+
+        # Step 2: hold time with setup fixed at min_setup, this gives max hold
+        step2_path = (state_debug_path / 'step2') if settings.debug else None
+        step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = utils.find_min_valid(
+            lambda h: get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_path),
+            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+        write_step_log(step2_path, 'step2', cell.name, ds, cs, path_str, state_str,
+                        f"step2 : find hold given setup= {step1_setup_result}",
+                        step2_hold_result, step2_phase1_candidates, step2_phase2_candidates)
+
+        # Step 3: hold time with setup fixed T_STABILZING, this gives min hold
+        step3_path = (state_debug_path / 'step3') if settings.debug else None
+        step3_hold_result, step3_phase1_candidates, step3_phase2_candidates = utils.find_min_valid(
+            lambda h: get_c2q(cell, config, settings, cs, ds, T_STABILZING, h, C_LOAD, T_STABILZING, path, state_map, step3_path),
+            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+        write_step_log(step3_path, 'step3', cell.name, ds, cs, path_str, state_str,
+                        f"step3 : find hold given setup= {T_STABILZING}",
+                        step3_hold_result, step3_phase1_candidates, step3_phase2_candidates)
+
+        # Step 4: find setup time with hold fixed at min hold, this gives max setup
+        step4_path = (state_debug_path / 'step4') if settings.debug else None
+        step4_setup_result, step4_phase1_candidates, step4_phase2_candidates = utils.find_min_valid(
+            lambda s: get_c2q(cell, config, settings, cs, ds, s, step3_hold_result, C_LOAD, T_STABILZING, path, state_map, step4_path),
+            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+        write_step_log(step4_path, 'step4', cell.name, ds, cs, path_str, state_str,
+                        f"step4 : find setup given hold= {step3_hold_result}",
+                        step4_setup_result, step4_phase1_candidates, step4_phase2_candidates)
         
-        # write step1 log
-        if settings.debug:
-            step1_log = [
-                f"Cell: {cell.name}",
-                f"Variation: data_slew={ds}, clock_slew={cs}",
-                f"path_str: {path_str}",
-                f"state_str: {state_str}",
-                f"step1 : find setup given hold= {T_STABILZING}",
-                f"\nstep1 final setup result = {step1_setup_result}",
-                f"step1_phase1_candidates = \n{"\n".join(f"  [{i}] {c}" for i, c in enumerate(step1_phase1_candidates))}",
-                f"step1_phase2_candidates = \n{"\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}"
-                                                for i, (lo, mid, hi) in enumerate(step1_phase2_candidates))}",
-            ]
-            with open(step1_debug_path / f'step1_log.txt', 'w') as f:
-                f.write('\n'.join(step1_log))
+        # Step 5: sweep the setup×hold boundary and plot the latch contour
+        step5_debug_path = (state_debug_path / 'step5') if settings.debug else None
+        (latched_a, c2q_a, simulated_a,
+         latched_b, c2q_b, simulated_b,
+         setup_vals_s, hold_vals_s) = sweep_2d_space_for_contour(
+            cell, config, settings, cs, ds,
+            step1_setup_result, step2_hold_result,
+            step3_hold_result, step4_setup_result,
+            C_LOAD, T_STABILZING, path, state_map,
+            step5_debug_path,
+        )
 
-        # Step 2: hold time with setup fixed at setup_1
-        step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = find_min_valid(
-            lambda h: get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_debug_path),
-            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+        if step5_debug_path is not None:
+            t_unit = settings.units.time.prefixed_unit
+            c2q_merged = np.where(~np.isnan(c2q_a), c2q_a, c2q_b)
+            step5_debug_path.mkdir(parents=True, exist_ok=True)
+            with open(step5_debug_path / 'c2q_merged.csv', 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([f'setup_{t_unit.str_spice()}', f'hold_{t_unit.str_spice()}', f'c2q_{t_unit.str_spice()}'])
+                for hi, h_s in enumerate(hold_vals_s):
+                    for si, s_s in enumerate(setup_vals_s):
+                        val = c2q_merged[hi, si]
+                        if not math.isnan(val):
+                            c2q_display = float((val @ PySpice.Unit.u_s).convert(t_unit).value)
+                            writer.writerow([f'{s_s:.6g}', f'{h_s:.6g}', f'{c2q_display:.6g}'])
 
-        # write step2 log
-        if settings.debug:
-            step2_log = [
-                f"Cell: {cell.name}",
-                f"Variation: data_slew={ds}, clock_slew={cs}",
-                f"path_str: {path_str}",
-                f"state_str: {state_str}",
-                f"step2 : find hold given setup= {step1_setup_result}",
-                f"\nstep2 final hold result = {step2_hold_result}",
-                f"step2_phase1_candidates = \n{"\n".join(f"  [{i}] {c}" for i, c in enumerate(step2_phase1_candidates))}",
-                f"step2_phase2_candidates = \n{"\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}"
-                                                for i, (lo, mid, hi) in enumerate(step2_phase2_candidates))}",
-            ]
-            with open(step2_debug_path / f'step2_log.txt', 'w') as f:
-                f.write('\n'.join(step2_log))
+        _base_title = f'{cell.name}  |  {path_str}  |  {state_str}\ndata_slew={ds},  clk_slew={cs}'
+        _contour_args = (step1_setup_result, step2_hold_result,
+                         step4_setup_result, step3_hold_result,
+                         step5_debug_path)
 
-        # Step 3: setup time again with hold fixed at found hold
-        step3_setup_result, step3_phase1_candidates, step3_phase2_candidates = find_min_valid(
-            lambda s: get_c2q(cell, config, settings, cs, ds, s, step2_hold_result, C_LOAD, T_STABILZING, path, state_map, step3_debug_path),
-            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+        points_a = [(s_s, h_s, 'green' if latched_a[hi, si] else 'red')
+                    for hi, h_s in enumerate(hold_vals_s)
+                    for si, s_s in enumerate(setup_vals_s)
+                    if simulated_a[hi, si]]
+        plots.plot_contour(settings, points_a, *_contour_args,
+                           filename='contour_sweep_a_setup_for_every_hold_value.png',
+                           title=_base_title + '\nSweep A: hold outer, setup inner')
 
-        # write step3 log
-        if settings.debug:
-            step3_log = [
-                f"Cell: {cell.name}",
-                f"Variation: data_slew={ds}, clock_slew={cs}",
-                f"path_str: {path_str}",
-                f"state_str: {state_str}",
-                f"step3 : find final setup given hold= {step2_hold_result}",
-                f"\nstep3 final setup result = {step3_setup_result}",
-                f"step3_phase1_candidates = \n{"\n".join(f"  [{i}] {c}" for i, c in enumerate(step3_phase1_candidates))}",
-                f"step3_phase2_candidates = \n{"\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}"
-                                                for i, (lo, mid, hi) in enumerate(step3_phase2_candidates))}",
-            ]
-            with open(step3_debug_path / f'step3_log.txt', 'w') as f:
-                f.write('\n'.join(step3_log))
+        points_b = [(s_s, h_s, 'green' if latched_b[hi, si] else 'red')
+                    for hi, h_s in enumerate(hold_vals_s)
+                    for si, s_s in enumerate(setup_vals_s)
+                    if simulated_b[hi, si]]
+        plots.plot_contour(settings, points_b, *_contour_args,
+                           filename='contour_sweep_b_hold_for_every_setup_value.png',
+                           title=_base_title + '\nSweep B: setup outer, hold inner')
 
-        # setup hold result selection
-        setup = step3_setup_result
-        hold  = step2_hold_result
+        # Step 6: pick the balanced knee point from the merged contour
+        boundary_pts = extract_2d_contour(latched_a, latched_b, setup_vals_s, hold_vals_s)
+        if boundary_pts:
+            knee_setup_s, knee_hold_s = utils.find_knee_point(boundary_pts)
+            setup = knee_setup_s * settings.units.time
+            hold  = knee_hold_s  * settings.units.time
+            knee_point = (knee_setup_s, knee_hold_s)
+        else:
+            # fallback: no contour found, use step 3/4 conservative bounds
+            setup = step4_setup_result
+            hold  = step3_hold_result
+            knee_point = None
+
+        merged = latched_a | latched_b
+        points_merged = [(s_s, h_s, 'green')
+                         for hi, h_s in enumerate(hold_vals_s)
+                         for si, s_s in enumerate(setup_vals_s)
+                         if merged[hi, si]]
+        plots.plot_contour(settings, points_merged, *_contour_args,
+                           filename='contour_merged.png',
+                           title=_base_title + '\nMerged contour',
+                           knee_point=knee_point)
 
         # store results per state and per path for later analysis
-        result_per_state[state_str] = (setup, hold)
+        result_per_state[state_str] = (setup, hold, knee_point)
 
     # find worst-case across all states for this variation + path
     worst_setup = None
@@ -208,7 +250,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     worst_setup_state = None
     worst_hold_state  = None
 
-    for state_str, (setup, hold) in result_per_state.items():
+    for state_str, (setup, hold, _) in result_per_state.items():
         if worst_setup is None or setup > worst_setup:
             worst_setup = setup
             worst_setup_state = state_str
@@ -217,22 +259,28 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
             worst_hold_state = state_str
 
     if settings.debug:
-        path_log = [
+        TOLERANCE, STEP, T_STABILZING, C_LOAD = constants
+        t_unit = settings.units.time.prefixed_unit
+        variation_log = [
             f"Cell: {cell.name}",
             f"Variation: data_slew={ds}, clock_slew={cs}",
+            f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}",
             f"",
-            f"path_str: {path_str}",
-            f"Worst-case setup time = {worst_setup} in state {worst_setup_state}",
-            f"Worst-case hold time = {worst_hold} in state {worst_hold_state}",
+            f"path: {path_str}",
+            f"Worst-case setup = {worst_setup}  (from state: {worst_setup_state})",
+            f"Worst-case hold  = {worst_hold}  (from state: {worst_hold_state})",
+            f"",
+            f"Per-state results:",
         ]
-        tree_lines = ['', 'result_per_state:']
-        for state_str, (setup, hold) in result_per_state.items():
-            tree_lines.append(f'    state: {state_str}')
-            tree_lines.append(f'        setup = {setup}')
-            tree_lines.append(f'        hold  = {hold}')
-        path_log.extend(tree_lines)
-        with open(path_debug_folder / f'path_log.txt', 'w') as f:
-             f.write('\n'.join(path_log))
+        for state_str, (setup, hold, kp) in result_per_state.items():
+            kp_str = f'({float(kp[0]):.4g} {t_unit.str_spice()}, {float(kp[1]):.4g} {t_unit.str_spice()})' if kp else 'fallback (no contour)'
+            variation_log.append(f'    state: {state_str}')
+            variation_log.append(f'        knee point = {kp_str}')
+            variation_log.append(f'        setup = {setup}')
+            variation_log.append(f'        hold  = {hold}')
+        variation_debug_path.mkdir(parents=True, exist_ok=True)
+        with open(variation_debug_path / f'variation_log.txt', 'a') as f:
+            f.write('\n'.join(variation_log) + '\n\n')
 
     # Build liberty output
     result = cell.liberty
@@ -272,63 +320,136 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     return result
 
 
-def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
-    """Find the minimum x such that probe_fn(x) is not NaN. 
-    When flipflop fails to latch the correct value, get_c2q returns NaN.
+def sweep_2d_space_for_contour(cell, config, settings, cs, ds,
+                          step1_setup_result, step2_hold_result,
+                          step3_hold_result, step4_setup_result,
+                          C_LOAD, T_STABILZING, path, state_map,
+                          debug_path=None):
+    """Sweep every (setup, hold) combination inside the characterization boundary
+    and record whether the flip-flop latches at each point.
 
-    Setup and hold times may be negative, so start must be a guaranteed-valid point
-    (large enough that the cell always latches). The search expands downward from
-    start to bracket the threshold, then binary searches upward to the minimum.
+    Boundary corners (from the four binary-search steps):
+      setup axis : step1_setup_result (min) → step4_setup_result (max)
+      hold  axis : step3_hold_result  (min) → step2_hold_result  (max)
 
-    :param probe_fn:  A callable (float) -> float | NaN.
-    :param start:     A guaranteed-valid starting point (probe_fn(start) is not NaN).
-    :param step:      Initial step size for downward expansion.
-    :param tolerance: Convergence threshold; binary search stops when hi-lo < tolerance.
-    :param max_exp:   Maximum number of exponential expansions before giving up.
-    :returns:         Minimum valid x, or float('nan') if no invalid region is found below start.
+    Returns
+    -------
+    latched_grid : np.ndarray[bool], shape (n_hold, n_setup)
+        True where get_c2q returned a valid (non-NaN) delay.
+    c2q_grid : np.ndarray[float], shape (n_hold, n_setup)
+        Raw c2q delay in seconds; NaN where the FF did not latch.
+    setup_vals : np.ndarray[float]
+        Setup-time axis values in settings.units.time units.
+    hold_vals : np.ndarray[float]
+        Hold-time axis values in settings.units.time units.
     """
+    t_unit = settings.units.time.prefixed_unit
 
-    # these two lists keeps track of all the setup / hold time sent for experiment
-    phase1_candidates = []
-    phase2_candidates = [] # this is an array of tuples(3 items, binary search bounds for each step)
+    def _to_unit(qty):
+        return float(qty.convert(t_unit).value)
 
-    # Phase 1 — expand downward from start to find an lower bound (first failed transition from the ff).
-    hi = start
-    lo = None
-    for exp in range(max_exp):
-        # this candidate variable can be setup or hold time
-        # in phase one every step increase by power of 2
-        candidate = start - step * (2 ** exp)
-        phase1_candidates.append(candidate)
-        result = probe_fn(candidate)
-        if math.isnan(result):
-            lo = candidate
-            break
-        hi = candidate  # tighter valid lower bound
+    setup_min = _to_unit(step1_setup_result)
+    setup_max = _to_unit(step4_setup_result)
+    hold_min  = _to_unit(step3_hold_result)
+    hold_max  = _to_unit(step2_hold_result)
 
-    if lo is None:
-        return hi  # never found invalid; hi is the lowest valid point tried
+    # Safety: ensure lo ≤ hi on both axes
+    if setup_min > setup_max:
+        setup_min, setup_max = setup_max, setup_min
+    if hold_min > hold_max:
+        hold_min, hold_max = hold_max, hold_min
 
-    # Phase 2 — binary search between lo (NaN) and hi (valid)
-    # Continue until the interval is within tolerance AND the last probe was valid (non-NaN)
-    while (hi - lo) > tolerance:
-        mid = (lo + hi) / 2
-        phase2_candidates.append((lo, mid, hi))
-        if math.isnan(probe_fn(mid)):
-            lo = mid
-        else:
-            hi = mid
+    setup_vals = np.linspace(setup_min, setup_max, 40)
+    hold_vals  = np.linspace(hold_min,  hold_max,  40)
 
-    # return hi as the final result because such result will be used in subsquent steps
-    # in other words, the setup time returned here must be able to successfully latch the ff, otherwise in step 2
-    # no matter how big the hold time is the start condition for the ff to latch might not be statisfied
-    return hi, phase1_candidates, phase2_candidates
+    n_setup = len(setup_vals)
+    n_hold  = len(hold_vals)
+
+    _cache = {}  # (si, hi) -> c2q; reused by Sweep B to avoid duplicate SPICE jobs
+
+    def _run_cached(si, hi, s_s, h_s):
+        key = (si, hi)
+        if key in _cache:
+            return _cache[key], False  # (c2q, was_simulated)
+        c2q = get_c2q(cell, config, settings, cs, ds,
+                      float(s_s) * settings.units.time, float(h_s) * settings.units.time,
+                      C_LOAD, T_STABILZING, path, state_map, debug_path)
+        _cache[key] = c2q
+        return c2q, True
+
+    # --- Sweep A: hold outer, setup inner (left→right, break at first success) ---
+    c2q_a       = np.full((n_hold, n_setup), np.nan)
+    latched_a   = np.zeros((n_hold, n_setup), dtype=bool)
+    simulated_a = np.zeros((n_hold, n_setup), dtype=bool)
+
+    for hi, h_s in enumerate(hold_vals):
+        for si, s_s in enumerate(setup_vals):
+            c2q, ran = _run_cached(si, hi, s_s, h_s)
+            c2q_a[hi, si]       = c2q
+            simulated_a[hi, si] = ran
+            latched_a[hi, si]   = not math.isnan(c2q)
+            if latched_a[hi, si]:
+                break
+
+    # --- Sweep B: setup outer, hold inner (top→bottom, break at first success) ---
+    c2q_b       = np.full((n_hold, n_setup), np.nan)
+    latched_b   = np.zeros((n_hold, n_setup), dtype=bool)
+    simulated_b = np.zeros((n_hold, n_setup), dtype=bool)
+
+    for si, s_s in enumerate(setup_vals):
+        for hi, h_s in enumerate(hold_vals):   # low hold → high hold, break at first success
+            c2q, ran = _run_cached(si, hi, s_s, h_s)
+            c2q_b[hi, si]       = c2q
+            simulated_b[hi, si] = ran
+            latched_b[hi, si]   = not math.isnan(c2q)
+            if latched_b[hi, si]:
+                break
+
+    return (latched_a, c2q_a, simulated_a,
+            latched_b, c2q_b, simulated_b,
+            setup_vals, hold_vals)
+
+def extract_2d_contour(latched_a, latched_b, setup_vals, hold_vals):
+    """Extract the latch boundary as a list of (setup, hold) float pairs.
+    The result is the 2D concaved contour we're using to pick the final setup / hold pair
+
+    Sweep A contributes the minimum-setup point per hold row.
+    Sweep B contributes the minimum-hold point per setup column.
+    Points are de-duplicated by (si, hi) index before returning.
+    """
+    seen = set()
+    pts = []
+
+    # Sweep A: for each hold row, first latching setup column
+    for hi in range(len(hold_vals)):
+        for si in range(len(setup_vals)):
+            if latched_a[hi, si]:
+                if (si, hi) not in seen:
+                    seen.add((si, hi))
+                    pts.append((float(setup_vals[si]), float(hold_vals[hi])))
+                break
+
+    # Sweep B: for each setup column, first latching hold row
+    for si in range(len(setup_vals)):
+        for hi in range(len(hold_vals)):
+            if latched_b[hi, si]:
+                if (si, hi) not in seen:
+                    seen.add((si, hi))
+                    pts.append((float(setup_vals[si]), float(hold_vals[hi])))
+                break
+
+    return pts
+
+
 
 def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hold_skew, c_load, t_stabilizing, path, state_map, debug_path=None):
     """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
     for a given setup skew / hold skew, load capacitance, and stabilizing time."""
 
     data_pin, data_transition, output_pin, output_transition = path
+
+    if debug_path is not None:
+        debug_path.mkdir(parents=True, exist_ok=True)
 
     # Set up parameters
     vdd = settings.primary_power.voltage * settings.units.voltage
@@ -354,9 +475,8 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
         return float('nan')
 
     # Initialize circuit
-    circuit = utils.init_circuit("sequential_setup_hold", cell.netlist, config.models)
-    circuit.V('dd', 'vdd', circuit.gnd, vdd) # for input pins
-    circuit.V('ss', 'vss', circuit.gnd, vss) # for input pins
+    circuit = utils.init_circuit("sequential_setup_hold", cell.netlist, config.models,
+                                    settings.named_nodes, settings.units)
     circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power 
     circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power 
     circuit.V('o_cap', 'vout', 'wout', 0) # 0 volt source in series with c_load is a trick to measure current through the load capacitor.
