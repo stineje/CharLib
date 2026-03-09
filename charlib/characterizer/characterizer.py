@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from charlib.characterizer import utils
+from charlib.characterizer import utils, plots
 from charlib.characterizer.cell import Cell, CellTestConfig
 from charlib.characterizer.units import UnitsSettings
 from charlib.characterizer.procedures import registered_procedures, ProcedureFailedException
@@ -111,7 +111,7 @@ class Characterizer:
                     pin = pin_group.identifier
                     for timing_group in pin_group.subgroups_with_name('timing'):
                         related_pin = timing_group.attributes['related_pin'].value
-                        fig = utils.plot_delay_surfaces(list(timing_group.groups.values()),
+                        fig = plots.plot_delay_surfaces(list(timing_group.groups.values()),
                                                         title=f'Cell delays ({related_pin} to {pin})')
                         # FIXME: let user decide whether to show or save
                         fig_path = self.settings.plots_dir / cell.name

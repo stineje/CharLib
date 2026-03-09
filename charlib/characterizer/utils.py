@@ -1,8 +1,8 @@
 """Tools for building test circuits"""
 
+import math
+
 import PySpice
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import numpy as np
 
 
@@ -89,56 +89,118 @@ def init_circuit(title, cell_netlist, models, supplies, units):
             circuit.V(supply.subscript, supply.name, circuit.gnd, supply.voltage*units.voltage)
     return circuit
 
-def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
-                     indicate_voltages=[], indicate_times=[], fig_label='', title='I/O Voltages'):
-    """Plot input and output voltages from simulation results.
+def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
+    """Find the minimum x such that probe_fn(x) is not NaN.
+    When flipflop fails to latch the correct value, get_c2q returns NaN.
 
-    Given a list of analysis objects and signals to plot, construct a series of plots showing the
-    voltage signals over time. Indicate key voltage and time values if desired.
+    Setup and hold times may be negative, so start must be a guaranteed-valid point
+    (large enough that the cell always latches). The search expands downward from
+    start to bracket the threshold, then binary searches upward to the minimum.
 
-    :param analyses: A list of analysis results from simulation.
-    :param input_signals: A list of signal names in the analyses which should be displayed in the
-                          upper half of the plot.
-    :param output_signals: A list of signal names in the analyses which should be displayed in the
-                           lower half of the plot.
-    :param legend_labels: Labels corresponding to each analysis. results
-    :param indicate_voltages: Key voltage values to be indicated as horizontal lines on each ax.
-    :param indicate_times: Key time values to be indicated as vertical lines on each ax.
+    :param probe_fn:  A callable (float) -> float | NaN.
+    :param start:     A guaranteed-valid starting point (probe_fn(start) is not NaN).
+    :param step:      Initial step size for downward expansion.
+    :param tolerance: Convergence threshold; binary search stops when hi-lo < tolerance.
+    :param max_exp:   Maximum number of exponential expansions before giving up.
+    :returns:         Minimum valid x, or float('nan') if no invalid region is found below start.
     """
-    signals = input_signals + output_signals
-    ratios = [1]*len(input_signals) + [len(input_signals)]*len(output_signals)
-    figure, axs = plt.subplots(nrows=len(signals), sharex=True, height_ratios=ratios,
-                               label=fig_label)
-    for ax, signal in zip(axs, signals):
-        for voltage in indicate_voltages:
-            ax.axhline(voltage, color='0.5', linestyle=':')
-        for time in indicate_times:
-            ax.axvline(time, color='r', linestyle='--')
-        ax.set_ylabel('v' + signal)
-        for analysis, label in zip(analyses, legend_labels):
-            t = analysis.time # TODO: Figure out how to get time unit from this
-            ax.plot(t, analysis['v' + signal], label=label)
-    axs[0].set_title(title)
-    axs[-1].set_xlabel('Time')
-    axs[-1].legend()
-    return figure
+    phase1_candidates = []
+    phase2_candidates = []
 
-def plot_delay_surfaces(lut_groups, fig_label='', title='Cell Delays'):
-    """Plot delay surfaces from a series of liberty.LookupTable groups.
+    # Phase 1 — expand downward from start to find a lower bound (first failed latch)
+    hi = start
+    lo = None
+    for exp in range(max_exp):
+        candidate = start - step * (2 ** exp)
+        phase1_candidates.append(candidate)
+        result = probe_fn(candidate)
+        if math.isnan(result):
+            lo = candidate
+            break
+        hi = candidate
 
-    Given a list of 2D LUTs which share common index variables, plot each as a 3D surface.
+    if lo is None:
+        return hi, phase1_candidates, phase2_candidates
 
-    :param lut_groups: A list of liberty.LookupTable groups containing delay data.
+    # Phase 2 — binary search between lo (NaN) and hi (valid)
+    while (hi - lo) > tolerance:
+        mid = (lo + hi) / 2
+        phase2_candidates.append((lo, mid, hi))
+        if math.isnan(probe_fn(mid)):
+            lo = mid
+        else:
+            hi = mid
+
+    return hi, phase1_candidates, phase2_candidates
+
+
+def find_knee_point(boundary_points, arc_threshold=0.01):
+    """Select a balanced (knee) setup/hold point from boundary samples.
+
+    Algorithm:
+      1. Normalize setup and hold axes to [0, 1] (min-max).
+      2. Sort points by setup value; treat the first and last as chord endpoints.
+      3. Knee = point with maximum perpendicular (orthogonal) distance to the chord.
+      4. If max distance < arc_threshold the curve is effectively linear — fall back
+         to the point closest to the chord midpoint in normalized space.
+      5. Tie-break among near-tied candidates (within 5 % of max distance) by
+         choosing the one closest to the chord midpoint in normalized space.
+
+    Parameters
+    ----------
+    boundary_points : list of (setup_float, hold_float)
+    arc_threshold   : minimum normalized perpendicular distance to treat the
+                      boundary as curved; below this the midpoint fallback fires.
+
+    Returns
+    -------
+    (setup_float, hold_float) in the same units as the input.
     """
-    figure, ax = plt.subplots(label=fig_label, subplot_kw={'projection': '3d'})
-    ax.set(
-        xlabel=list(lut_groups[0].template.variables.keys())[0],
-        ylabel=list(lut_groups[0].template.variables.keys())[1],
-        zlabel='Delay',
-        title=title
-    )
-    indices = np.meshgrid(*(lut_groups[0].index_values), indexing='ij')
-    for lut, color in zip(lut_groups, list(mcolors.TABLEAU_COLORS)[:len(lut_groups)]):
-        ax.plot_wireframe(*indices, lut.values, label=lut.name, color=color)
-    figure.legend(loc='center left')
-    return figure
+    if not boundary_points:
+        raise ValueError("boundary_points is empty")
+    if len(boundary_points) == 1:
+        return boundary_points[0]
+
+    pts = np.array(boundary_points, dtype=float)   # (N, 2)
+
+    # Normalize axes to [0, 1]
+    s_min, s_max = pts[:, 0].min(), pts[:, 0].max()
+    h_min, h_max = pts[:, 1].min(), pts[:, 1].max()
+    s_range = s_max - s_min if s_max != s_min else 1.0
+    h_range = h_max - h_min if h_max != h_min else 1.0
+
+    norm = np.column_stack([
+        (pts[:, 0] - s_min) / s_range,
+        (pts[:, 1] - h_min) / h_range,
+    ])
+
+    # Sort by normalized setup so endpoints are the two extremes of the curve
+    order = np.argsort(norm[:, 0])
+    pts_s  = pts[order]
+    norm_s = norm[order]
+
+    p0, p1 = norm_s[0], norm_s[-1]
+    chord     = p1 - p0
+    chord_len = np.linalg.norm(chord)
+
+    if chord_len < 1e-12:
+        return tuple(pts_s[len(pts_s) // 2])
+
+    # Perpendicular distance: 2-D cross-product magnitude / chord length
+    diff  = norm_s - p0
+    dists = np.abs(diff[:, 0] * chord[1] - diff[:, 1] * chord[0]) / chord_len
+
+    max_dist = dists.max()
+    mid_norm = (p0 + p1) / 2
+
+    if max_dist < arc_threshold:
+        best = int(np.argmin(np.linalg.norm(norm_s - mid_norm, axis=1)))
+        return tuple(pts_s[best])
+
+    # Near-tie candidates: within 5 % of max_dist
+    candidates_mask = dists >= (max_dist * 0.95)
+    candidates_norm = norm_s[candidates_mask]
+    candidates_pts  = pts_s[candidates_mask]
+
+    best = int(np.argmin(np.linalg.norm(candidates_norm - mid_norm, axis=1)))
+    return tuple(candidates_pts[best])

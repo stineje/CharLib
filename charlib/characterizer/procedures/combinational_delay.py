@@ -2,7 +2,7 @@ import PySpice
 import matplotlib.pyplot as plt
 from numpy import average
 
-from charlib.characterizer import utils
+from charlib.characterizer import utils, plots
 from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
@@ -168,7 +168,7 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
     for name in measurement_names:
         # Get the worst delay & plot io
         if 'io' in config.plots:
-            fig = utils.plot_io_voltages(analyses.values(), list(pin_map.target_inputs.keys()),
+            fig = plots.plot_io_voltages(analyses.values(), list(pin_map.target_inputs.keys()),
                                          list(pin_map.target_outputs.keys()),
                                          legend_labels=analyses.keys(),
                                          indicate_voltages=[settings.primary_power.voltage*1e-2*settings.logic_thresholds.low,
@@ -180,7 +180,8 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
             plt.close(fig)
 
         # Build LUT
-        delay = criterion([analysis.measurements[name] for analysis in analyses.values()]) @ PySpice.Unit.u_s
+        delay = criterion([analysis.measurements[name] for analysis in analyses.values()
+                           if name in analysis.measurements]) @ PySpice.Unit.u_s
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
