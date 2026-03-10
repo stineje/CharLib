@@ -94,8 +94,14 @@ def plot_contour(settings, points, min_setup, max_hold, max_setup, min_hold,
         knee_label = 'knee point (midpoint fallback)' if knee_is_fallback else 'knee point (knee search)'
         ax.plot(knee_point[0], knee_point[1], 'y*', markersize=14, label=knee_label)
 
-    ax.axvline(0, color='gray', linewidth=0.8, linestyle='--')
-    ax.axhline(0, color='gray', linewidth=0.8, linestyle='--')
+    x_min = min(s for s, _, _ in points) if points else 0
+    x_max = max(s for s, _, _ in points) if points else 0
+    y_min = min(h for _, h, _ in points) if points else 0
+    y_max = max(h for _, h, _ in points) if points else 0
+    if x_min <= 0 <= x_max:
+        ax.axvline(0, color='gray', linewidth=0.8, linestyle='--')
+    if y_min <= 0 <= y_max:
+        ax.axhline(0, color='gray', linewidth=0.8, linestyle='--')
     ax.set_xlabel(f'Setup time ({t_unit_str})')
     ax.set_ylabel(f'Hold time ({t_unit_str})')
     ax.set_title(title)
