@@ -159,8 +159,8 @@ def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.2):
     chord_p0        : (setup_float, hold_float) — min-setup / max-hold anchor (step1/step2)
     chord_p1        : (setup_float, hold_float) — max-setup / min-hold anchor (step4/step3)
     arc_threshold   : dimensionless ratio; minimum (perpendicular deviation / chord length)
-                      required to treat the boundary as curved. 0.05 means the peak
-                      concave deviation must exceed 5 % of the chord length.
+                      required to treat the boundary as curved. 0.2 means the peak
+                      concave deviation must exceed 20 % of the chord length.
 
     Returns
     -------
@@ -173,12 +173,12 @@ def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.2):
 
     pts = np.array(boundary_points, dtype=float)   # (N, 2)
 
-    # Normalize axes to [0, 1], including chord endpoints in the bounds.
+    # Normalize axes to [0, 1] using chord endpoints as bounds.
+    # chord_p0 = (min_setup, max_hold), chord_p1 = (max_setup, min_hold)
     chord_p0 = np.array(chord_p0, dtype=float)
     chord_p1 = np.array(chord_p1, dtype=float)
-    all_pts = np.vstack([pts, chord_p0, chord_p1])
-    s_min, s_max = all_pts[:, 0].min(), all_pts[:, 0].max()
-    h_min, h_max = all_pts[:, 1].min(), all_pts[:, 1].max()
+    s_min, s_max = chord_p0[0], chord_p1[0]
+    h_min, h_max = chord_p1[1], chord_p0[1]
     s_range = s_max - s_min if s_max != s_min else 1.0
     h_range = h_max - h_min if h_max != h_min else 1.0
 
@@ -195,45 +195,34 @@ def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.2):
     if chord_len < 1e-12:
         return tuple(pts[len(pts) // 2]), True
 
-    mid_norm = (p0 + p1) / 2
-
     # Signed perpendicular distance (positive = concave side, bowing toward origin).
     # Walking from p0 (min setup) to p1 (max setup), the concave/knee side is the
     # region where hold is lower than the chord predicts (points closer to origin).
-    diff         = norm - p0
-    signed_dists = (diff[:, 0] * chord[1] - diff[:, 1] * chord[0]) / chord_len
+    vecs_from_p0  = norm - p0  # vector from p0 to each boundary point
+    # cross product: |vecs_from_p0| * |chord| * sin(θ), divided by chord_len gives |vecs_from_p0| * sin(θ) = perpendicular distance from each point to the chord line
+    # sign: positive = concave side (below chord, toward origin), negative = convex side
+    signed_dists  = (vecs_from_p0[:, 0] * chord[1] - vecs_from_p0[:, 1] * chord[0]) / chord_len
 
     # Projection of each point along the chord direction (0 = p0, chord_len = p1).
+    # this is for the fallback if either max arc is too shallow or no points are on the convex side
     chord_unit   = chord / chord_len
-    projections  = diff @ chord_unit
+    projections  = vecs_from_p0 @ chord_unit  # scalar projection of each point along the chord direction
 
-    concave_mask = signed_dists > 0
-
-    def _pick_midpoint():
-        # Among all boundary points, find the one whose along-chord projection is
-        # closest to the chord midpoint. This is robust to uneven point spacing and
-        # perpendicular jitter, unlike Euclidean distance to mid_norm.
-        best = int(np.argmin(np.abs(projections - chord_len / 2)))
-        return tuple(pts[best]), True   # (point, is_fallback)
-
-    # If no points are on the concave side, the boundary is linear or convex.
-    if not np.any(concave_mask):
-        return _pick_midpoint()
-
-    max_concave_dist = signed_dists[concave_mask].max()
-
-    # If the concave arch is too shallow relative to chord length, treat as linear.
+    concave_mask     = signed_dists > 0
+    max_concave_dist = signed_dists[concave_mask].max() if np.any(concave_mask) else 0.0
+    # Fall back to midpoint if no concave points or arch is too shallow relative to chord length.
+    # Find the boundary point whose along-chord projection is closest to the chord midpoint.
     if max_concave_dist / chord_len < arc_threshold:
-        return _pick_midpoint()
+        best = int(np.argmin(np.abs(projections - chord_len / 2)))
+        return tuple(pts[best]), True # (point, is_fallback)
 
     # Significant concave arch: knee = max concave distance point.
     # Tie-break among near-tied candidates (within 5 % of max) by along-chord projection.
     candidates_mask = concave_mask & (signed_dists >= (max_concave_dist * 0.95))
     candidate_projs = projections[candidates_mask]
     candidates_pts  = pts[candidates_mask]
-
     best = int(np.argmin(np.abs(candidate_projs - chord_len / 2)))
-    return tuple(candidates_pts[best]), False   # (point, is_fallback)
+    return tuple(candidates_pts[best]), False # (point, is_fallback)
 
 
 def write_c2q_csv(debug_path, settings, c2q_a, c2q_b, setup_vals_s, hold_vals_s,
