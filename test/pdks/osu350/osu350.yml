@@ -75,17 +75,17 @@ cells:
     #     setup_time_range: [0.1, 10]
     #     hold_time_range: [0.1, 10]
     DFFPOSX1:
-    netlist:    ../osu350_spice_temp/DFFPOSX1.sp
-    area:       384
-    clock:      posedge CLK
-    inputs:     [D]
-    outputs:    [Q]
-    flops:      [DS0000,P0002]
-    state:      ['DS0000 = Q']
-    functions:  [Q<=D]
-    clock_slews: [0.06, 0.3, 0.6] # related_pin
-    data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin
-    sequential_setup_hold_procedure:  sequential_setup_hold_simple
+          netlist:    ../osu350_spice_temp/DFFPOSX1.sp
+          area:       384
+          clock:      posedge CLK
+          inputs:     [D]
+          outputs:    [Q]
+          flops:      [DS0000,P0002]
+          state:      ['DS0000 = Q']
+          functions:  [Q<=D]
+          clock_slews: [0.06, 0.3, 0.6] # related_pin
+          data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin
+          sequential_setup_hold_procedure:  sequential_setup_hold_simple
     # DFFSR:
     #     netlist:    osu350_spice_temp/DFFSR.sp
     #     area:       704

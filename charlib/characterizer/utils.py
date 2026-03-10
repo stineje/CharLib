@@ -1,5 +1,6 @@
 """Tools for building test circuits"""
 
+import csv
 import math
 
 import PySpice
@@ -134,23 +135,31 @@ def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
     return hi, phase1_candidates, phase2_candidates
 
 
-def find_knee_point(boundary_points, arc_threshold=0.01):
+def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.2):
     """Select a balanced (knee) setup/hold point from boundary samples.
 
     Algorithm:
-      1. Normalize setup and hold axes to [0, 1] (min-max).
-      2. Sort points by setup value; treat the first and last as chord endpoints.
-      3. Knee = point with maximum perpendicular (orthogonal) distance to the chord.
-      4. If max distance < arc_threshold the curve is effectively linear — fall back
-         to the point closest to the chord midpoint in normalized space.
-      5. Tie-break among near-tied candidates (within 5 % of max distance) by
+      1. Normalize setup and hold axes to [0, 1] (min-max), anchored to chord_p0/p1.
+      2. The reference chord is the line from chord_p0 (min setup, max hold) to
+         chord_p1 (max setup, min hold) — the step1/step2 and step4/step3 results.
+      3. Compute signed perpendicular distance to the chord (positive = concave side,
+         i.e. bowing toward the origin, which is the only meaningful knee direction).
+      4. If no points lie on the concave side, the boundary is linear or convex —
+         fall back to the point closest to the chord midpoint in normalized space.
+      5. If the maximum concave distance / chord_len < arc_threshold the arch is too
+         shallow — fall back to the point closest to the chord midpoint.
+      6. Otherwise knee = point with maximum concave perpendicular distance.
+         Tie-break among near-tied candidates (within 5 % of max distance) by
          choosing the one closest to the chord midpoint in normalized space.
 
     Parameters
     ----------
     boundary_points : list of (setup_float, hold_float)
-    arc_threshold   : minimum normalized perpendicular distance to treat the
-                      boundary as curved; below this the midpoint fallback fires.
+    chord_p0        : (setup_float, hold_float) — min-setup / max-hold anchor (step1/step2)
+    chord_p1        : (setup_float, hold_float) — max-setup / min-hold anchor (step4/step3)
+    arc_threshold   : dimensionless ratio; minimum (perpendicular deviation / chord length)
+                      required to treat the boundary as curved. 0.05 means the peak
+                      concave deviation must exceed 5 % of the chord length.
 
     Returns
     -------
@@ -159,13 +168,16 @@ def find_knee_point(boundary_points, arc_threshold=0.01):
     if not boundary_points:
         raise ValueError("boundary_points is empty")
     if len(boundary_points) == 1:
-        return boundary_points[0]
+        return boundary_points[0], True
 
     pts = np.array(boundary_points, dtype=float)   # (N, 2)
 
-    # Normalize axes to [0, 1]
-    s_min, s_max = pts[:, 0].min(), pts[:, 0].max()
-    h_min, h_max = pts[:, 1].min(), pts[:, 1].max()
+    # Normalize axes to [0, 1], including chord endpoints in the bounds.
+    chord_p0 = np.array(chord_p0, dtype=float)
+    chord_p1 = np.array(chord_p1, dtype=float)
+    all_pts = np.vstack([pts, chord_p0, chord_p1])
+    s_min, s_max = all_pts[:, 0].min(), all_pts[:, 0].max()
+    h_min, h_max = all_pts[:, 1].min(), all_pts[:, 1].max()
     s_range = s_max - s_min if s_max != s_min else 1.0
     h_range = h_max - h_min if h_max != h_min else 1.0
 
@@ -174,33 +186,82 @@ def find_knee_point(boundary_points, arc_threshold=0.01):
         (pts[:, 1] - h_min) / h_range,
     ])
 
-    # Sort by normalized setup so endpoints are the two extremes of the curve
-    order = np.argsort(norm[:, 0])
-    pts_s  = pts[order]
-    norm_s = norm[order]
-
-    p0, p1 = norm_s[0], norm_s[-1]
+    p0 = np.array([(chord_p0[0] - s_min) / s_range, (chord_p0[1] - h_min) / h_range])
+    p1 = np.array([(chord_p1[0] - s_min) / s_range, (chord_p1[1] - h_min) / h_range])
     chord     = p1 - p0
     chord_len = np.linalg.norm(chord)
 
     if chord_len < 1e-12:
-        return tuple(pts_s[len(pts_s) // 2])
+        return tuple(pts[len(pts) // 2]), True
 
-    # Perpendicular distance: 2-D cross-product magnitude / chord length
-    diff  = norm_s - p0
-    dists = np.abs(diff[:, 0] * chord[1] - diff[:, 1] * chord[0]) / chord_len
-
-    max_dist = dists.max()
     mid_norm = (p0 + p1) / 2
 
-    if max_dist < arc_threshold:
-        best = int(np.argmin(np.linalg.norm(norm_s - mid_norm, axis=1)))
-        return tuple(pts_s[best])
+    # Signed perpendicular distance (positive = concave side, bowing toward origin).
+    # Walking from p0 (min setup) to p1 (max setup), the concave/knee side is the
+    # region where hold is lower than the chord predicts (points closer to origin).
+    diff         = norm - p0
+    signed_dists = (diff[:, 0] * chord[1] - diff[:, 1] * chord[0]) / chord_len
 
-    # Near-tie candidates: within 5 % of max_dist
-    candidates_mask = dists >= (max_dist * 0.95)
-    candidates_norm = norm_s[candidates_mask]
-    candidates_pts  = pts_s[candidates_mask]
+    # Projection of each point along the chord direction (0 = p0, chord_len = p1).
+    chord_unit   = chord / chord_len
+    projections  = diff @ chord_unit
 
-    best = int(np.argmin(np.linalg.norm(candidates_norm - mid_norm, axis=1)))
-    return tuple(candidates_pts[best])
+    concave_mask = signed_dists > 0
+
+    def _pick_midpoint():
+        # Among all boundary points, find the one whose along-chord projection is
+        # closest to the chord midpoint. This is robust to uneven point spacing and
+        # perpendicular jitter, unlike Euclidean distance to mid_norm.
+        best = int(np.argmin(np.abs(projections - chord_len / 2)))
+        return tuple(pts[best]), True   # (point, is_fallback)
+
+    # If no points are on the concave side, the boundary is linear or convex.
+    if not np.any(concave_mask):
+        return _pick_midpoint()
+
+    max_concave_dist = signed_dists[concave_mask].max()
+
+    # If the concave arch is too shallow relative to chord length, treat as linear.
+    if max_concave_dist / chord_len < arc_threshold:
+        return _pick_midpoint()
+
+    # Significant concave arch: knee = max concave distance point.
+    # Tie-break among near-tied candidates (within 5 % of max) by along-chord projection.
+    candidates_mask = concave_mask & (signed_dists >= (max_concave_dist * 0.95))
+    candidate_projs = projections[candidates_mask]
+    candidates_pts  = pts[candidates_mask]
+
+    best = int(np.argmin(np.abs(candidate_projs - chord_len / 2)))
+    return tuple(candidates_pts[best]), False   # (point, is_fallback)
+
+
+def write_c2q_csv(debug_path, settings, c2q_a, c2q_b, setup_vals_s, hold_vals_s,
+                  t_stabilizing, ref_c2q_steps, c2q_threshold):
+    """Write the merged c2q sweep results to a CSV file for debugging.
+
+    The first data row is a reference point at (t_stabilizing, t_stabilizing) showing
+    ref_c2q_steps and the c2q_threshold used for step-5 validity gating. Subsequent rows
+    are the actual sweep points, each annotated with a 'valid' flag.
+    """
+    t_unit = settings.units.time.prefixed_unit
+    c2q_merged = np.where(~np.isnan(c2q_a), c2q_a, c2q_b)
+
+    debug_path.mkdir(parents=True, exist_ok=True)
+    with open(debug_path / 'c2q_merged.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([f'setup_{t_unit.str_spice()}', f'hold_{t_unit.str_spice()}',
+                         f'c2q_{t_unit.str_spice()}', 'valid', f'c2q_threshold_{t_unit.str_spice()}'])
+        # Reference row: c2q at (t_stabilizing, t_stabilizing) and the degradation threshold
+        t_stab_display = float(t_stabilizing.convert(t_unit).value)
+        ref_display = float((ref_c2q_steps @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isnan(ref_c2q_steps) else float('nan')
+        thr_display = float((c2q_threshold @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isinf(c2q_threshold) else float('inf')
+        writer.writerow([f'{t_stab_display:.6g}', f'{t_stab_display:.6g}',
+                         f'{ref_display:.6g}', True, f'{thr_display:.6g}'])
+        for hi, h_s in enumerate(hold_vals_s):
+            for si, s_s in enumerate(setup_vals_s):
+                val = c2q_merged[hi, si]
+                if math.isnan(val):
+                    writer.writerow([f'{s_s:.6g}', f'{h_s:.6g}', 'nan', False, ''])
+                else:
+                    c2q_display = float((val @ PySpice.Unit.u_s).convert(t_unit).value)
+                    writer.writerow([f'{s_s:.6g}', f'{h_s:.6g}', f'{c2q_display:.6g}', val < c2q_threshold, ''])

@@ -4,7 +4,6 @@ from charlib.liberty.library import LookupTable
 
 import PySpice
 import numpy as np
-import csv
 import math
 from collections import defaultdict
 
@@ -56,7 +55,7 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
     T_STABILZING = 20 * max(cell_settings.parameters['clock_slews']) * charlib_settings.units.time # 20x worst case clock slew
     # C_LOAD = 4x the data pin's input capacitance from the prior ac_sweep, (fanout of 4)
     # C_LOAD = 4 * cell.liberty.group('pin', data_pin).attributes['capacitance'].value * settings.units.capacitance
-    C_LOAD = 0.004 @ PySpice.Unit.u_pF # TODO: remove this line for actual characterization, default to 40 fF
+    C_LOAD = 0.24 @ PySpice.Unit.u_pF # TODO: remove this line for actual characterization, default to 40 fF
     constants = (TOLERANCE, STEP, T_STABILZING, C_LOAD)
 
     for variation in cell_settings.variations('data_slews', 'clock_slews'):
@@ -101,15 +100,15 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     the interdependence between setup time, hold time. 
 
     For each (data_slew × clock_slew) variation, the algorithm runs as follows:
-      1. Find setup time with hold held at 'infinite'. Binary search starts from setup_skew = T_STABILZING.
-      2. Fix setup = result of step 1, then find hold time.Binary search starts from hold_skew = T_STABILZING.
-      ---- at this point we have min setup and max hold ----
-      3. Find hold time with setup held at 'infinite'. Binary search starts from hold_skew = T_STABILZING.
-      4. Fix hold = result of step 3, then find setup time.Binary search starts from setup_skew = T_STABILZING.
-      ---- at this point we have max setup and min hold ----
-      5. with the boundries we obtained, simulate every single setup vs hold combination and get a 3D surface of c2q time
-      6. set a c2q threshold (20% worst than c2q obtains from max setup & max hold), and get a 2D contour 
-      7. pick the knee point on the contour as the final setup and hold result for the current variation
+      1. Find setup time with hold held at 'infinite'. Binary search finds absolute minimum setup where FF latches at all.
+      2. Fix setup = result of step 1, then find hold time. Binary search finds absolute maximum hold where FF latches at all.
+      ---- at this point we have absolute min setup and absolute max hold ----
+      3. Find hold time with setup held at 'infinite'. Binary search finds absolute minimum hold where FF latches at all.
+      4. Fix hold = result of step 3, then find setup time. Binary search finds absolute maximum setup where FF latches at all.
+      ---- at this point we have absolute max setup and absolute min hold ----
+      5. with the boundaries we obtained, simulate every (setup, hold) combination; use a c2q threshold (20% worse
+         than c2q at the relaxed corner) to identify the valid-c2q contour within the full latching space
+      6. pick the knee point on the valid-c2q contour as the final setup and hold result for the current variation
 
     Note: both setup time and hold time may be negative (data can arrive after the
     clock edge / change before the clock edge and the cell still latches).
@@ -135,10 +134,22 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
             path_debug_folder = variation_debug_path / path_str
             state_debug_path = path_debug_folder / state_folder
 
+        # Measure reference c2q at (T_STABILZING, T_STABILZING) — guaranteed relaxed point.
+        # Used to gate binary search steps 1–4: points with c2q > ref * 1.2 are treated
+        # as invalid (metastable / degenerate operating region).
+        ref_c2q_steps = get_c2q(cell, config, settings, cs, ds,
+                                 T_STABILZING, T_STABILZING,
+                                 C_LOAD, T_STABILZING, path, state_map, state_debug_path)
+        step_threshold = ref_c2q_steps * 1.2 if not math.isnan(ref_c2q_steps) else math.inf
+
+        def _valid_c2q(c2q):
+            """Return c2q if within threshold, else NaN (so find_min_valid treats it as invalid)."""
+            return c2q if (not math.isnan(c2q) and c2q < step_threshold) else float('nan')
+
         # Step 1: setup time with hold fixed at T_STABILZING, this gives min setup
         step1_path = (state_debug_path / 'step1') if settings.debug else None
         step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = utils.find_min_valid(
-            lambda s: get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_path),
+            lambda s: _valid_c2q(get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
         write_step_log(step1_path, 'step1', cell.name, ds, cs, path_str, state_str,
                         f"step1 : find setup given hold= {T_STABILZING}",
@@ -147,7 +158,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         # Step 2: hold time with setup fixed at min_setup, this gives max hold
         step2_path = (state_debug_path / 'step2') if settings.debug else None
         step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = utils.find_min_valid(
-            lambda h: get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_path),
+            lambda h: _valid_c2q(get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
         write_step_log(step2_path, 'step2', cell.name, ds, cs, path_str, state_str,
                         f"step2 : find hold given setup= {step1_setup_result}",
@@ -156,7 +167,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         # Step 3: hold time with setup fixed T_STABILZING, this gives min hold
         step3_path = (state_debug_path / 'step3') if settings.debug else None
         step3_hold_result, step3_phase1_candidates, step3_phase2_candidates = utils.find_min_valid(
-            lambda h: get_c2q(cell, config, settings, cs, ds, T_STABILZING, h, C_LOAD, T_STABILZING, path, state_map, step3_path),
+            lambda h: _valid_c2q(get_c2q(cell, config, settings, cs, ds, T_STABILZING, h, C_LOAD, T_STABILZING, path, state_map, step3_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
         write_step_log(step3_path, 'step3', cell.name, ds, cs, path_str, state_str,
                         f"step3 : find hold given setup= {T_STABILZING}",
@@ -165,14 +176,18 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         # Step 4: find setup time with hold fixed at min hold, this gives max setup
         step4_path = (state_debug_path / 'step4') if settings.debug else None
         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates = utils.find_min_valid(
-            lambda s: get_c2q(cell, config, settings, cs, ds, s, step3_hold_result, C_LOAD, T_STABILZING, path, state_map, step4_path),
+            lambda s: _valid_c2q(get_c2q(cell, config, settings, cs, ds, s, step3_hold_result, C_LOAD, T_STABILZING, path, state_map, step4_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
         write_step_log(step4_path, 'step4', cell.name, ds, cs, path_str, state_str,
                         f"step4 : find setup given hold= {step3_hold_result}",
                         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates)
         
-        # Step 5: sweep the setup×hold boundary and plot the latch contour
+        # Step 5: sweep the setup×hold boundary and plot the latched contour
         step5_debug_path = (state_debug_path / 'step5') if settings.debug else None
+        ref_c2q = get_c2q(cell, config, settings, cs, ds,
+                          step4_setup_result, step2_hold_result,
+                          C_LOAD, T_STABILZING, path, state_map, step5_debug_path)
+        c2q_threshold = ref_c2q * 1.2 if not math.isnan(ref_c2q) else math.inf
         (latched_a, c2q_a, simulated_a,
          latched_b, c2q_b, simulated_b,
          setup_vals_s, hold_vals_s) = sweep_2d_space_for_contour(
@@ -180,71 +195,67 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
             step1_setup_result, step2_hold_result,
             step3_hold_result, step4_setup_result,
             C_LOAD, T_STABILZING, path, state_map,
-            step5_debug_path,
+            step5_debug_path, c2q_threshold,
         )
 
-        if step5_debug_path is not None:
-            t_unit = settings.units.time.prefixed_unit
-            c2q_merged = np.where(~np.isnan(c2q_a), c2q_a, c2q_b)
-            step5_debug_path.mkdir(parents=True, exist_ok=True)
-            with open(step5_debug_path / 'c2q_merged.csv', 'w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([f'setup_{t_unit.str_spice()}', f'hold_{t_unit.str_spice()}', f'c2q_{t_unit.str_spice()}'])
-                for hi, h_s in enumerate(hold_vals_s):
-                    for si, s_s in enumerate(setup_vals_s):
-                        val = c2q_merged[hi, si]
-                        if not math.isnan(val):
-                            c2q_display = float((val @ PySpice.Unit.u_s).convert(t_unit).value)
-                            writer.writerow([f'{s_s:.6g}', f'{h_s:.6g}', f'{c2q_display:.6g}'])
+        # output some data into the debug folder
+        if settings.debug:
+            utils.write_c2q_csv(step5_debug_path, settings, c2q_a, c2q_b,
+                                setup_vals_s, hold_vals_s, T_STABILZING,
+                                ref_c2q_steps, c2q_threshold)
 
-        _base_title = f'{cell.name}  |  {path_str}  |  {state_str}\ndata_slew={ds},  clk_slew={cs}'
-        _contour_args = (step1_setup_result, step2_hold_result,
-                         step4_setup_result, step3_hold_result,
-                         step5_debug_path)
+            _base_title = f'{cell.name}  |  {path_str}  |  {state_str}\ndata_slew={ds},  clk_slew={cs}'
+            _contour_args = (step1_setup_result, step2_hold_result,
+                            step4_setup_result, step3_hold_result,
+                            step5_debug_path)
 
-        points_a = [(s_s, h_s, 'green' if latched_a[hi, si] else 'red')
-                    for hi, h_s in enumerate(hold_vals_s)
-                    for si, s_s in enumerate(setup_vals_s)
-                    if simulated_a[hi, si]]
-        plots.plot_contour(settings, points_a, *_contour_args,
-                           filename='contour_sweep_a_setup_for_every_hold_value.png',
-                           title=_base_title + '\nSweep A: hold outer, setup inner')
+            points_a = [(s_s, h_s, 'green' if latched_a[hi, si] else 'red')
+                        for hi, h_s in enumerate(hold_vals_s)
+                        for si, s_s in enumerate(setup_vals_s)
+                        if simulated_a[hi, si]]
+            plots.plot_contour(settings, points_a, *_contour_args,
+                            filename='contour_sweep_a_setup_for_every_hold_value.png',
+                            title=_base_title + '\nSweep A: hold outer, setup inner')
 
-        points_b = [(s_s, h_s, 'green' if latched_b[hi, si] else 'red')
-                    for hi, h_s in enumerate(hold_vals_s)
-                    for si, s_s in enumerate(setup_vals_s)
-                    if simulated_b[hi, si]]
-        plots.plot_contour(settings, points_b, *_contour_args,
-                           filename='contour_sweep_b_hold_for_every_setup_value.png',
-                           title=_base_title + '\nSweep B: setup outer, hold inner')
+            points_b = [(s_s, h_s, 'green' if latched_b[hi, si] else 'red')
+                        for hi, h_s in enumerate(hold_vals_s)
+                        for si, s_s in enumerate(setup_vals_s)
+                        if simulated_b[hi, si]]
+            plots.plot_contour(settings, points_b, *_contour_args,
+                            filename='contour_sweep_b_hold_for_every_setup_value.png',
+                            title=_base_title + '\nSweep B: setup outer, hold inner')
 
-        # Step 6: pick the balanced knee point from the merged contour
+        # Step 6: pick the balanced knee point from the merged contour.
+        # Convert chord anchor points to the same unit as setup_vals_s/hold_vals_s
+        # (boundary_pts is in settings.units.time units, not raw PySpice values).
+        t_unit = settings.units.time.prefixed_unit
+        to_t = lambda q: float(q.convert(t_unit).value)
         boundary_pts = extract_2d_contour(latched_a, latched_b, setup_vals_s, hold_vals_s)
-        if boundary_pts:
-            knee_setup_s, knee_hold_s = utils.find_knee_point(boundary_pts)
-            setup = knee_setup_s * settings.units.time
-            hold  = knee_hold_s  * settings.units.time
-            knee_point = (knee_setup_s, knee_hold_s)
-        else:
-            # fallback: no contour found, use step 3/4 conservative bounds
-            setup = step4_setup_result
-            hold  = step3_hold_result
-            knee_point = None
-
+        (knee_setup_s, knee_hold_s), knee_is_fallback = utils.find_knee_point(
+            boundary_pts,
+            chord_p0=(to_t(step1_setup_result), to_t(step2_hold_result)),
+            chord_p1=(to_t(step4_setup_result), to_t(step3_hold_result)),
+        )
+        setup = knee_setup_s * settings.units.time
+        hold  = knee_hold_s  * settings.units.time
+        knee_point = (knee_setup_s, knee_hold_s)
         merged = latched_a | latched_b
         points_merged = [(s_s, h_s, 'green')
                          for hi, h_s in enumerate(hold_vals_s)
                          for si, s_s in enumerate(setup_vals_s)
                          if merged[hi, si]]
-        plots.plot_contour(settings, points_merged, *_contour_args,
-                           filename='contour_merged.png',
-                           title=_base_title + '\nMerged contour',
-                           knee_point=knee_point)
+        
+        if settings.debug:
+            plots.plot_contour(settings, points_merged, *_contour_args,
+                            filename='contour_merged.png',
+                            title=_base_title + '\nMerged contour',
+                            knee_point=knee_point,
+                            knee_is_fallback=knee_is_fallback)
 
         # store results per state and per path for later analysis
         result_per_state[state_str] = (setup, hold, knee_point)
 
-    # find worst-case across all states for this variation + path
+    # find worst-case across all states for current path in current variation
     worst_setup = None
     worst_hold  = None
     worst_setup_state = None
@@ -324,7 +335,7 @@ def sweep_2d_space_for_contour(cell, config, settings, cs, ds,
                           step1_setup_result, step2_hold_result,
                           step3_hold_result, step4_setup_result,
                           C_LOAD, T_STABILZING, path, state_map,
-                          debug_path=None):
+                          debug_path=None, c2q_threshold=math.inf):
     """Sweep every (setup, hold) combination inside the characterization boundary
     and record whether the flip-flop latches at each point.
 
@@ -335,7 +346,7 @@ def sweep_2d_space_for_contour(cell, config, settings, cs, ds,
     Returns
     -------
     latched_grid : np.ndarray[bool], shape (n_hold, n_setup)
-        True where get_c2q returned a valid (non-NaN) delay.
+        True where get_c2q returned a valid delay below c2q_threshold.
     c2q_grid : np.ndarray[float], shape (n_hold, n_setup)
         Raw c2q delay in seconds; NaN where the FF did not latch.
     setup_vals : np.ndarray[float]
@@ -387,7 +398,7 @@ def sweep_2d_space_for_contour(cell, config, settings, cs, ds,
             c2q, ran = _run_cached(si, hi, s_s, h_s)
             c2q_a[hi, si]       = c2q
             simulated_a[hi, si] = ran
-            latched_a[hi, si]   = not math.isnan(c2q)
+            latched_a[hi, si]   = not math.isnan(c2q) and c2q < c2q_threshold
             if latched_a[hi, si]:
                 break
 
@@ -401,7 +412,7 @@ def sweep_2d_space_for_contour(cell, config, settings, cs, ds,
             c2q, ran = _run_cached(si, hi, s_s, h_s)
             c2q_b[hi, si]       = c2q
             simulated_b[hi, si] = ran
-            latched_b[hi, si]   = not math.isnan(c2q)
+            latched_b[hi, si]   = not math.isnan(c2q) and c2q < c2q_threshold
             if latched_b[hi, si]:
                 break
 
