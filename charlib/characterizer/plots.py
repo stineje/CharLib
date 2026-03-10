@@ -62,7 +62,7 @@ def plot_delay_surfaces(lut_groups, fig_label='', title='Cell Delays'):
 
 
 def plot_contour(settings, points, min_setup, max_hold, max_setup, min_hold,
-                 debug_path, filename, title, knee_point=None):
+                 debug_path, filename, title, knee_point=None, knee_is_fallback=None):
     """Save a scatter plot of (setup, hold) points. No-ops if debug_path is None.
 
     :param points: List of (setup_val, hold_val, color) tuples in display time units.
@@ -91,7 +91,8 @@ def plot_contour(settings, points, min_setup, max_hold, max_setup, min_hold,
             'bs', markersize=9, label='step4/step3 (max setup, min hold)')
 
     if knee_point is not None:
-        ax.plot(knee_point[0], knee_point[1], 'y*', markersize=14, label='knee point')
+        knee_label = 'knee point (midpoint fallback)' if knee_is_fallback else 'knee point (knee search)'
+        ax.plot(knee_point[0], knee_point[1], 'y*', markersize=14, label=knee_label)
 
     ax.axvline(0, color='gray', linewidth=0.8, linestyle='--')
     ax.axhline(0, color='gray', linewidth=0.8, linestyle='--')

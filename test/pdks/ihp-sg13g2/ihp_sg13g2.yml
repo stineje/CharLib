@@ -1,0 +1,29 @@
+settings:
+    lib_name:           OSU350
+    units:
+        pulling_resistance: kOhm
+    named_nodes:
+        primary_ground:
+            name: GND
+    cell_defaults:
+        models: [../model.sp]
+cells:
+    sg13g2_and2_1:
+        netlist:    ihp_sg13g2_stdcell.spice
+        area:       9.072
+        inputs:     [A,B]
+        outputs:    ['X']
+        functions:  [Y=A&B]
+        loads:      [0.015, 0.04, 0.08, 0.2, 0.4]
+    sg13g2_dfrbp_1:
+        netlist:    ihp_sg13g2_stdcell.spice
+        area:       52.6176
+        clock:      posedge CLK
+        inputs:     [D]
+        outputs:    [Q,Q_N]
+        flops:      [IQ,IQN]
+        state:      ['IQ = Q', 'IQN = Q_N']
+        functions:  [Q<=D]
+        clock_slews: [0.0186, 0.51636, 1.263, 2.5074] # related_pin
+        data_slews:  [0.0186, 0.51636, 1.263, 2.5074] # constraint_pin
+        sequential_setup_hold_procedure:  sequential_setup_hold_simple
