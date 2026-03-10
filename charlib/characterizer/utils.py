@@ -132,6 +132,7 @@ def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
         else:
             hi = mid
 
+    # return hi because hi is always simulated and deemed valid
     return hi, phase1_candidates, phase2_candidates
 
 
@@ -237,7 +238,7 @@ def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.2):
 
 def write_c2q_csv(debug_path, settings, c2q_a, c2q_b, setup_vals_s, hold_vals_s,
                   t_stabilizing, ref_c2q_steps, c2q_threshold):
-    """Write the merged c2q sweep results to a CSV file for debugging.
+    """Write the c2q sweep results to a CSV file for debugging
 
     The first data row is a reference point at (t_stabilizing, t_stabilizing) showing
     ref_c2q_steps and the c2q_threshold used for step-5 validity gating. Subsequent rows

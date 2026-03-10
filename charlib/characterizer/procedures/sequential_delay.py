@@ -51,7 +51,7 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
     """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
 
     TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
-    STEP = 5 @ PySpice.Unit.u_ps # 10 ps initial bound-finding step
+    STEP = 5 @ PySpice.Unit.u_ps # 5 ps initial bound-finding step for binary search
     T_STABILZING = 20 * max(cell_settings.parameters['clock_slews']) * charlib_settings.units.time # 20x worst case clock slew
     # C_LOAD = 4x the data pin's input capacitance from the prior ac_sweep, (fanout of 4)
     # C_LOAD = 4 * cell.liberty.group('pin', data_pin).attributes['capacitance'].value * settings.units.capacitance
@@ -75,25 +75,37 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
 
             yield (find_setup_hold_simple_for_variation, cell, cell_settings, charlib_settings, variation, path, state_maps, constants, variation_debug_path)
 
+def make_log_header(cell_name, ds, cs, path_str, constants):
+    """Return a metadata header block common to all log files."""
+    TOLERANCE, STEP, T_STABILZING, C_LOAD = constants
+    return [
+        f"Cell:      {cell_name}",
+        f"Variation: data_slew={ds}, clock_slew={cs}",
+        f"Path:      {path_str}",
+        f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}",
+        f"",
+    ]
 
-def write_step_log(debug_path, step_label, cell_name, ds, cs, path_str, state_str, description, result, phase1_candidates, phase2_candidates):
-    """Write a debug log for a find_min_valid step. No-ops if debug_path is None."""
+def write_log(debug_path, filename, lines):
+    """Write a list of lines to a log file. No-ops if debug_path is None."""
     if debug_path is None:
         return
     debug_path.mkdir(parents=True, exist_ok=True)
-    log = [
-        f"Cell: {cell_name}",
-        f"Variation: data_slew={ds}, clock_slew={cs}",
-        f"path_str: {path_str}",
-        f"state_str: {state_str}",
-        f"{description}",
-        f"\n{step_label} final result = {result}",
-        f"{step_label}_phase1_candidates = \n" + "\n".join(f"  [{i}] {c}" for i, c in enumerate(phase1_candidates)),
-        f"{step_label}_phase2_candidates = \n" + "\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}" for i, (lo, mid, hi) in enumerate(phase2_candidates)),
-    ]
-    with open(debug_path / f'{step_label}_log.txt', 'w') as f:
-        f.write('\n'.join(log))
+    with open(debug_path / filename, 'w') as f:
+        f.write('\n'.join(lines) + '\n')
 
+def write_step_log(debug_path, step_label, cell_name, ds, cs, path_str, state_str, constants, description, result, phase1_candidates, phase2_candidates):
+    """Write a debug log for a find_min_valid step. No-ops if debug_path is None."""
+    write_log(debug_path, f'{step_label}_log.txt',
+        make_log_header(cell_name, ds, cs, path_str, constants) + [
+            f"State:     {state_str}",
+            f"",
+            f"{description}",
+            f"{step_label} final result = {result}",
+            f"{step_label}_phase1_candidates = \n" + "\n".join(f"  [{i}] {c}" for i, c in enumerate(phase1_candidates)),
+            f"{step_label}_phase2_candidates = \n" + "\n".join(f"  [{i}] lo={lo}, mid={mid}, hi={hi}" for i, (lo, mid, hi) in enumerate(phase2_candidates)),
+        ]
+    )
 
 def find_setup_hold_simple_for_variation(cell, config, settings, variation, path, state_maps, constants, variation_debug_path=None):
     """Find setup and hold time using an approach from https://ieeexplore.ieee.org/document/4167994, which is exploits
@@ -114,6 +126,8 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     clock edge / change before the clock edge and the cell still latches).
     """
     TOLERANCE, STEP, T_STABILZING, C_LOAD = constants
+    t_unit = settings.units.time.prefixed_unit
+    to_t = lambda q: float(q.convert(t_unit).value)
 
     ds = variation['data_slew'] * settings.units.time
     cs = variation['clock_slew'] * settings.units.time
@@ -134,13 +148,25 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
             path_debug_folder = variation_debug_path / path_str
             state_debug_path = path_debug_folder / state_folder
 
-        # Measure reference c2q at (T_STABILZING, T_STABILZING) — guaranteed relaxed point.
+        # Step 0: measure reference c2q at (T_STABILZING, T_STABILZING) — guaranteed relaxed point.
         # Used to gate binary search steps 1–4: points with c2q > ref * 1.2 are treated
         # as invalid (metastable / degenerate operating region).
+        step0_path = (state_debug_path / 'step0') if settings.debug else None
         ref_c2q_steps = get_c2q(cell, config, settings, cs, ds,
                                  T_STABILZING, T_STABILZING,
-                                 C_LOAD, T_STABILZING, path, state_map, state_debug_path)
+                                 C_LOAD, T_STABILZING, path, state_map, step0_path)
         step_threshold = ref_c2q_steps * 1.2 if not math.isnan(ref_c2q_steps) else math.inf
+        ref_c2q_display = float((ref_c2q_steps @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isnan(ref_c2q_steps) else float('nan')
+        threshold_display = float((step_threshold @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isinf(step_threshold) else float('inf')
+        write_log(step0_path, 'step0_log.txt',
+            make_log_header(cell.name, ds, cs, path_str, constants) + [
+                f"State:     {state_str}",
+                f"",
+                f"step0 : measure ref c2q at setup=hold= {T_STABILZING}",
+                f"  ref c2q   = {ref_c2q_display:.4g} {t_unit.str_spice()}",
+                f"  threshold = {threshold_display:.4g} {t_unit.str_spice()} (ref c2q * 1.2)",
+            ]
+        )
 
         def _valid_c2q(c2q):
             """Return c2q if within threshold, else NaN (so find_min_valid treats it as invalid)."""
@@ -151,7 +177,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = utils.find_min_valid(
             lambda s: _valid_c2q(get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
-        write_step_log(step1_path, 'step1', cell.name, ds, cs, path_str, state_str,
+        write_step_log(step1_path, 'step1', cell.name, ds, cs, path_str, state_str, constants,
                         f"step1 : find setup given hold= {T_STABILZING}",
                         step1_setup_result, step1_phase1_candidates, step1_phase2_candidates)
 
@@ -160,7 +186,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = utils.find_min_valid(
             lambda h: _valid_c2q(get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
-        write_step_log(step2_path, 'step2', cell.name, ds, cs, path_str, state_str,
+        write_step_log(step2_path, 'step2', cell.name, ds, cs, path_str, state_str, constants,
                         f"step2 : find hold given setup= {step1_setup_result}",
                         step2_hold_result, step2_phase1_candidates, step2_phase2_candidates)
 
@@ -169,7 +195,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         step3_hold_result, step3_phase1_candidates, step3_phase2_candidates = utils.find_min_valid(
             lambda h: _valid_c2q(get_c2q(cell, config, settings, cs, ds, T_STABILZING, h, C_LOAD, T_STABILZING, path, state_map, step3_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
-        write_step_log(step3_path, 'step3', cell.name, ds, cs, path_str, state_str,
+        write_step_log(step3_path, 'step3', cell.name, ds, cs, path_str, state_str, constants,
                         f"step3 : find hold given setup= {T_STABILZING}",
                         step3_hold_result, step3_phase1_candidates, step3_phase2_candidates)
 
@@ -178,7 +204,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates = utils.find_min_valid(
             lambda s: _valid_c2q(get_c2q(cell, config, settings, cs, ds, s, step3_hold_result, C_LOAD, T_STABILZING, path, state_map, step4_path)),
             start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
-        write_step_log(step4_path, 'step4', cell.name, ds, cs, path_str, state_str,
+        write_step_log(step4_path, 'step4', cell.name, ds, cs, path_str, state_str, constants,
                         f"step4 : find setup given hold= {step3_hold_result}",
                         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates)
         
@@ -188,14 +214,19 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
                           step4_setup_result, step2_hold_result,
                           C_LOAD, T_STABILZING, path, state_map, step5_debug_path)
         c2q_threshold = ref_c2q * 1.2 if not math.isnan(ref_c2q) else math.inf
+
+        # latch_x : 2D numpy array, indexed by hold(first index) and setup(second index), stores a boolean that indicates whether such setup & hold combination meets requirement
+        # c2q_x : 2D numpy array, indexed by hold(first index) and setup(second index), stores a number that indicates the c2q time for such setup & hold combination
+        # simulated_a : 2D numpy array, indexed by hold(first index) and setup(second index), stores a boolean that indicates whether such setup & hold combination has been simulated 
         (latched_a, c2q_a, simulated_a,
          latched_b, c2q_b, simulated_b,
          setup_vals_s, hold_vals_s) = sweep_2d_space_for_contour(
-            cell, config, settings, cs, ds,
-            step1_setup_result, step2_hold_result,
-            step3_hold_result, step4_setup_result,
-            C_LOAD, T_STABILZING, path, state_map,
-            step5_debug_path, c2q_threshold,
+            lambda s, h: get_c2q(cell, config, settings, cs, ds,
+                                 s * settings.units.time, h * settings.units.time,
+                                 C_LOAD, T_STABILZING, path, state_map, step5_debug_path),
+            setup_min=to_t(step1_setup_result), setup_max=to_t(step4_setup_result),
+            hold_min=to_t(step3_hold_result),   hold_max=to_t(step2_hold_result),
+            c2q_threshold=c2q_threshold,
         )
 
         # output some data into the debug folder
@@ -214,7 +245,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
                         for si, s_s in enumerate(setup_vals_s)
                         if simulated_a[hi, si]]
             plots.plot_contour(settings, points_a, *_contour_args,
-                            filename='contour_sweep_a_setup_for_every_hold_value.png',
+                            filename='contour_sweep_a_hold_as_outer_loop.png',
                             title=_base_title + '\nSweep A: hold outer, setup inner')
 
             points_b = [(s_s, h_s, 'green' if latched_b[hi, si] else 'red')
@@ -222,14 +253,10 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
                         for si, s_s in enumerate(setup_vals_s)
                         if simulated_b[hi, si]]
             plots.plot_contour(settings, points_b, *_contour_args,
-                            filename='contour_sweep_b_hold_for_every_setup_value.png',
+                            filename='contour_sweep_b_setup_as_outer_loop.png',
                             title=_base_title + '\nSweep B: setup outer, hold inner')
 
         # Step 6: pick the balanced knee point from the merged contour.
-        # Convert chord anchor points to the same unit as setup_vals_s/hold_vals_s
-        # (boundary_pts is in settings.units.time units, not raw PySpice values).
-        t_unit = settings.units.time.prefixed_unit
-        to_t = lambda q: float(q.convert(t_unit).value)
         boundary_pts = extract_2d_contour(latched_a, latched_b, setup_vals_s, hold_vals_s)
         (knee_setup_s, knee_hold_s), knee_is_fallback = utils.find_knee_point(
             boundary_pts,
@@ -247,12 +274,12 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
         
         if settings.debug:
             plots.plot_contour(settings, points_merged, *_contour_args,
-                            filename='contour_merged.png',
-                            title=_base_title + '\nMerged contour',
-                            knee_point=knee_point,
-                            knee_is_fallback=knee_is_fallback)
+                               filename='contour.png',
+                               title=_base_title + '\n2D setup vs hold contour and knee search result',
+                               knee_point=knee_point,
+                               knee_is_fallback=knee_is_fallback)
 
-        # store results per state and per path for later analysis
+        # store a setup vs hold point per state
         result_per_state[state_str] = (setup, hold, knee_point)
 
     # find worst-case across all states for current path in current variation
@@ -269,29 +296,30 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
             worst_hold = hold
             worst_hold_state = state_str
 
+    # write path-level log
     if settings.debug:
-        TOLERANCE, STEP, T_STABILZING, C_LOAD = constants
-        t_unit = settings.units.time.prefixed_unit
-        variation_log = [
-            f"Cell: {cell.name}",
-            f"Variation: data_slew={ds}, clock_slew={cs}",
-            f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}",
-            f"",
-            f"path: {path_str}",
-            f"Worst-case setup = {worst_setup}  (from state: {worst_setup_state})",
-            f"Worst-case hold  = {worst_hold}  (from state: {worst_hold_state})",
-            f"",
-            f"Per-state results:",
-        ]
+        per_state_lines = []
         for state_str, (setup, hold, kp) in result_per_state.items():
             kp_str = f'({float(kp[0]):.4g} {t_unit.str_spice()}, {float(kp[1]):.4g} {t_unit.str_spice()})' if kp else 'fallback (no contour)'
-            variation_log.append(f'    state: {state_str}')
-            variation_log.append(f'        knee point = {kp_str}')
-            variation_log.append(f'        setup = {setup}')
-            variation_log.append(f'        hold  = {hold}')
-        variation_debug_path.mkdir(parents=True, exist_ok=True)
-        with open(variation_debug_path / f'variation_log.txt', 'a') as f:
-            f.write('\n'.join(variation_log) + '\n\n')
+            per_state_lines += [
+                f"    state: {state_str}",
+                f"        knee point = {kp_str}",
+                f"        setup = {setup}",
+                f"        hold  = {hold}",
+            ]
+        write_log(path_debug_folder, 'path_log.txt',
+            make_log_header(cell.name, ds, cs, path_str, constants) + [
+                f"States derived from this path:",
+            ] + [f"    {s}" for s in result_per_state] + [
+                f"",
+                f"Per-state results:",
+            ] + per_state_lines + [
+                f"",
+                f"Final selection (worst-case across states for current path):",
+                f"    setup = {worst_setup}  (from state: {worst_setup_state})",
+                f"    hold  = {worst_hold}  (from state: {worst_hold_state})",
+            ]
+        )
 
     # Build liberty output
     result = cell.liberty
@@ -331,39 +359,29 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     return result
 
 
-def sweep_2d_space_for_contour(cell, config, settings, cs, ds,
-                          step1_setup_result, step2_hold_result,
-                          step3_hold_result, step4_setup_result,
-                          C_LOAD, T_STABILZING, path, state_map,
-                          debug_path=None, c2q_threshold=math.inf):
+def sweep_2d_space_for_contour(probe_fn, setup_min, setup_max, hold_min, hold_max, c2q_threshold=math.inf):
     """Sweep every (setup, hold) combination inside the characterization boundary
     and record whether the flip-flop latches at each point.
 
-    Boundary corners (from the four binary-search steps):
-      setup axis : step1_setup_result (min) → step4_setup_result (max)
-      hold  axis : step3_hold_result  (min) → step2_hold_result  (max)
+    :param probe_fn: callable (setup_float, hold_float) -> c2q_float | NaN.
+                     setup and hold are in the caller's display time units.
+    :param setup_min: minimum setup value (display units), from step1 result.
+    :param setup_max: maximum setup value (display units), from step4 result.
+    :param hold_min:  minimum hold value  (display units), from step3 result.
+    :param hold_max:  maximum hold value  (display units), from step2 result.
+    :param c2q_threshold: c2q values above this are treated as failed latches.
 
     Returns
     -------
     latched_grid : np.ndarray[bool], shape (n_hold, n_setup)
-        True where get_c2q returned a valid delay below c2q_threshold.
+        True where probe_fn returned a valid delay below c2q_threshold.
     c2q_grid : np.ndarray[float], shape (n_hold, n_setup)
-        Raw c2q delay in seconds; NaN where the FF did not latch.
+        Raw c2q delay; NaN where the FF did not latch.
     setup_vals : np.ndarray[float]
-        Setup-time axis values in settings.units.time units.
+        Setup-time axis values in display time units.
     hold_vals : np.ndarray[float]
-        Hold-time axis values in settings.units.time units.
+        Hold-time axis values in display time units.
     """
-    t_unit = settings.units.time.prefixed_unit
-
-    def _to_unit(qty):
-        return float(qty.convert(t_unit).value)
-
-    setup_min = _to_unit(step1_setup_result)
-    setup_max = _to_unit(step4_setup_result)
-    hold_min  = _to_unit(step3_hold_result)
-    hold_max  = _to_unit(step2_hold_result)
-
     # Safety: ensure lo ≤ hi on both axes
     if setup_min > setup_max:
         setup_min, setup_max = setup_max, setup_min
@@ -382,9 +400,7 @@ def sweep_2d_space_for_contour(cell, config, settings, cs, ds,
         key = (si, hi)
         if key in _cache:
             return _cache[key], False  # (c2q, was_simulated)
-        c2q = get_c2q(cell, config, settings, cs, ds,
-                      float(s_s) * settings.units.time, float(h_s) * settings.units.time,
-                      C_LOAD, T_STABILZING, path, state_map, debug_path)
+        c2q = probe_fn(s_s, h_s)
         _cache[key] = c2q
         return c2q, True
 
@@ -450,8 +466,6 @@ def extract_2d_contour(latched_a, latched_b, setup_vals, hold_vals):
                 break
 
     return pts
-
-
 
 def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hold_skew, c_load, t_stabilizing, path, state_map, debug_path=None):
     """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
