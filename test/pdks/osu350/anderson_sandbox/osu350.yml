@@ -86,6 +86,8 @@ cells:
         clock_slews: [0.06, 0.3, 0.6] # related_pin
         data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin
         sequential_setup_hold_procedure:  sequential_setup_hold_simple
+        sequential_c_load:                0.24  # in units specified by settings.units.capacitive_load
+        sequential_n_sweep_samples:       40
     #    clock_slews: [0.06, 0.3, 0.6] # related_pin
     #    data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin
     #    setup_time_range: [0.1, 10]
