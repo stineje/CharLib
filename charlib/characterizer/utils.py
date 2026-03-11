@@ -136,7 +136,7 @@ def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
     return hi, phase1_candidates, phase2_candidates
 
 
-def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.2):
+def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.1):
     """Select a balanced (knee) setup/hold point from boundary samples.
 
     Algorithm:
