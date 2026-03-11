@@ -55,8 +55,9 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
     T_STABILZING = 20 * max(cell_settings.parameters['clock_slews']) * charlib_settings.units.time # 20x worst case clock slew
     # C_LOAD = 4x the data pin's input capacitance from the prior ac_sweep, (fanout of 4)
     # C_LOAD = 4 * cell.liberty.group('pin', data_pin).attributes['capacitance'].value * settings.units.capacitance
-    C_LOAD = 0.24 @ PySpice.Unit.u_pF # TODO: remove this line for actual characterization, default to 40 fF
-    constants = (TOLERANCE, STEP, T_STABILZING, C_LOAD)
+    C_LOAD = cell_settings.parameters['sequential_c_load'] * charlib_settings.units.capacitance
+    N_SWEEP_SAMPLES = cell_settings.parameters['sequential_n_sweep_samples']
+    constants = (TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES)
 
     for variation in cell_settings.variations('data_slews', 'clock_slews'):
 
@@ -77,12 +78,12 @@ def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
 
 def make_log_header(cell_name, ds, cs, path_str, constants):
     """Return a metadata header block common to all log files."""
-    TOLERANCE, STEP, T_STABILZING, C_LOAD = constants
+    TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES = constants
     return [
         f"Cell:      {cell_name}",
         f"Variation: data_slew={ds}, clock_slew={cs}",
         f"Path:      {path_str}",
-        f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}",
+        f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}, n_sweep_samples={N_SWEEP_SAMPLES}",
         f"",
     ]
 
@@ -125,7 +126,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     Note: both setup time and hold time may be negative (data can arrive after the
     clock edge / change before the clock edge and the cell still latches).
     """
-    TOLERANCE, STEP, T_STABILZING, C_LOAD = constants
+    TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES = constants
     t_unit = settings.units.time.prefixed_unit
     to_t = lambda q: float(q.convert(t_unit).value)
 
@@ -227,6 +228,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
             setup_min=to_t(step1_setup_result), setup_max=to_t(step4_setup_result),
             hold_min=to_t(step3_hold_result),   hold_max=to_t(step2_hold_result),
             c2q_threshold=c2q_threshold,
+            n_samples=N_SWEEP_SAMPLES,
         )
 
         # output some data into the debug folder
@@ -359,7 +361,7 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     return result
 
 
-def sweep_2d_space_for_contour(probe_fn, setup_min, setup_max, hold_min, hold_max, c2q_threshold=math.inf):
+def sweep_2d_space_for_contour(probe_fn, setup_min, setup_max, hold_min, hold_max, c2q_threshold=math.inf, n_samples=40):
     """Sweep every (setup, hold) combination inside the characterization boundary
     and record whether the flip-flop latches at each point.
 
@@ -388,8 +390,8 @@ def sweep_2d_space_for_contour(probe_fn, setup_min, setup_max, hold_min, hold_ma
     if hold_min > hold_max:
         hold_min, hold_max = hold_max, hold_min
 
-    setup_vals = np.linspace(setup_min, setup_max, 40)
-    hold_vals  = np.linspace(hold_min,  hold_max,  40)
+    setup_vals = np.linspace(setup_min, setup_max, n_samples)
+    hold_vals  = np.linspace(hold_min,  hold_max,  n_samples)
 
     n_setup = len(setup_vals)
     n_hold  = len(hold_vals)
