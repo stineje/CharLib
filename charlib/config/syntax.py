@@ -154,7 +154,7 @@ class ConfigFile:
                 description='The name of a procedure used to measure setup and hold time ' \
                             'constraints for a sequential cell. Overrides the library-wide ' \
                             'setting in ``settings.simulation.sequential_setup_hold_procedure``.'
-            ), default='sequential_setup_hold_simple'
+            ), default='sequential_setup_hold'
         ) : str,
         Optional(
             Literal(
@@ -230,7 +230,7 @@ class ConfigFile:
                     'sequential_setup_hold_procedure',
                     description='The name of a procedure used to measure setup and hold time ' \
                                 'constraints for a sequential cell.' # TODO: Refer to docs for procedures
-                ), default='sequential_setup_hold_simple'
+                ), default='sequential_setup_hold'
             ) : str
         },
 

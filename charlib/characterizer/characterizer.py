@@ -188,7 +188,7 @@ class SimulationSettings:
         self.input_capacitance = registered_procedures[kwargs.get('input_capacitance_procedure', 'ac_sweep')]
         self.combinational_delay = registered_procedures[kwargs.get('combinational_delay_procedure', 'combinational_worst_case')]
         self.metastability_delay = registered_procedures[kwargs.get('metastability_delay_procedure', 'metastability_binary_search_worst_case')]
-        self.sequential_setup_hold = registered_procedures[kwargs.get('sequential_setup_hold_procedure', 'sequential_setup_hold_simple')]
+        self.sequential_setup_hold = registered_procedures[kwargs.get('sequential_setup_hold_procedure', 'sequential_setup_hold')]
         # self.sequential_delay = registered_procedures[kwargs.get('sequential_delay_procedure', 'sequential_delay')]
         # self.sequential_min_pulse_width = registered_procedures[kwargs.get('sequential_min_pulse_width', 'sequential_min_pulse_width')]
 

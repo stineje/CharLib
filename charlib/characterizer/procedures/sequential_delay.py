@@ -47,7 +47,7 @@ def sequential_min_pulse_width(cell_settings, charlib_settings, data_pin, trigge
     pass # TODO
 
 @register
-def sequential_setup_hold_simple(cell, cell_settings, charlib_settings):
+def sequential_setup_hold(cell, cell_settings, charlib_settings):
     """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
 
     TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
