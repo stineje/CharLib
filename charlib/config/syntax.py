@@ -60,10 +60,12 @@ class ConfigFile:
             description='A list of input pin slew rates to characterize. Unit is specified by ' \
                         '``settings.units.time``.'
         ) : [Or(float, int)],
-        Literal(
-            'loads',
-            description='A list of output capacitive loads to characterize. Unit is specified ' \
-                        'by ``settings.units.capacitive_load``.'
+        Optional(
+            Literal(
+                'loads',
+                description='A list of output capacitive loads to characterize. Unit is specified ' \
+                            'by ``settings.units.capacitive_load``.'
+            )
         ) : [Or(float, int)],
         Optional(
             Literal(
@@ -105,6 +107,13 @@ class ConfigFile:
         ) : Regex('^(posedge|negedge|not|!|())[ ]*[a-zA-Z0-9_]+'),
         Optional(
             Literal(
+                'flops',
+                description='A list of internal node names used as state storage elements in a ' \
+                            'sequential cell (e.g. internal latch nodes).'
+            )
+        ) : [str],
+        Optional(
+            Literal(
                 'state',
                 description='A list of feedback paths which encode state in a sequential cell. ' \
                             'Paths should be specified as ``<internal node> = <output pin>``.'
@@ -139,6 +148,30 @@ class ConfigFile:
                             '``settings.units.time``.'
             )
         ) : [Or(float, int)],
+        Optional(
+            Literal(
+                'sequential_setup_hold_procedure',
+                description='The name of a procedure used to measure setup and hold time ' \
+                            'constraints for a sequential cell. Overrides the library-wide ' \
+                            'setting in ``settings.simulation.sequential_setup_hold_procedure``.'
+            ), default='sequential_setup_hold'
+        ) : str,
+        Optional(
+            Literal(
+                'sequential_c_load',
+                description='Capacitive load applied to the output during sequential ' \
+                            'characterization. Unit is specified by ``settings.units.capacitive_load``. ' \
+                            'Defaults to 0.1.'
+            ), default=0.1
+        ) : Or(float, int),
+        Optional(
+            Literal(
+                'sequential_n_sweep_samples',
+                description='Number of samples per axis in the 2D setup/hold contour sweep ' \
+                            'for sequential cell characterization. Higher values give finer ' \
+                            'resolution at the cost of more simulations. Defaults to 40.'
+            ), default=40
+        ) : int,
         Optional(
             Literal(
                 'plots',
@@ -191,6 +224,13 @@ class ConfigFile:
                     description='The name of a procedure used to measure delays associated with ' \
                                 'a combinational cell.' # TODO: Refer to docs for procedures
                 ), default='combinational_worst_case'
+            ) : str,
+            Optional(
+                Literal(
+                    'sequential_setup_hold_procedure',
+                    description='The name of a procedure used to measure setup and hold time ' \
+                                'constraints for a sequential cell.' # TODO: Refer to docs for procedures
+                ), default='sequential_setup_hold'
             ) : str
         },
 

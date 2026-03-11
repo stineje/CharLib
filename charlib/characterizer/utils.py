@@ -1,8 +1,9 @@
 """Tools for building test circuits"""
 
+import csv
+import math
+
 import PySpice
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import numpy as np
 
 
@@ -89,56 +90,168 @@ def init_circuit(title, cell_netlist, models, supplies, units):
             circuit.V(supply.subscript, supply.name, circuit.gnd, supply.voltage*units.voltage)
     return circuit
 
-def plot_io_voltages(analyses, input_signals, output_signals, legend_labels,
-                     indicate_voltages=[], indicate_times=[], fig_label='', title='I/O Voltages'):
-    """Plot input and output voltages from simulation results.
+def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
+    """Find the minimum x such that probe_fn(x) is not NaN.
+    When flipflop fails to latch the correct value, get_c2q returns NaN.
 
-    Given a list of analysis objects and signals to plot, construct a series of plots showing the
-    voltage signals over time. Indicate key voltage and time values if desired.
+    Setup and hold times may be negative, so start must be a guaranteed-valid point
+    (large enough that the cell always latches). The search expands downward from
+    start to bracket the threshold, then binary searches upward to the minimum.
 
-    :param analyses: A list of analysis results from simulation.
-    :param input_signals: A list of signal names in the analyses which should be displayed in the
-                          upper half of the plot.
-    :param output_signals: A list of signal names in the analyses which should be displayed in the
-                           lower half of the plot.
-    :param legend_labels: Labels corresponding to each analysis. results
-    :param indicate_voltages: Key voltage values to be indicated as horizontal lines on each ax.
-    :param indicate_times: Key time values to be indicated as vertical lines on each ax.
+    :param probe_fn:  A callable (float) -> float | NaN.
+    :param start:     A guaranteed-valid starting point (probe_fn(start) is not NaN).
+    :param step:      Initial step size for downward expansion.
+    :param tolerance: Convergence threshold; binary search stops when hi-lo < tolerance.
+    :param max_exp:   Maximum number of exponential expansions before giving up.
+    :returns:         Minimum valid x, or float('nan') if no invalid region is found below start.
     """
-    signals = input_signals + output_signals
-    ratios = [1]*len(input_signals) + [len(input_signals)]*len(output_signals)
-    figure, axs = plt.subplots(nrows=len(signals), sharex=True, height_ratios=ratios,
-                               label=fig_label)
-    for ax, signal in zip(axs, signals):
-        for voltage in indicate_voltages:
-            ax.axhline(voltage, color='0.5', linestyle=':')
-        for time in indicate_times:
-            ax.axvline(time, color='r', linestyle='--')
-        ax.set_ylabel('v' + signal)
-        for analysis, label in zip(analyses, legend_labels):
-            t = analysis.time # TODO: Figure out how to get time unit from this
-            ax.plot(t, analysis['v' + signal], label=label)
-    axs[0].set_title(title)
-    axs[-1].set_xlabel('Time')
-    axs[-1].legend()
-    return figure
+    phase1_candidates = []
+    phase2_candidates = []
 
-def plot_delay_surfaces(lut_groups, fig_label='', title='Cell Delays'):
-    """Plot delay surfaces from a series of liberty.LookupTable groups.
+    # Phase 1 — expand downward from start to find a lower bound (first failed latch)
+    hi = start
+    lo = None
+    for exp in range(max_exp):
+        candidate = start - step * (2 ** exp)
+        phase1_candidates.append(candidate)
+        result = probe_fn(candidate)
+        if math.isnan(result):
+            lo = candidate
+            break
+        hi = candidate
 
-    Given a list of 2D LUTs which share common index variables, plot each as a 3D surface.
+    if lo is None:
+        return hi, phase1_candidates, phase2_candidates
 
-    :param lut_groups: A list of liberty.LookupTable groups containing delay data.
+    # Phase 2 — binary search between lo (NaN) and hi (valid)
+    while (hi - lo) > tolerance:
+        mid = (lo + hi) / 2
+        phase2_candidates.append((lo, mid, hi))
+        if math.isnan(probe_fn(mid)):
+            lo = mid
+        else:
+            hi = mid
+
+    # return hi because hi is always simulated and deemed valid
+    return hi, phase1_candidates, phase2_candidates
+
+
+def find_knee_point(boundary_points, chord_p0, chord_p1, arc_threshold=0.1):
+    """Select a balanced (knee) setup/hold point from boundary samples.
+
+    Algorithm:
+      1. Normalize setup and hold axes to [0, 1] (min-max), anchored to chord_p0/p1.
+      2. The reference chord is the line from chord_p0 (min setup, max hold) to
+         chord_p1 (max setup, min hold) — the step1/step2 and step4/step3 results.
+      3. Compute signed perpendicular distance to the chord (positive = concave side,
+         i.e. bowing toward the origin, which is the only meaningful knee direction).
+      4. If no points lie on the concave side, the boundary is linear or convex —
+         fall back to the point closest to the chord midpoint in normalized space.
+      5. If the maximum concave distance / chord_len < arc_threshold the arch is too
+         shallow — fall back to the point closest to the chord midpoint.
+      6. Otherwise knee = point with maximum concave perpendicular distance.
+         Tie-break among near-tied candidates (within 5 % of max distance) by
+         choosing the one closest to the chord midpoint in normalized space.
+
+    Parameters
+    ----------
+    boundary_points : list of (setup_float, hold_float)
+    chord_p0        : (setup_float, hold_float) — min-setup / max-hold anchor (step1/step2)
+    chord_p1        : (setup_float, hold_float) — max-setup / min-hold anchor (step4/step3)
+    arc_threshold   : dimensionless ratio; minimum (perpendicular deviation / chord length)
+                      required to treat the boundary as curved. 0.2 means the peak
+                      concave deviation must exceed 20 % of the chord length.
+
+    Returns
+    -------
+    (setup_float, hold_float) in the same units as the input.
     """
-    figure, ax = plt.subplots(label=fig_label, subplot_kw={'projection': '3d'})
-    ax.set(
-        xlabel=list(lut_groups[0].template.variables.keys())[0],
-        ylabel=list(lut_groups[0].template.variables.keys())[1],
-        zlabel='Delay',
-        title=title
-    )
-    indices = np.meshgrid(*(lut_groups[0].index_values), indexing='ij')
-    for lut, color in zip(lut_groups, list(mcolors.TABLEAU_COLORS)[:len(lut_groups)]):
-        ax.plot_wireframe(*indices, lut.values, label=lut.name, color=color)
-    figure.legend(loc='center left')
-    return figure
+    if not boundary_points:
+        raise ValueError("boundary_points is empty")
+    if len(boundary_points) == 1:
+        return boundary_points[0], True
+
+    pts = np.array(boundary_points, dtype=float)   # (N, 2)
+
+    # Normalize axes to [0, 1] using chord endpoints as bounds.
+    # chord_p0 = (min_setup, max_hold), chord_p1 = (max_setup, min_hold)
+    chord_p0 = np.array(chord_p0, dtype=float)
+    chord_p1 = np.array(chord_p1, dtype=float)
+    s_min, s_max = chord_p0[0], chord_p1[0]
+    h_min, h_max = chord_p1[1], chord_p0[1]
+    s_range = s_max - s_min if s_max != s_min else 1.0
+    h_range = h_max - h_min if h_max != h_min else 1.0
+
+    norm = np.column_stack([
+        (pts[:, 0] - s_min) / s_range,
+        (pts[:, 1] - h_min) / h_range,
+    ])
+
+    p0 = np.array([(chord_p0[0] - s_min) / s_range, (chord_p0[1] - h_min) / h_range])
+    p1 = np.array([(chord_p1[0] - s_min) / s_range, (chord_p1[1] - h_min) / h_range])
+    chord     = p1 - p0
+    chord_len = np.linalg.norm(chord)
+
+    if chord_len < 1e-12:
+        return tuple(pts[len(pts) // 2]), True
+
+    # Signed perpendicular distance (positive = concave side, bowing toward origin).
+    # Walking from p0 (min setup) to p1 (max setup), the concave/knee side is the
+    # region where hold is lower than the chord predicts (points closer to origin).
+    vecs_from_p0  = norm - p0  # vector from p0 to each boundary point
+    # cross product: |vecs_from_p0| * |chord| * sin(θ), divided by chord_len gives |vecs_from_p0| * sin(θ) = perpendicular distance from each point to the chord line
+    # sign: positive = concave side (below chord, toward origin), negative = convex side
+    signed_dists  = (vecs_from_p0[:, 0] * chord[1] - vecs_from_p0[:, 1] * chord[0]) / chord_len
+
+    # Projection of each point along the chord direction (0 = p0, chord_len = p1).
+    # this is for the fallback if either max arc is too shallow or no points are on the convex side
+    chord_unit   = chord / chord_len
+    projections  = vecs_from_p0 @ chord_unit  # scalar projection of each point along the chord direction
+
+    concave_mask     = signed_dists > 0
+    max_concave_dist = signed_dists[concave_mask].max() if np.any(concave_mask) else 0.0
+    # Fall back to midpoint if no concave points or arch is too shallow relative to chord length.
+    # Find the boundary point whose along-chord projection is closest to the chord midpoint.
+    if max_concave_dist / chord_len < arc_threshold:
+        best = int(np.argmin(np.abs(projections - chord_len / 2)))
+        return tuple(pts[best]), True # (point, is_fallback)
+
+    # Significant concave arch: knee = max concave distance point.
+    # Tie-break among near-tied candidates (within 5 % of max) by along-chord projection.
+    candidates_mask = concave_mask & (signed_dists >= (max_concave_dist * 0.95))
+    candidate_projs = projections[candidates_mask]
+    candidates_pts  = pts[candidates_mask]
+    best = int(np.argmin(np.abs(candidate_projs - chord_len / 2)))
+    return tuple(candidates_pts[best]), False # (point, is_fallback)
+
+
+def write_c2q_csv(debug_path, settings, c2q_a, c2q_b, setup_vals_s, hold_vals_s,
+                  t_stabilizing, ref_c2q_steps, c2q_threshold):
+    """Write the c2q sweep results to a CSV file for debugging
+
+    The first data row is a reference point at (t_stabilizing, t_stabilizing) showing
+    ref_c2q_steps and the c2q_threshold used for step-5 validity gating. Subsequent rows
+    are the actual sweep points, each annotated with a 'valid' flag.
+    """
+    t_unit = settings.units.time.prefixed_unit
+    c2q_merged = np.where(~np.isnan(c2q_a), c2q_a, c2q_b)
+
+    debug_path.mkdir(parents=True, exist_ok=True)
+    with open(debug_path / 'c2q_merged.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([f'setup_{t_unit.str_spice()}', f'hold_{t_unit.str_spice()}',
+                         f'c2q_{t_unit.str_spice()}', 'valid', f'c2q_threshold_{t_unit.str_spice()}'])
+        # Reference row: c2q at (t_stabilizing, t_stabilizing) and the degradation threshold
+        t_stab_display = float(t_stabilizing.convert(t_unit).value)
+        ref_display = float((ref_c2q_steps @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isnan(ref_c2q_steps) else float('nan')
+        thr_display = float((c2q_threshold @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isinf(c2q_threshold) else float('inf')
+        writer.writerow([f'{t_stab_display:.6g}', f'{t_stab_display:.6g}',
+                         f'{ref_display:.6g}', True, f'{thr_display:.6g}'])
+        for hi, h_s in enumerate(hold_vals_s):
+            for si, s_s in enumerate(setup_vals_s):
+                val = c2q_merged[hi, si]
+                if math.isnan(val):
+                    writer.writerow([f'{s_s:.6g}', f'{h_s:.6g}', 'nan', False, ''])
+                else:
+                    c2q_display = float((val @ PySpice.Unit.u_s).convert(t_unit).value)
+                    writer.writerow([f'{s_s:.6g}', f'{h_s:.6g}', f'{c2q_display:.6g}', val < c2q_threshold, ''])
