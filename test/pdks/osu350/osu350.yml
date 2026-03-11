@@ -85,6 +85,8 @@ cells:
           functions:  [Q<=D]
           clock_slews: [0.06, 0.3, 0.6] # related_pin
           data_slews:  [0.06, 0.18, 0.42, 0.6, 1.2] # constraint_pin
+          sequential_c_load:                0.24  # in units specified by settings.units.capacitive_load
+          sequential_n_sweep_samples:       40
     # DFFSR:
     #     netlist:    osu350_spice_temp/DFFSR.sp
     #     area:       704
