@@ -11,43 +11,54 @@ from charlib.liberty import liberty
 class Cell:
     """A standard cell and its functional details"""
 
-    def __init__(self, name: str, netlist: str|Path, functions: list, state_aliases: list=[],
-                 diff_pairs: list=[], input_pins: list=[], output_pins: list=[],
-                 special_pins: dict={}, area: float=0.0):
-        """Construct a new cell, detecting ports from netlist & functions
-
-        Cells must provide at least a name, netlist, and a complete listing of pins. Pin names
-        included in functions will be inferred as outputs if on the LHS, or inputs if on the RHS.
+    def __init__(self, name: str, supply_nodes: dict,  **cell_config):
+        """Construct a new cell from the given configuration
 
         :param name: The cell name as it appears in the spice netlist.
-        :param netlist: Path to the cell spice netlist.
-        :param functions: A list of functions this cell implements as verilog-syntax Boolean
-                          expressions.
-        :param state_aliases: A list of 'alias=output' statements describing feedback paths within
-                              the cell. These are used to explicitly identify recurrence
-                              relations within the cell's function, usually encoding cell state.
-        :param diff_pairs: A list of 'A B' pairs of pin names which make up differential pairs.
-        :param input_pins: A lists of input pin names used to validate pins parsed from netlist
-                           (if included).
-        :param output_pins: A list of output pin names used to validate pins parsed from netlist
-                            (if included).
-        :param special_pins: A dict of pin names with special (i.e. non-logic) roles.
+        :param named_nodes: Supply node name: role maps from the library configuration.
+        :param cell_config: The dict of properties provided in the configuration YAML.
+
+        The cell initialization process is as follows:
+        1. Process cell_config to get the following information about the cell:
+            - The path to the cell's netlist.
+            - Functions implemented in this cell (and optionally input and output pin names).
+            - Which pins have special roles or are members of differential pairs.
+            - The names of any internal state elements / feedback paths..
+            - Cell metadata that belongs in the liberty file (such as area)
+        2. Locate the cell netlist and read the .subckt line.
+        3. For each pin in the netlist:
+            a. Determine pin direction from the function list.
+            b. Determine pin role and trigger type from special pins (default: logic/level-sensing)
+            c. Determine how to construct the pin and bind it to the cell.
+                - If the pin is a member of a differential pair, construct with DifferentialPair.
+                - Otherwise, construct with Pin.
+        4. For each output pin, construct the corresponding Function and bind it to the cell.
+        5. Construct a skeleton liberty object for this cell.
         """
         self.name = name
-        self.liberty = liberty.Group('cell', name)
-        self.liberty.add_attribute('area', area, 2)
+        self.pins = list()
+        self.diff_pairs = list()
+        self.functions = dict()
 
-        # Validate & bind netlist as an existing filepath
+        # 1. Process cell_config
+        netlist = cell_config['netlist']
         if isinstance(netlist, (str, Path)):
             if not Path(netlist).is_file():
                 raise ValueError(f'Invalid value for netlist: "{netlist}" is not a file')
             self.netlist = Path(netlist)
         else:
             raise TypeError(f'Invalid type for netlist: {type(netlist)}')
+        special_pins = supply_nodes
+        for role in ['clock', 'set', 'reset', 'enable']:
+            if role in cell_config:
+                match cell_config[role].replace('!', 'not ').split():
+                    case [trigger, pin]:
+                        special_pins[pin.upper()] = f'{trigger} {role}'
+                    case [pin]:
+                        special_pins[pin.upper()] = role
 
         # Validate functions, convert to Function, and bind to this object
-        self.functions = dict()
-        for function in list(functions):
+        for function in list(cell_config['functions']):
             # TODO: Add special handling for decap, filler, tap cells
             output, expr = function.split('=')
             output = ''.join([c for c in output if c.isalnum()])
@@ -57,11 +68,9 @@ class Cell:
             self.functions[output] = Function(expr)
 
         # Use netlist .subckt line and function operands to validate and bind ports
-        self.pins = list()
-        self.diff_pairs = list()
         function_outputs = set(self.functions.keys())
         function_inputs = set.union(*[set(function.operands) for function in self.functions.values()])
-        diff_pairs = [tuple(pair.split()) for pair in diff_pairs]
+        diff_pairs = [tuple(pair.split()) for pair in cell_config.get('pairs', [])]
         unassigned_ports = self.subckt().split()[2:]
         while unassigned_ports:
             port = unassigned_ports.pop(0)
@@ -92,7 +101,7 @@ class Cell:
                 unassigned_ports.remove(pair[pair.index(port)-1]) # Don't add the other port twice
 
         # If we have feedback paths, convert corresponding functions
-        self.state_aliases = {k.strip(): a.strip() for a, k in [s.split('=') for s in state_aliases]}
+        self.state_aliases = {k.strip(): a.strip() for a, k in [s.split('=') for s in cell_config.get('state', [])]}
         for output, state_name in self.state_aliases.items():
             try:
                 self.functions[output] = StateFunction(self.functions[output], state_name,
@@ -102,16 +111,18 @@ class Cell:
                 raise KeyError(f'Cell {self.name} has no port {output}') from e
 
         # Validate pin names (if given)
-        if input_pins:
-            if not all([input_pin in self.inputs for input_pin in input_pins]):
-                raise ValueError(f'Failed to validate input pins! Expected {input_pins}, found' \
-                                 f'{self.inputs}')
-        if output_pins:
-            if not all([output_pin in self.outputs for output_pin in output_pins]):
-                raise ValueError(f'Failed to validate output pins! Expected {output_pins}, found' \
-                                 f'{self.outputs}')
+        # if input_pins:
+        #     if not all([input_pin in self.inputs for input_pin in input_pins]):
+        #         raise ValueError(f'Failed to validate input pins! Expected {input_pins}, found' \
+        #                          f'{self.inputs}')
+        # if output_pins:
+        #     if not all([output_pin in self.outputs for output_pin in output_pins]):
+        #         raise ValueError(f'Failed to validate output pins! Expected {output_pins}, found' \
+        #                          f'{self.outputs}')
 
         # Add ports to liberty data
+        self.liberty = liberty.Group('cell', name)
+        self.liberty.add_attribute('area', cell_config.get('area', 0.0), 2)
         for port in self.ports:
             if port.name in self.pg_pins:
                 pin_group = liberty.Group('pg_pin', port.name)
@@ -125,6 +136,7 @@ class Cell:
                 elif port.role == Port.Role.CLOCK:
                     pin_group.add_attribute('clock', "true")
             self.liberty.add_group(pin_group)
+
 
     def subckt(self) -> str:
         """Return the subckt line from the spice file"""
@@ -283,6 +295,7 @@ class CellTestConfig:
             :param loads: A list of output load capacitances to test, specified in
                           settings.units.capacitance units
         """
+        supported_parameters = ['data_slews', 'clock_slews', 'loads']
         self.models = list()
         for model in models:
             # Split to path and (optional) section, then validate both
@@ -298,7 +311,7 @@ class CellTestConfig:
 
         self.timestep = timestep
         self.plots = plots
-        self.parameters = parameters
+        self.parameters = {k: parameters[k] for k in supported_parameters if k in parameters}
 
     def variations(self, *keys):
         """Generator for test configuration variations

@@ -27,30 +27,17 @@ class Characterizer:
 
     def add_cell(self, name: str, properties: dict):
         """Add a cell to be characterized"""
-        # Get pg_pins from library config, then handle other special pins
-        special_pins = {self.settings.primary_power.name: 'primary_power',
-                        self.settings.primary_ground.name: 'primary_ground',
-                        self.settings.pwell.name: 'pwell',
-                        self.settings.nwell.name: 'nwell'}
-        for role in ['clock', 'set', 'reset', 'enable']:
-            match properties.pop(role, '').replace('!', 'not ').split():
-                case [edge_or_level, pin]:
-                    special_pins[pin.upper()] = f'{edge_or_level} {role}'
-                case [pin]:
-                    special_pins[pin.upper()] = role
+        # Get pg_pins from library settings, then construct the cell
+        supply_pins = {self.settings.primary_power.name: 'primary_power',
+                       self.settings.primary_ground.name: 'primary_ground',
+                       self.settings.pwell.name: 'pwell',
+                       self.settings.nwell.name: 'nwell'}
+        cell = Cell(name, supply_pins, **properties)
 
         # Handle keywords for plots
-        plots = properties.pop('plots', [])
-        if plots == 'all':
-            plots = ['delay', 'io']
-
-        # Construct the cell. All remaining properties go into config
-        cell = Cell(name, properties.pop('netlist'), properties.pop('functions'),
-                    special_pins=special_pins, state_aliases=properties.pop('state', []),
-                    diff_pairs=properties.pop('pairs', []),
-                    input_pins=properties.pop('inputs', []),
-                    output_pins=properties.pop('outputs', []), area=properties.pop('area', 0.0))
-        config = CellTestConfig(properties.pop('models'), plots=plots, **properties)
+        if properties.get('plots', []) == 'all':
+            properties['plots'] = ['delay', 'io']
+        config = CellTestConfig(properties.pop('models'), **properties)
         self.cells.append((cell, config))
 
     def analyse_cell(self, cell, config) -> list:
