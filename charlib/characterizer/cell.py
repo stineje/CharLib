@@ -118,8 +118,13 @@ class Cell:
                 raise ValueError(f'Expected outputs {cell_config["outputs"]}, found {self.outputs}')
 
         ## 3. Construct functions based on port types & feedback paths
-        self.functions = {output: Function(expr) for output, expr in functions.items()}
-        # TODO: handle state mappings / feedback paths
+        for output, expression in functions.items():
+            is_inverting = output in [pair.inverting_port_name for pair in diff_pairs]
+            state_map = {v: k for k, v in cell_config.get('state', {}).items()}
+            state = state_map.get(output, None)
+            # TODO: Pass only ports which are related to this function
+            # TODO: Handle multiple clocks, etc.
+            self.functions[output] = Function(expression, is_inverting, *self.ports, state=state)
 
         ## 4. Add as much liberty data as we can right now
         self.liberty = liberty.Group('cell', name)

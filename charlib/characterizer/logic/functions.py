@@ -8,10 +8,20 @@ class Function:
     OUT = '__output' # key for function outputs in test vectors and truth tables
 
     """Provides function evaluation and mapping faculties"""
-    def __init__(self, expression: str, test_vectors: list=[]) -> None:
-        """Initialize a new Function"""
+    def __init__(self, expression: str, inverting_output, *ports, state=None) -> None:
+        """Initialize a new Function
+
+        :param expression: The verilog-style boolean expression
+        :param inverting_output: Whether this output is the inverting member of a differential
+                                 pair. Special pins, such as set and reset, are handled differently
+                                 if this is asserted.
+        :param ports: Input Port objects relevant to this function.
+        :param state: (optional) The name of the internal state element related to this function.
+        """
         self.expression = expression.replace('!','~').upper()
-        self.stored_test_vectors = test_vectors
+        self.stored_test_vectors = []
+        self.state = state
+        # TODO: Handle Port triggers/roles
 
     @property
     def pythonic_expression(self) -> str:
