@@ -63,7 +63,7 @@ class Characterizer:
         # Identify which delay sims to run based on cell & config
         if cell.is_sequential:
             # IN PROGRESS: Find setup & hold constraints (clock-to-q, en-to-q)
-            simulations += self.settings.simulation.sequential_setup_hold(cell, config, self.settings)
+            simulations += self.settings.simulation.measure_setup_hold_from_contour(cell, config, self.settings)
             # TODO: Find minimum pulse width constraints (set, reset, enable, clock)
             # TODO: Find recovery & removal constraints (clk/en-to-set, clk/en-to-reset)
             # TODO: Measure preset & clear delays (set-to-q, reset-to-q)
@@ -188,7 +188,7 @@ class SimulationSettings:
         self.input_capacitance = registered_procedures[kwargs.get('input_capacitance_procedure', 'ac_sweep')]
         self.combinational_delay = registered_procedures[kwargs.get('combinational_delay_procedure', 'combinational_worst_case')]
         self.metastability_delay = registered_procedures[kwargs.get('metastability_delay_procedure', 'metastability_binary_search_worst_case')]
-        self.sequential_setup_hold = registered_procedures[kwargs.get('sequential_setup_hold_procedure', 'sequential_setup_hold')]
+        self.measure_setup_hold_from_contour = registered_procedures['measure_setup_hold_from_contour']
         # self.sequential_delay = registered_procedures[kwargs.get('sequential_delay_procedure', 'sequential_delay')]
         # self.sequential_min_pulse_width = registered_procedures[kwargs.get('sequential_min_pulse_width', 'sequential_min_pulse_width')]
 

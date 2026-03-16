@@ -19,8 +19,6 @@ class SequentialHarness (Harness):
         if test_manager.set:
             self.set = PinTestBinding(test_manager.set, pin_state_map[test_manager.set.name])
             pin_state_map[test_manager.set.name] = 'ignore'
-        # TODO: handle flop internal states
-        self.flops = []
         super().__init__(test_manager, pin_state_map)
 
     def short_str(self):
@@ -68,7 +66,7 @@ class SequentialHarness (Harness):
                     return f'{mode}_rising'
             else:
                 return None
-        elif not self.target_in_port.pin.name in [*self.flops]:
+        else:
             # We're targeting an input port
             if mode == 'clock':
                 if self.clock.state == '0101':
