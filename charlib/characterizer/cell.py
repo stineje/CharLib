@@ -252,8 +252,9 @@ class Cell:
             else:
                 input_match = (pin_val == input_transition[-1])
 
+            # replace output port name with 
             if input_match and tv[Function.OUT] == output_transition:
-                result = {**tv}
+                result = dict(tv)
                 result[output_port] = result.pop(Function.OUT)
                 yield result
 

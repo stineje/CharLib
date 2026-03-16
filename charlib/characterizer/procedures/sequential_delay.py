@@ -28,14 +28,6 @@ def measure_removal_constraint(cell_settings, charlib_settings, control_pin, tri
     pass # TODO
 
 @register
-def sequential_delay(cell_settings, charlib_settings, data_pin, trigger_pin, state_pin):
-    """Measure the delay between trigger activation and state change.
-
-    For clock-edge-triggered devices, this is commonly called the clock-to-Q or C2Q delay. This
-    value depends on the transition time of both the data pin and the trigger pin."""
-    pass # TODO
-
-@register
 def sequential_min_pulse_width(cell_settings, charlib_settings, data_pin, trigger_pin, state_pin):
     """Find the minimum pulse width required for the trigger to activate the device.
 
@@ -47,26 +39,10 @@ def sequential_min_pulse_width(cell_settings, charlib_settings, data_pin, trigge
     pass # TODO
 
 @register
-def sequential_setup_hold(cell, cell_settings, charlib_settings):
+def measure_setup_hold_from_contour(cell, cell_settings, charlib_settings):
     """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
 
-    TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
-    STEP = 5 @ PySpice.Unit.u_ps # 5 ps initial bound-finding step for binary search
-    T_STABILZING = 20 * max(cell_settings.parameters['clock_slews']) * charlib_settings.units.time # 20x worst case clock slew
-    # C_LOAD = 4x the data pin's input capacitance from the prior ac_sweep, (fanout of 4)
-    # C_LOAD = 4 * cell.liberty.group('pin', data_pin).attributes['capacitance'].value * settings.units.capacitance
-    C_LOAD = cell_settings.parameters['sequential_c_load'] * charlib_settings.units.capacitance
-    N_SWEEP_SAMPLES = cell_settings.parameters['sequential_n_sweep_samples']
-    constants = (TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES)
-
     for variation in cell_settings.variations('data_slews', 'clock_slews'):
-
-        # write logs and results per-variantion
-        ds = variation['data_slew'] * charlib_settings.units.time
-        cs = variation['clock_slew'] * charlib_settings.units.time
-        variation_debug_path = charlib_settings.debug_dir / cell.name / __name__.split('.')[-1] / f'variation_data_slew_{str(ds).replace(' ', '')}_clock_slew_{str(cs).replace(' ', '')}'
-        variation_debug_path.mkdir(parents=True, exist_ok=True)
-
         for path in cell.paths():
             # cell.nonmasking_conditions_for_path filter out the impossible paths
             # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
@@ -74,7 +50,7 @@ def sequential_setup_hold(cell, cell_settings, charlib_settings):
             if state_maps == []:
                 continue
 
-            yield (find_setup_hold_simple_for_variation, cell, cell_settings, charlib_settings, variation, path, state_maps, constants, variation_debug_path)
+            yield (find_setup_hold_for_path, cell, cell_settings, charlib_settings, variation, path, state_maps)
 
 def make_log_header(cell_name, ds, cs, path_str, constants):
     """Return a metadata header block common to all log files."""
@@ -108,9 +84,9 @@ def write_step_log(debug_path, step_label, cell_name, ds, cs, path_str, state_st
         ]
     )
 
-def find_setup_hold_simple_for_variation(cell, config, settings, variation, path, state_maps, constants, variation_debug_path=None):
+def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps):
     """Find setup and hold time using an approach from https://ieeexplore.ieee.org/document/4167994, which is exploits
-    the interdependence between setup time, hold time. 
+    the interdependence between setup time, hold time.
 
     For each (data_slew × clock_slew) variation, the algorithm runs as follows:
       1. Find setup time with hold held at 'infinite'. Binary search finds absolute minimum setup where FF latches at all.
@@ -126,12 +102,20 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
     Note: both setup time and hold time may be negative (data can arrive after the
     clock edge / change before the clock edge and the cell still latches).
     """
-    TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES = constants
-    t_unit = settings.units.time.prefixed_unit
-    to_t = lambda q: float(q.convert(t_unit).value)
+    TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
+    STEP = 5 @ PySpice.Unit.u_ps # 5 ps initial bound-finding step for binary search
+    T_STABILZING = 20 * max(config.parameters['clock_slews']) * settings.units.time # 20x worst case clock slew
+    C_LOAD = config.parameters['setup_hold_constraint_load'] * settings.units.capacitance
+    N_SWEEP_SAMPLES = config.parameters['sequential_n_sweep_samples']
+    constants = (TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES)
 
     ds = variation['data_slew'] * settings.units.time
     cs = variation['clock_slew'] * settings.units.time
+    variation_debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1] / f'variation_data_slew_{str(ds).replace(' ', '')}_clock_slew_{str(cs).replace(' ', '')}'
+    variation_debug_path.mkdir(parents=True, exist_ok=True)
+    t_unit = settings.units.time.prefixed_unit
+    to_t = lambda q: float(q.convert(t_unit).value)
+
     data_pin, data_transition, output_pin, output_transition = path
     path_str = f'{data_pin}_{data_transition}__{output_pin}_{output_transition}'
 
@@ -157,8 +141,8 @@ def find_setup_hold_simple_for_variation(cell, config, settings, variation, path
                                  T_STABILZING, T_STABILZING,
                                  C_LOAD, T_STABILZING, path, state_map, step0_path)
         step_threshold = ref_c2q_steps * 1.2 if not math.isnan(ref_c2q_steps) else math.inf
-        ref_c2q_display = float((ref_c2q_steps @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isnan(ref_c2q_steps) else float('nan')
-        threshold_display = float((step_threshold @ PySpice.Unit.u_s).convert(t_unit).value) if not math.isinf(step_threshold) else float('inf')
+        ref_c2q_display = to_t(ref_c2q_steps @ PySpice.Unit.u_s) if not math.isnan(ref_c2q_steps) else float('nan')
+        threshold_display = to_t(step_threshold @ PySpice.Unit.u_s) if not math.isinf(step_threshold) else float('inf')
         write_log(step0_path, 'step0_log.txt',
             make_log_header(cell.name, ds, cs, path_str, constants) + [
                 f"State:     {state_str}",

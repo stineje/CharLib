@@ -107,13 +107,6 @@ class ConfigFile:
         ) : Regex('^(posedge|negedge|not|!|())[ ]*[a-zA-Z0-9_]+'),
         Optional(
             Literal(
-                'flops',
-                description='A list of internal node names used as state storage elements in a ' \
-                            'sequential cell (e.g. internal latch nodes).'
-            )
-        ) : [str],
-        Optional(
-            Literal(
                 'state',
                 description='A list of feedback paths which encode state in a sequential cell. ' \
                             'Paths should be specified as ``<internal node> = <output pin>``.'
@@ -150,15 +143,7 @@ class ConfigFile:
         ) : [Or(float, int)],
         Optional(
             Literal(
-                'sequential_setup_hold_procedure',
-                description='The name of a procedure used to measure setup and hold time ' \
-                            'constraints for a sequential cell. Overrides the library-wide ' \
-                            'setting in ``settings.simulation.sequential_setup_hold_procedure``.'
-            ), default='sequential_setup_hold'
-        ) : str,
-        Optional(
-            Literal(
-                'sequential_c_load',
+                'setup_hold_constraint_load',
                 description='Capacitive load applied to the output during sequential ' \
                             'characterization. Unit is specified by ``settings.units.capacitive_load``. ' \
                             'Defaults to 0.1.'
@@ -225,13 +210,6 @@ class ConfigFile:
                                 'a combinational cell.' # TODO: Refer to docs for procedures
                 ), default='combinational_worst_case'
             ) : str,
-            Optional(
-                Literal(
-                    'sequential_setup_hold_procedure',
-                    description='The name of a procedure used to measure setup and hold time ' \
-                                'constraints for a sequential cell.' # TODO: Refer to docs for procedures
-                ), default='sequential_setup_hold'
-            ) : str
         },
 
         Optional(
