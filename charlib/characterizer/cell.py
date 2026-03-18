@@ -71,11 +71,15 @@ class Cell:
         functions = dict()
         inputs = set()
         outputs = set()
+        def _parse_expression(expression):
+            # Helper function for parsing expressions of the form Y=A&B etc.
+            lhs, rhs = expression.split('=')
+            output = ''.join([c for c in lhs if c.isalnum() or c == '_'])
+            if not parse_logic(rhs):
+                raise ValueError(f'Could not parse expression "{expression}"')
+            return output, rhs.strip()
         for function in cell_config['functions']:
-            output, expression = function.split('=')
-            output = ''.join([c for c in output if c.isalnum() or c == '_'])
-            if not parse_logic(expression):
-                raise ValueError(f'Unable to parse function "{function}"')
+            output, expression = _parse_expression(function)
             functions[output] = expression
             inputs.update(set(OPERAND_REGEX.findall(expression)))
             outputs.add(output)
@@ -117,13 +121,14 @@ class Cell:
                 raise ValueError(f'Expected outputs {cell_config["outputs"]}, found {self.outputs}')
 
         ## 3. Construct functions based on port types & feedback paths
+        state_map = {v: k for k, v in [_parse_expression(s) for s in cell_config.get('state', [])]}
         for output, expression in functions.items():
             is_inverting = output in [pair.inverting_port_name for pair in diff_pairs]
-            state_map = {v: k for k, v in cell_config.get('state', {}).items()}
             state = state_map.get(output, None)
             # TODO: Pass only ports which are related to this function
             # TODO: Handle multiple clocks, etc.
             self.functions[output] = Function(self.pins[output], expression, *self.ports, state=state)
+        print(name, {q: f.functional_expression for q, f in self.functions.items()})
 
         ## 4. Add as much liberty data as we can right now
         self.liberty = liberty.Group('cell', name)
@@ -287,7 +292,13 @@ class CellTestConfig:
             :param loads: A list of output load capacitances to test, specified in
                           settings.units.capacitance units
         """
-        supported_parameters = ['data_slews', 'clock_slews', 'loads']
+        supported_parameters = [
+            'data_slews',
+            'clock_slews',
+            'loads',
+            'setup_hold_constraint_load',
+            'sequential_n_sweep_samples'
+        ] # TODO: Allow procedure writers to register these like we do with procedure generator functions
         self.models = list()
         for model in models:
             # Split to path and (optional) section, then validate both

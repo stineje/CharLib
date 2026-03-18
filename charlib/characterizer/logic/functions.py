@@ -55,11 +55,11 @@ class Function:
             expr = self.functional_expression
             if self.clock:
                 not_clocking, clocking = get_prefixes(self.clock)
-                expr = f'{clocking}{self.clock.name} & ({expr})' \
+                expr = f'{clocking}{self.clock.name} & ({expr}) |' \
                         f'{not_clocking}{self.clock.name} & {self.state}'
             if self.enable:
                 not_enabling, enabling = get_prefixes(self.enable)
-                expr = f'{enabling}{self.enable.name} & ({expr})' \
+                expr = f'{enabling}{self.enable.name} & ({expr}) |' \
                         f'{not_enabling}{self.enable.name} & {self.state}'
             if self.preset:
                 not_presetting, presetting = get_prefixes(self.preset)
