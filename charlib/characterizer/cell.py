@@ -3,7 +3,7 @@
 import itertools, re
 from pathlib import Path
 
-from charlib.characterizer.logic.functions import Function, StateFunction
+from charlib.characterizer.logic.functions import Function, OPERAND_REGEX
 from charlib.characterizer.port import Port, Pin, DifferentialPair
 from charlib.characterizer.logic.Parser import parse_logic
 from charlib.liberty import liberty
@@ -35,8 +35,8 @@ class Cell:
         4. Construct a skeleton liberty object for this cell.
         """
         self.name = name
-        self.pins = list()
-        self.diff_pairs = list()
+        self.pins = dict()
+        self.diff_pairs = dict()
         self.functions = dict()
 
         ## 1. Process cell_config
@@ -71,14 +71,13 @@ class Cell:
         functions = dict()
         inputs = set()
         outputs = set()
-        operand_regex = re.compile(r'(\w+)')
         for function in cell_config['functions']:
             output, expression = function.split('=')
-            output = ''.join([c for c in output if c.isalnum() or c is '_'])
+            output = ''.join([c for c in output if c.isalnum() or c == '_'])
             if not parse_logic(expression):
                 raise ValueError(f'Unable to parse function "{function}"')
             functions[output] = expression
-            inputs.update(set(operand_regex.findall(expression)))
+            inputs.update(set(OPERAND_REGEX.findall(expression)))
             outputs.add(output)
 
         ## 2. Read .subckt line from netlist and construct pins
@@ -98,16 +97,16 @@ class Cell:
             if port in special_pins:
                 # This pin has a special (i.e. non-logic) role
                 trigger_type, inverted, role = special_pins[port]
-                self.pins.append(Pin(port, 'input', role, inverted, trigger_type))
+                self.pins[port] = Pin(port, 'input', role, inverted, trigger_type)
             elif any([port in pair for pair in diff_pairs]):
                 # This pin is a member of a differential pair; find and build the pair
                 [pair] = [p for p in diff_pairs if port in p]
                 (noninv_pin, inv_pin) = pair
-                self.diff_pairs.append(DifferentialPair(noninv_pin, inv_pin, match_direction(port)))
+                self.diff_pairs[pair] = DifferentialPair(noninv_pin, inv_pin, match_direction(port))
                 unassigned_ports.remove(pair[pair.index(port)-1])
             else:
                 # This is a standard logic pin
-                self.pins.append(Pin(port, match_direction(port)))
+                self.pins[port] = Pin(port, match_direction(port))
 
         # Validate pin names if 'inputs' and/or 'outputs' keys are in cell_config
         if 'inputs' in cell_config:
@@ -124,7 +123,7 @@ class Cell:
             state = state_map.get(output, None)
             # TODO: Pass only ports which are related to this function
             # TODO: Handle multiple clocks, etc.
-            self.functions[output] = Function(expression, is_inverting, *self.ports, state=state)
+            self.functions[output] = Function(self.pins[output], expression, *self.ports, state=state)
 
         ## 4. Add as much liberty data as we can right now
         self.liberty = liberty.Group('cell', name)
@@ -155,8 +154,8 @@ class Cell:
     @property
     def ports(self):
         """Yield all ports as pins, including those stored as members of differential pairs"""
-        yield from self.pins
-        for pair in self.diff_pairs:
+        yield from self.pins.values()
+        for pair in self.diff_pairs.values():
             yield from pair.as_pins()
 
     def filter_ports(self, directions: list=[], roles: list=[], inverted: bool|None=None,
@@ -259,26 +258,13 @@ class Cell:
         :param output_transition: The desired state transition for the output port. Must be '01' or
                                   '10'.
         """
-        function = self.functions[output_port]
-        for tv in function.test_vectors:
-            pin_val = tv[input_port]
-
-            # Combinational: pin_val is '01' or '10' (the pin is transitioning in the vector)
-            # Sequential: pin_val is '0' or '1' (the pin is static because the clock transitions)
-            if len(pin_val) == 2:
-                input_match = (pin_val == input_transition)
-            else:
-                input_match = (pin_val == input_transition[-1])
-
-            # replace output port name with 
-            if input_match and tv[Function.OUT] == output_transition:
-                result = dict(tv)
-                result[output_port] = result.pop(Function.OUT)
-                yield result
+        for tv in self.functions[output_port].test_vectors:
+            if tv[input_port] == input_transition and tv[output_port] == output_transition:
+                yield tv
 
     @property
     def is_sequential(self) -> bool:
-        return any([isinstance(f, StateFunction) for f in self.functions.values()])
+        return any([f.state is not None for f in self.functions.values()])
 
 
 class CellTestConfig:
