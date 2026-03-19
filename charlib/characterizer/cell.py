@@ -95,22 +95,22 @@ class Cell:
             raise ValueError('Unable to determine direction for pin "{pin_name}"')
 
         # Get pin names from subckt and iterate until there are no unassigned pins remaining
-        unassigned_ports = self.subckt().split()[2:]
-        while unassigned_ports:
-            port = unassigned_ports.pop(0)
-            if port in special_pins:
+        unassigned_pins = self.subckt().split()[2:]
+        while unassigned_pins:
+            pin = unassigned_pins.pop(0)
+            if pin in special_pins:
                 # This pin has a special (i.e. non-logic) role
-                trigger_type, inverted, role = special_pins[port]
-                self.pins[port] = Pin(port, 'input', role, inverted, trigger_type)
-            elif any([port in pair for pair in diff_pairs]):
+                trigger_type, inverted, role = special_pins[pin]
+                self.pins[pin] = Pin(pin, 'input', role, inverted, trigger_type)
+            elif any([pin in pair for pair in diff_pairs]):
                 # This pin is a member of a differential pair; find and build the pair
-                [pair] = [p for p in diff_pairs if port in p]
+                [pair] = [p for p in diff_pairs if pin in p]
                 (noninv_pin, inv_pin) = pair
-                self.diff_pairs[pair] = DifferentialPair(noninv_pin, inv_pin, match_direction(port))
-                unassigned_ports.remove(pair[pair.index(port)-1])
+                self.diff_pairs[pair] = DifferentialPair(noninv_pin, inv_pin, match_direction(pin))
+                unassigned_pins.remove(pair[pair.index(pin)-1])
             else:
                 # This is a standard logic pin
-                self.pins[port] = Pin(port, match_direction(port))
+                self.pins[pin] = Pin(pin, match_direction(pin))
 
         # Validate pin names if 'inputs' and/or 'outputs' keys are in cell_config
         if 'inputs' in cell_config:
@@ -120,30 +120,30 @@ class Cell:
             if not set(cell_config['outputs']) <= set(self.outputs):
                 raise ValueError(f'Expected outputs {cell_config["outputs"]}, found {self.outputs}')
 
-        ## 3. Construct functions based on port types & feedback paths
+        ## 3. Construct functions based on pin types & feedback paths
         state_map = {v: k for k, v in [_parse_expression(s) for s in cell_config.get('state', [])]}
         for output, expression in functions.items():
-            is_inverting = output in [pair.inverting_port_name for pair in diff_pairs]
+            is_inverting = output in [pair.inverting_port_name for pair in self.diff_pairs.values()]
             state = state_map.get(output, None)
-            # TODO: Pass only ports which are related to this function
+            # TODO: Pass only pins which are related to this function
             # TODO: Handle multiple clocks, etc.
-            self.functions[output] = Function(self.pins[output], expression, *self.ports, state=state)
-        print(name, {q: f.functional_expression for q, f in self.functions.items()})
+            [output_pin] = list(self.filter_pins(name=output))
+            self.functions[output] = Function(output_pin, expression, *self.all_pins(), state=state)
 
         ## 4. Add as much liberty data as we can right now
         self.liberty = liberty.Group('cell', name)
         self.liberty.add_attribute('area', cell_config.get('area', 0.0), 2)
-        for port in self.ports:
-            if port.name in self.pg_pins:
-                pin_group = liberty.Group('pg_pin', port.name)
-                pin_group.add_attribute('voltage_name', port.name)
-                pin_group.add_attribute('pg_type', port.role)
+        for pin in self.all_pins():
+            if pin.name in self.pg_pins:
+                pin_group = liberty.Group('pg_pin', pin.name)
+                pin_group.add_attribute('voltage_name', pin.name)
+                pin_group.add_attribute('pg_type', pin.role)
             else:
-                pin_group = liberty.Group('pin', port.name)
-                pin_group.add_attribute('direction', port.direction)
-                if port.direction is Port.Direction.OUT:
-                    pin_group.add_attribute('function', str(self.functions[port.name]))
-                elif port.role == Port.Role.CLOCK:
+                pin_group = liberty.Group('pin', pin.name)
+                pin_group.add_attribute('direction', pin.direction)
+                if pin.direction is Port.Direction.OUT:
+                    pin_group.add_attribute('function', str(self.functions[pin.name]))
+                elif pin.role == Port.Role.CLOCK:
                     pin_group.add_attribute('clock', "true")
             self.liberty.add_group(pin_group)
 
@@ -156,92 +156,76 @@ class Cell:
                     return line.upper()
             raise ValueError(f'Failed to identify a .subckt in netlist "{self.netlist}"')
 
-    @property
-    def ports(self):
-        """Yield all ports as pins, including those stored as members of differential pairs"""
+    def all_pins(self):
+        """Yield all pins, including those stored as members of differential pairs"""
         yield from self.pins.values()
         for pair in self.diff_pairs.values():
             yield from pair.as_pins()
 
-    def filter_ports(self, directions: list=[], roles: list=[], inverted: bool|None=None,
-                     edge_triggered: bool|None=None):
-        """Return a collection of ports matching the given directions, roles, etc.
+    def filter_pins(self, **attrs):
+        """Return a collection of pins matching the given directions, roles, etc.
 
-        :param direction: A list of port directions to match. Elements must be values in
-                          Port.Direction.
-        :param role: A list of port roles to match. Elements must be values in Port.Role.
-        :param inverted: Return only ports with inversion matching this argument.
-        :param edge_triggered: Return only ports with trigger matching this argument.
-
-        Any argument may be omitted, in which case it is not used to filter the list of ports.
+        :param attrs: Attributes (and values) to match for. Each argument may be a single value
+                      or a list of values.
         """
-        for port in self.ports:
-            if directions and not port.direction in directions:
-                continue
-            if roles and not port.role in roles:
-                continue
-            if inverted is not None and not port.is_inverted() == inverted:
-                continue
-            if edge_triggered is not None and not port.is_edge_triggered() == edge_triggered:
-                continue
-            yield port
+        list_attrs = {a: v if isinstance(v, list) else [v,] for a, v in attrs.items()}
+        for pin in self.all_pins():
+            if any([getattr(pin, attr) not in value for attr, value in list_attrs.items()]):
+                continue # skip if any attribute doesn't match
+            yield pin
 
     @property
     def outputs(self) -> list:
-        """Return a list of output logic port names"""
-        return [port.name for port in self.filter_ports(['output'], roles=['logic'])]
+        """Return a list of output logic pin names"""
+        return [pin.name for pin in self.filter_pins(direction='output', role='logic')]
 
     @property
     def inputs(self) -> list:
-        """Return a list of input logic port names"""
-        return [port.name for port in self.filter_ports(['input'], roles=['logic'])]
+        """Return a list of input logic pin names"""
+        return [pin.name for pin in self.filter_pins(direction='input', role='logic')]
 
     @property
     def inouts(self) -> list:
-        """Return a list of inout logic port names"""
-        return [port.name for port in self.filter_ports(['inout'], roles=['logic'])]
+        """Return a list of inout logic pin names"""
+        return [pin.name for pin in self.filter_pins(direction='inout', role='logic')]
 
     @property
     def pg_pins(self) -> list:
         """Return a list of supply and bias pin names"""
-        return [port.name for port in self.filter_ports(roles=['primary_power', 'primary_ground',
-                                                               'pwell', 'nwell'])]
+        return [pin.name for pin in self.filter_pins(role=['primary_power', 'primary_ground', 'pwell', 'nwell'])]
 
-    def _get_first_port_with_role(self, role):
-        """Return the first port with the specified role. If there is no such port, return None."""
-        if not self.ports:
-            return None
+    def _get_first_pin_with_role(self, role):
+        """Return the first pin with the specified role. If there is no such pin, return None."""
         try:
-            port = next(self.filter_ports(roles=[role]))
+            return next(self.filter_pins(role=role))
         except StopIteration:
-            port = None
-        return port
+            return None
 
     @property
     def enable(self):
-        """Return the cell's enable port, if present"""
-        return self._get_first_port_with_role('enable')
+        """Return the cell's enable pin, if present"""
+        return self._get_first_pin_with_role('enable')
 
     @property
     def clock(self):
-        """Return the cell's clock port, if present"""
-        return self._get_first_port_with_role('clock')
+        """Return the cell's clock pin, if present"""
+        return self._get_first_pin_with_role('clock')
 
     @property
     def preset(self):
-        """Return the cell's set port, if present"""
-        return self._get_first_port_with_role('set')
+        """Return the cell's set pin, if present"""
+        return self._get_first_pin_with_role('set')
 
     @property
     def clear(self):
-        """Return the cell's reset port, if present"""
-        return self._get_first_port_with_role('reset')
+        """Return the cell's reset pin, if present"""
+        return self._get_first_pin_with_role('reset')
 
     def paths(self):
         """Generator for input-to-output paths through a cell
 
         Yields lists in the format [input_name, input_transition, output_name, output_transition].
-        All possible combinations of port names and transitions are yielded, regardless of whether
+        All possible combinations of pin names and transitions are yielded, regardless of whether
         they are possible given this cell's functions.
         """
         # FIXME: Generate only paths which actually make sense given this cell's function
@@ -249,22 +233,22 @@ class Cell:
         for path in itertools.product(self.inputs, transitions, self.outputs, transitions):
             yield path
 
-    def nonmasking_conditions_for_path(self, input_port, input_transition, output_port,
+    def nonmasking_conditions_for_path(self, input_pin, input_transition, output_pin,
                                        output_transition):
         """Find all mappings of pin states such that the desired state transitions occur.
 
-        Returns a generator yielding dictionaries of states for which input_port and output_port
+        Returns a generator yielding dictionaries of states for which input_pin and output_pin
         undergo input_transition and output_transition respectively.
 
-        :param input_port: The name of the input port of interest.
-        :param input_transition: The desired state transition for the input port. Must be '01' or
+        :param input_pin: The name of the input pin of interest.
+        :param input_transition: The desired state transition for the input pin. Must be '01' or
                                  '10'.
-        :param output_port: The name of the output port of interest.
-        :param output_transition: The desired state transition for the output port. Must be '01' or
+        :param output_pin: The name of the output pin of interest.
+        :param output_transition: The desired state transition for the output pin. Must be '01' or
                                   '10'.
         """
-        for tv in self.functions[output_port].test_vectors:
-            if tv[input_port] == input_transition and tv[output_port] == output_transition:
+        for tv in self.functions[output_pin].test_vectors:
+            if tv[input_pin] == input_transition and tv[output_pin] == output_transition:
                 yield tv
 
     @property
