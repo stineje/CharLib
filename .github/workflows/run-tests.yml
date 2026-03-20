@@ -22,6 +22,38 @@ jobs:
         run: |
           pytest
 
+  Characterize-osu035:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: "Install Charlib"
+        run: |
+          sudo apt update && sudo apt install -y libngspice0-dev
+          pip install -e .
+
+      - name: "Download osu035 cells"
+        run: |
+          pushd test/pdks/osu350
+          bash fetch_spice.sh
+          popd
+
+      - name: "Characterize"
+          pushd test/pdks/osu350
+          charlib run osu350.yaml -o charlib-test-osu035.nldm.lib -j16
+          popd
+
+      - name: "Upload results"
+        uses: actions/upload-artifact@v4
+        with:
+          name: osu035-results
+          path: |
+            test/pdks/osu350/charlib-test-osu035.nldm.lib
+
   Characterize-gf180mcu_osu_sc:
     runs-on: ubuntu-latest
 
@@ -34,7 +66,7 @@ jobs:
       - name: "Install CharLib"
         run: |
           sudo apt update && sudo apt install -y libngspice0-dev
-          pip install -e .[docs]
+          pip install -e .
 
       - name: "Download gf180mcu_osu_sc"
         run: |
@@ -60,7 +92,7 @@ jobs:
       - name: "Upload results"
         uses: actions/upload-artifact@v4
         with:
-          name: characterization-results
+          name: gf180mcu_osu_sc-results
           path: |
             test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_9t.nldm.lib
             test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_12t.nldm.lib
