@@ -123,12 +123,14 @@ class Cell:
         ## 3. Construct functions based on pin types & feedback paths
         state_map = {v: k for k, v in [_parse_expression(s) for s in cell_config.get('state', [])]}
         for output, expression in functions.items():
+            print(output, expression)
             is_inverting = output in [pair.inverting_port_name for pair in self.diff_pairs.values()]
             state = state_map.get(output, None)
             # TODO: Pass only pins which are related to this function
             # TODO: Handle multiple clocks, etc.
             [output_pin] = list(self.filter_pins(name=output))
             self.functions[output] = Function(output_pin, expression, *self.all_pins(), state=state)
+            [print(tv) for tv in self.functions[output].test_vectors]
 
         ## 4. Add as much liberty data as we can right now
         self.liberty = liberty.Group('cell', name)

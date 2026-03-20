@@ -55,11 +55,11 @@ class Function:
             expr = self.functional_expression
             if self.clock:
                 not_clocking, clocking = get_prefixes(self.clock)
-                expr = f'{clocking}{self.clock.name} & ({expr}) |' \
+                expr = f'{clocking}{self.clock.name} & ({expr}) | ' \
                         f'{not_clocking}{self.clock.name} & {self.state}'
             if self.enable:
                 not_enabling, enabling = get_prefixes(self.enable)
-                expr = f'{enabling}{self.enable.name} & ({expr}) |' \
+                expr = f'{enabling}{self.enable.name} & ({expr}) | ' \
                         f'{not_enabling}{self.enable.name} & {self.state}'
             if self.preset:
                 not_presetting, presetting = get_prefixes(self.preset)
@@ -140,8 +140,9 @@ class Function:
         state: candidates whose initial state does not match the stored internal state are
         discarded, as are any candidates which simultaneously assert both set and reset.
 
-        After generating candidates, test vectors are interpreted based on input trigger types.
-        Edge-triggered pin states are interpreted as 0 (fall) -> 10 or 1 (rise) -> 01.
+        Downstream consumers of test vectors must interpret them based on pin trigger types. Level-
+        triggered pins are interpreted as 0 = low voltage, 1 = high voltage. Edge-triggered pin
+        states should be interpreted as 0 = fall, 1 = rise.
 
         Because test vector generation is a relatively slow process, test vectors are cached and
         reused after being generated the first time. To regenerate test vectors, clear the
@@ -170,41 +171,35 @@ class Function:
                     candidates.append(deltas)
                     candidates.append({pin: state[::-1] for pin, state in deltas.items()})
 
-        # TODO: Validate & intepret test vector candidates based on state & triggers
+        # Validate test vector candidates based on state & triggers
+        if self.state:
+            # Filter test vectors where internal state does not match output initial state
+            # Note that this also (conveniently) filters any cases where len(state) > 1
+            candidates = [c for c in candidates if c[self.state] == c[self.output_key][0]]
+            # Filter test vectors where no control pin (clk, enable, set, reset) is triggered
+            candidates = [c for c in candidates if self._validate_triggers(c)]
+            if self.preset and self.clear:
+                # Filter test vectors where set and reset contend
+                active_set = lambda tv: _pin_has_active_trigger(self.preset, tv)
+                active_reset = lambda tv: _pin_has_active_trigger(self.clear, tv)
+                candidates = [c for c in candidates if not (active_set(c) and active_reset(c))]
+
         test_vectors = candidates
         self._cached_test_vectors = test_vectors
         return test_vectors
 
-#     def _validate_triggers(self, test_vector) -> bool:
-#         """Check that this test vector triggers at least one of the StateFunction's trigger pins.
-#
-#         This method returns True if at least one pin triggers.
-#         """
-#         return any([pin_has_active_trigger(pin, test_vector) for pin in self.trigger_pins])
-#
-#     def _validate_set_reset(self, test_vector) -> bool:
-#         """Check that this test vector does not simultaneously assert clear and preset"""
-#         preset_asserted = False
-#         clear_asserted = False
-#         for pin in [p for p in self.trigger_pins if pin_has_active_trigger(p, test_vector)]:
-#             if pin.role == Port.Role.CLEAR:
-#                 clear_asserted = True
-#             elif pin.role == Port.Role.PRESET:
-#                 preset_asserted = True
-#         return not (clear_asserted and preset_asserted)
-#
-#
-#     @property
-#     def test_vectors(self) -> list:
-#         """Generate valid test vectors, accounting for internal state"""
-#         # Remove all vectorss where internal state does not match output initial state
-#         tvs = [t for t in super().test_vectors if t[self.state_variable] == t[self.output_key][0]]
-#         # Remove any vectors where no trigger is active, or where set & reset contend
-#         tvs = [t for t in tvs if self._validate_triggers(t) and self._validate_set_reset(t)]
-#         # TODO: Figure out what to do for cases where level-triggered set/reset are deasserted while clock=1
-#         return tvs
+    def _validate_triggers(self, test_vector) -> bool:
+        """Check that this test vector triggers at least one of this function's trigger pins.
 
-def pin_has_active_trigger(pin, test_vector) -> bool:
+        This method returns True if at least one pin triggers.
+        """
+        trigger_pins = [self.clock, self.enable, self.preset, self.clear]
+        for pin in [p for p in trigger_pins if p is not None]:
+            if _pin_has_active_trigger(pin, test_vector):
+                return True
+        return False
+
+def _pin_has_active_trigger(pin, test_vector) -> bool:
     """Check whether pin has an activated trigger in test_vector.
 
     :param pin: A Cell.Pin object to check for active triggers in the test vector.
@@ -214,14 +209,14 @@ def pin_has_active_trigger(pin, test_vector) -> bool:
     - Port.Trigger.LEVEL triggers on 1 (or 0 if inverting). May also occur during rise/fall.
     - Port.Trigger.EDGE triggers only on rise (or fall if inverting).
     """
-    match pin.trigger, pin.inversion, test_vector[pin.name]:
-        case (Port.Trigger.LEVEL, False, state):
-            return '1' in state # active-high trigger
-        case (Port.Trigger.LEVEL, True, state):
-            return '0' in state # active-low trigger
-        case (Port.Trigger.EDGE, False, '01'):
-            return True # rising posedge trigger
-        case (Port.Trigger.EDGE, True, '10'):
-            return True # falling negedge trigger
+    match pin.trigger, pin.inversion:
+        case (Port.Trigger.LEVEL, False):
+            return '1' in test_vector[pin.name] # active-high trigger
+        case (Port.Trigger.LEVEL, True):
+            return '0' in test_vector[pin.name] # active-low trigger
+        case (Port.Trigger.EDGE, False):
+            return '1' in test_vector[pin.name] # rising posedge trigger
+        case (Port.Trigger.EDGE, True):
+            return '0' in test_vector[pin.name] # falling negedge trigger
         case _:
             return False
