@@ -31,33 +31,30 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: "Install ngspice"
-        run: |
-          sudo apt update && sudo apt install -y libngspice0-dev
-
       - name: "Install CharLib"
         run: |
+          sudo apt update && sudo apt install -y libngspice0-dev
           pip install -e .[docs]
 
       - name: "Download gf180mcu_osu_sc"
         run: |
-          git clone https://github.com/infinitymdm/gf180mcu_osu_sc.git
-          pushd gf180mcu_osu_sc
+          pushd test/pdks/gf180mcu_osu_sc
           mkdir models
           curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.ngspice > models/sm141064.ngspice
           curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.ngspice > models/design.ngspice
+          git clone https://github.com/stineje/globalfoundries-pdk-libs-gf180mcu_osu_sc
           popd
 
       - name: "Characterize 9t"
         run: |
-          pushd gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3
-          charlib run . -o charlib-test.lib -j16
+          pushd test/pdks/gf180mcu_osu_sc
+          charlib run 9t.yaml -o charlib-test-gf180mcu_osu_sc_9t.nldm.lib -j16
           popd
 
       - name: "Characterize 12t"
         run: |
-          pushd gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3
-          charlib run . -o charlib-test.lib -j16
+          pushd test/pdks/gf180mcu_osu_sc
+          charlib run 12t.yaml -o charlib-test-gf180mcu_osu_sc_12t.nldm.lib -j16
           popd
 
       - name: "Upload results"
@@ -65,5 +62,5 @@ jobs:
         with:
           name: characterization-results
           path: |
-            gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3/charlib-test.lib
-            gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3/charlib-test.lib
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_9t.nldm.lib
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_12t.nldm.lib

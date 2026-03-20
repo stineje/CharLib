@@ -1,202 +1,203 @@
 settings:
-    lib_name: gf180mcu_osu_sc_gp9t3v3_tt_25c.nldm
+    lib_name: gf180mcu_osu_sc_gp12t3v3_tt_25c.nldm
     cell_defaults:
         models: # From https://github.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/tree/main/models/ngspice
             - models/sm141064.ngspice typical
             - models/design.ngspice
-        netlist: globalfoundries-pdk-libs-gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3/spice/gf180mcu_osu_sc_gp9t3v3.spice
+        netlist: globalfoundries-pdk-libs-gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3/spice/gf180mcu_osu_sc_gp12t3v3.spice
         data_slews:  [0.0706, 0.1903, 0.5123, 1.3794, 3.7140, 10]
         loads:       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901]
         clock_slews: [0.0699991, 2.64574, 100]
         plots: 'delay'
 cells:
-    gf180mcu_osu_sc_gp9t3v3__addf_1:
+    gf180mcu_osu_sc_gp12t3v3__addf_1:
+        inputs: [A, B, CI]
+        outputs: [SUM, CO]
         functions:
             - SUM=A^B^CI
             - CO=A&B | CI&(A^B)
-    gf180mcu_osu_sc_gp9t3v3__addh_1:
+    gf180mcu_osu_sc_gp12t3v3__addh_1:
         inputs: [A, B]
         outputs: [SUM, CO]
         functions:
             - SUM=A^B
             - CO=A&B
-    gf180mcu_osu_sc_gp9t3v3__and2_1:
+    gf180mcu_osu_sc_gp12t3v3__and2_1:
         inputs: [A, B]
         outputs: ['Y']
         functions: [Y=A&B]
-    gf180mcu_osu_sc_gp9t3v3__aoi21_1:
+    gf180mcu_osu_sc_gp12t3v3__aoi21_1:
         inputs: [A0, A1, B]
         outputs: ['Y']
         functions: [Y=(!A0&!B) | (!A1&!B)]
-    gf180mcu_osu_sc_gp9t3v3__aoi22_1:
+    gf180mcu_osu_sc_gp12t3v3__aoi22_1:
         inputs: [A0, A1, B0, B1]
         outputs: ['Y']
         functions: [Y=(!A0&!B0) | (!A0&!B1) | (!A1&!B0) | (!A1&!B1)]
-    # gf180mcu_osu_sc_gp9t3v3__ant:
-    # gf180mcu_osu_sc_gp9t3v3__antfill:
-    gf180mcu_osu_sc_gp9t3v3__buf_1:
+    # gf180mcu_osu_sc_gp12t3v3__ant:
+    # gf180mcu_osu_sc_gp12t3v3__antfill:
+    gf180mcu_osu_sc_gp12t3v3__buf_1:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__buf_16:
+    gf180mcu_osu_sc_gp12t3v3__buf_16:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__buf_2:
+    gf180mcu_osu_sc_gp12t3v3__buf_2:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__buf_4:
+    gf180mcu_osu_sc_gp12t3v3__buf_4:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__buf_8:
+    gf180mcu_osu_sc_gp12t3v3__buf_8:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__clkbuf_1:
+    gf180mcu_osu_sc_gp12t3v3__clkbuf_1:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__clkbuf_16:
+    gf180mcu_osu_sc_gp12t3v3__clkbuf_16:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__clkbuf_2:
+    gf180mcu_osu_sc_gp12t3v3__clkbuf_2:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__clkbuf_4:
+    gf180mcu_osu_sc_gp12t3v3__clkbuf_4:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__clkbuf_8:
+    gf180mcu_osu_sc_gp12t3v3__clkbuf_8:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=A]
-    gf180mcu_osu_sc_gp9t3v3__clkinv_1:
+    gf180mcu_osu_sc_gp12t3v3__clkinv_1:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__clkinv_16:
+    gf180mcu_osu_sc_gp12t3v3__clkinv_16:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__clkinv_2:
+    gf180mcu_osu_sc_gp12t3v3__clkinv_2:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__clkinv_4:
+    gf180mcu_osu_sc_gp12t3v3__clkinv_4:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__clkinv_8:
+    gf180mcu_osu_sc_gp12t3v3__clkinv_8:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    # gf180mcu_osu_sc_gp9t3v3__decap_1:
-    gf180mcu_osu_sc_gp9t3v3__dff_1:
-        functions:
-            - Q <= D
-            - QN <= !D
-        clock: posedge clk
-        state:
-            - IQ = Q
-            - IQN = QN
-        pairs: [Q QN]
-    gf180mcu_osu_sc_gp9t3v3__dffn_1:
-        functions:
-            - Q <= D
-            - QN <= !D
-        clock: negedge clk
-        state:
-            - IQ = Q
-            - IQN = QN
-        pairs: [Q QN]
-    gf180mcu_osu_sc_gp9t3v3__dffsr_1:
-        inputs: [D]
-        outputs: [Q, QN]
-        functions:
-            - Q <= D
-            - QN <= !D
-        clock: posedge clk
-        set: S
-        reset: R
-        state:
-            - IQ = Q
-            - IQN = QN
-        pairs: [Q QN]
-    gf180mcu_osu_sc_gp9t3v3__dlat_1:
-        functions:
-            - Q = D
-        enable: CLK
-        state: [IQ = Q]
-    gf180mcu_osu_sc_gp9t3v3__dlatn_1:
-        functions:
-            - Q = D
-        enable: not CLK
-        state: [IQ = Q]
-    # gf180mcu_osu_sc_gp9t3v3__fill_1:
-    # gf180mcu_osu_sc_gp9t3v3__fill_16:
-    # gf180mcu_osu_sc_gp9t3v3__fill_2:
-    # gf180mcu_osu_sc_gp9t3v3__fill_4:
-    # gf180mcu_osu_sc_gp9t3v3__fill_8:
-    gf180mcu_osu_sc_gp9t3v3__inv_1:
+    # gf180mcu_osu_sc_gp12t3v3__dff_1:
+    #     inputs: [D]
+    #     outputs: [Q, QN]
+    #     functions:
+    #         - Q<=D
+    #         - QN<=!D
+    #     clock: posedge clk
+    # gf180mcu_osu_sc_gp12t3v3__dffn_1:
+    #     inputs: [D]
+    #     outputs: [Q, QN]
+    #     functions:
+    #         - Q<=D
+    #         - Q<=!D
+    #     clock: negedge clk
+    # gf180mcu_osu_sc_gp12t3v3__dffsr_1:
+    #     inputs: [D]
+    #     outputs: [Q, QN]
+    #     functions:
+    #         - Q<=D
+    #         - Q<=!D
+    #     clock: posedge clk
+    #     set: posedge S
+    #     reset: posedge R
+    #     flops: [IQ, IQN]
+    # gf180mcu_osu_sc_gp12t3v3__dlat_1:
+    #     inputs: [D]
+    #     outputs: [Q]
+    #     functions:
+    #         - Q<=D
+    #     enable: [CLK]
+    #     latches: [IQ, IQN]
+    # gf180mcu_osu_sc_gp12t3v3__dlatn_1:
+    #     inputs: [D]
+    #     outputs: [Q]
+    #     functions:
+    #         - Q<=D
+    #     enable: [!CLK]
+    #     latches: [IQ, IQN]
+    # gf180mcu_osu_sc_gp12t3v3__fill_1:
+    # gf180mcu_osu_sc_gp12t3v3__fill_16:
+    # gf180mcu_osu_sc_gp12t3v3__fill_2:
+    # gf180mcu_osu_sc_gp12t3v3__fill_4:
+    # gf180mcu_osu_sc_gp12t3v3__fill_8:
+    gf180mcu_osu_sc_gp12t3v3__inv_1:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__inv_16:
+    gf180mcu_osu_sc_gp12t3v3__inv_16:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__inv_2:
+    gf180mcu_osu_sc_gp12t3v3__inv_2:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__inv_4:
+    gf180mcu_osu_sc_gp12t3v3__inv_4:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__inv_8:
+    gf180mcu_osu_sc_gp12t3v3__inv_8:
         inputs: [A]
         outputs: ['Y']
         functions: [Y=!A]
-    gf180mcu_osu_sc_gp9t3v3__mux2_1:
+    # gf180mcu_osu_sc_gp12t3v3__lshifdown:
+    # gf180mcu_osu_sc_gp12t3v3__lshifup:
+    gf180mcu_osu_sc_gp12t3v3__mux2_1:
         inputs: [A, B, SEL]
         outputs: ['Y']
         functions: [Y=(A&!SEL) | (B&SEL)]
-    gf180mcu_osu_sc_gp9t3v3__nand2_1:
+    gf180mcu_osu_sc_gp12t3v3__nand2_1:
         inputs: [A, B]
         outputs: ['Y']
         functions: [Y=!(A&B)]
-    gf180mcu_osu_sc_gp9t3v3__nor2_1:
+    gf180mcu_osu_sc_gp12t3v3__nor2_1:
         inputs: [A, B]
         outputs: ['Y']
         functions: [Y=!(A|B)]
-    gf180mcu_osu_sc_gp9t3v3__oai21_1:
+    gf180mcu_osu_sc_gp12t3v3__oai21_1:
         inputs: [A0, A1, B]
         outputs: ['Y']
         functions: [Y=(!A0&!A1) | (!B)]
-    gf180mcu_osu_sc_gp9t3v3__oai22_1:
+    gf180mcu_osu_sc_gp12t3v3__oai22_1:
         inputs: [A0, A1, B0, B1]
         outputs: ['Y']
         functions: [Y=(!A0&!A1) | (!B0&!B1)]
-    gf180mcu_osu_sc_gp9t3v3__oai31_1:
+    gf180mcu_osu_sc_gp12t3v3__oai31_1:
         inputs: [A0, A1, A2, B]
         outputs: ['Y']
         functions: [Y=(!A0&!A1&!A2)|(!B)]
-    gf180mcu_osu_sc_gp9t3v3__or2_1:
+    gf180mcu_osu_sc_gp12t3v3__or2_1:
         inputs: [A, B]
         outputs: ['Y']
         functions: [Y=A|B]
-    # gf180mcu_osu_sc_gp9t3v3__tbuf:
-    # gf180mcu_osu_sc_gp9t3v3__tieh:
-    # gf180mcu_osu_sc_gp9t3v3__tiel:
-    gf180mcu_osu_sc_gp9t3v3__xnor2_1:
+    # gf180mcu_osu_sc_gp12t3v3__tbuf:
+    # gf180mcu_osu_sc_gp12t3v3__tieh:
+    # gf180mcu_osu_sc_gp12t3v3__tiel:
+    # gf180mcu_osu_sc_gp12t3v3__tinv_1:
+    gf180mcu_osu_sc_gp12t3v3__xnor2_1:
         inputs: [A, B]
         outputs: ['Y']
         functions: [Y=!(A^B)]
-    gf180mcu_osu_sc_gp9t3v3__xor2_1:
+    gf180mcu_osu_sc_gp12t3v3__xor2_1:
         inputs: [A, B]
         outputs: ['Y']
         functions: [Y=A^B]
