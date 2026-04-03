@@ -44,7 +44,7 @@ class Function:
                 case (True, Port.Role.PRESET):
                     self.ports[port.name] = self.preset = port
                 case (True, Port.Role.ENABLE):
-                    self.ports[port.name] = self.enable = port5
+                    self.ports[port.name] = self.enable = port
                 case _:
                     if port.name in self.operands:
                         self.ports[port.name] = port
