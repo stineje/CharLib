@@ -4,7 +4,7 @@
 import argparse
 from pathlib import Path
 
-from charlib.cli import run, compare, generate_functions
+from charlib.cli import run, compare
 
 def main():
     """Run CharLib CLI"""
@@ -59,12 +59,6 @@ def main():
         'compared', type=str,
         help='A liberty file to compare against the benchmark')
     parser_compare.set_defaults(func=compare_helper)
-
-    # Set up charlib generate_functions arguments
-    parser_genfunctions.add_argument(
-        'expressions', type=str, nargs='*',
-        help='One or more expressions to generate test vector mappings for')
-    parser_genfunctions.set_defaults(func=generate_functions.generate_functions)
 
     # Parse args and execute
     args = parser.parse_args()

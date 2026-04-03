@@ -14,7 +14,7 @@ def run(args):
     library_dir = args.library
     config = utils.find_config(library_dir)
     if not config:
-        raise ValueError(f'Unable to locate a YAML file containing configuration settings in' \
+        raise ValueError(f'Unable to locate a YAML file containing configuration settings in ' \
                          f'{library_dir} or its subdirectories.')
 
     # Read in library settings

@@ -13,24 +13,21 @@ def combinational_worst_case(cell, config, settings):
     """Measure worst-case combinational transient and propagation delays"""
     for variation in config.variations('data_slews', 'loads'):
         for path in cell.paths():
-            yield (measure_delay_for_path_with_criterion, cell, config, settings, variation, path,
-                   max)
+            yield (measure_delays_for_path_with_criterion, cell, config, settings, variation, path, max)
 
 @register
 def combinational_average(cell, config, settings):
     """Measure combinational transient and propagation delays using a uniform average"""
     for variation in config.variations('data_slews', 'loads'):
         for path in cell.paths():
-            yield (measure_delay_for_path_with_criterion, cell, config, settings, variation, path,
-                   average)
+            yield (measure_delays_for_path_with_criterion, cell, config, settings, variation, path, average)
 
-def measure_delay_for_path_with_criterion(cell, config, settings, variation, path,
-                                          criterion=max) -> liberty.Group:
-    """Given a particular path through the cell, find delay according to a selection criterion.
+def measure_delays_for_path_with_criterion(cell, config, settings, variation, path, criterion=max):
+    """Given a particular path through the cell, find delays according to a selection criterion.
 
     This method tests all nonmasking conditions for the path through the cell from target_input to
-    target_output with the given slew rate and capacitive load, then returns the delay selected
-    using the passed criterion function.
+    target_output with the given slew rate and capacitive load, then assigns the delay selected
+    using the passed criterion function. Returns a liberty cell group with the delay information.
 
     The default criterion selects the worst-case (i.e. maximum) delay. This is in theory an overly
     pessimistic method of delay estimation. A more accurate method would be to perform a weighted
@@ -44,13 +41,13 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
                      details.
     :param variation: A dict containing test parameters for this configuration variation, such
                       as slew rates and loads.
-    :param path: A list in the format [input_port, input_transition, output_port,
+    :param path: A list in the format [input_pin, input_transition, output_pin,
                  output_transtition] describing the path under test in the cell.
     :param criterion: A function which returns a single value given a list of numeric values.
                       Default max.
     """
     # Set up key parameters
-    [input_port, _, output_port, _] = path
+    [input_pin, _, output_pin, _] = path
     data_slew = variation['data_slew'] * settings.units.time
     load = variation['load'] * settings.units.capacitance
     vdd = settings.primary_power.voltage * settings.units.voltage
@@ -64,33 +61,33 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
         circuit = utils.init_circuit('comb_delay', cell.netlist, config.models,
                                      settings.named_nodes, settings.units)
 
-        # Initialize device under test and wire up ports
+        # Initialize device under test and wire up pins
         pin_map = utils.PinStateMap(cell.inputs, cell.outputs, state_map)
         connections = []
         measurements = []
-        for port in cell.ports:
-            match port.role:
+        for pin in cell.all_pins():
+            match pin.role:
                 case Port.Role.LOGIC: # Digital logic inputs or outputs
-                    if port.name in pin_map.target_inputs:
-                        connections.append(f'v{port.name}')
-                        (v_0, v_1) = (vss, vdd) if pin_map.target_inputs[port.name] == '01' else (vdd, vss)
+                    if pin.name in pin_map.target_inputs:
+                        connections.append(f'v{pin.name}')
+                        (v_0, v_1) = (vss, vdd) if pin_map.target_inputs[pin.name] == '01' else (vdd, vss)
                         circuit.PieceWiseLinearVoltageSource(
-                            port.name,
-                            f'v{port.name}', circuit.gnd,
+                            pin.name,
+                            f'v{pin.name}', circuit.gnd,
                             values=utils.slew_pwl(v_0, v_1, data_slew, 3*data_slew,
                                                   1e-2*settings.logic_thresholds.low,
                                                   1e-2*settings.logic_thresholds.high))
-                    elif port.name in pin_map.target_outputs:
-                        connections.append(f'v{port.name}')
-                        circuit.C(port.name, f'v{port.name}', circuit.gnd, load)
-                        for in_port in pin_map.target_inputs:
-                            if pin_map.target_inputs[in_port] == '01':
+                    elif pin.name in pin_map.target_outputs:
+                        connections.append(f'v{pin.name}')
+                        circuit.C(pin.name, f'v{pin.name}', circuit.gnd, load)
+                        for in_pin in pin_map.target_inputs:
+                            if pin_map.target_inputs[in_pin] == '01':
                                 in_direction = 'rise'
                                 threshold_prop_0 = settings.logic_thresholds.rising
                             else:
                                 in_direction = 'fall'
                                 threshold_prop_0 = settings.logic_thresholds.falling
-                            if pin_map.target_outputs[port.name] == '01':
+                            if pin_map.target_outputs[pin.name] == '01':
                                 out_direction = 'rise'
                                 threshold_prop_1 = settings.logic_thresholds.rising
                                 threshold_tran_0 = settings.logic_thresholds.low
@@ -100,27 +97,27 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
                                 threshold_prop_1 = settings.logic_thresholds.falling
                                 threshold_tran_0 = settings.logic_thresholds.high
                                 threshold_tran_1 = settings.logic_thresholds.low
-                            prop_name = f'cell_{out_direction}__{in_port}_to_{port.name}'.lower()
+                            prop_name = f'cell_{out_direction}__{in_pin}_to_{pin.name}'.lower()
                             measurement_names.add(prop_name)
                             measurements.append((
                                 'tran', prop_name,
-                                f'trig v(v{in_port}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
-                                f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
-                            tran_name = f'{out_direction}_transition__{in_port}_to_{port.name}'.lower()
+                                f'trig v(v{in_pin}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
+                                f'targ v(v{pin.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
+                            tran_name = f'{out_direction}_transition__{in_pin}_to_{pin.name}'.lower()
                             measurement_names.add(tran_name)
                             measurements.append((
                                 'tran', tran_name,
-                                f'trig v(v{port.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
-                                f'targ v(v{port.name}) val={float(vdd*1e-2*threshold_tran_1)} {out_direction}=1'))
-                    elif port.name in pin_map.stable_inputs:
-                        if pin_map.stable_inputs[port.name] == '0':
+                                f'trig v(v{pin.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
+                                f'targ v(v{pin.name}) val={float(vdd*1e-2*threshold_tran_1)} {out_direction}=1'))
+                    elif pin.name in pin_map.stable_inputs:
+                        if pin_map.stable_inputs[pin.name] == '0':
                             connections.append(settings.primary_ground.name)
                         else:
                             connections.append(settings.primary_power.name)
-                    elif port.name in pin_map.ignored_outputs:
+                    elif pin.name in pin_map.ignored_outputs:
                         connections.append('wfloat0')
                     else:
-                        raise ValueError(f'Unable to connect unrecognized logic port {port.name} in cell {cell.name}')
+                        raise ValueError(f'Unable to connect unrecognized logic pin {pin.name} in cell {cell.name}')
                 case Port.Role.POWER:
                     connections.append(settings.primary_power.name)
                 case Port.Role.GROUND:
@@ -130,7 +127,7 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
                 case Port.Role.PWELL:
                     connections.append(settings.pwell.name)
                 case _:
-                    raise ValueError(f'Unable to connect unrecognized port {port.name} in cell {cell.name}')
+                    raise ValueError(f'Unable to connect unrecognized pin {pin.name} in cell {cell.name}')
         circuit.X('dut', cell.name, *connections)
 
         # Run the simulation, taking all measurements
@@ -160,11 +157,11 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
 
     # Select the worst-case delays and add to LUTs
     result = cell.liberty
-    result.group('pin', output_port).add_group('timing', f'/* {input_port} */') # FIXME: This is a \
+    result.group('pin', output_pin).add_group('timing', f'/* {input_pin} */') # FIXME: This is a \
     # hack to allow multiple timing groups while the liberty API doesn't yet support multiple
     # groups with the same name and no id. In practice timing groups are distinguished by
     # their related_pin attribute.
-    result.group('pin', output_port).group('timing', f'/* {input_port} */').add_attribute('related_pin', input_port) # FIXME
+    result.group('pin', output_pin).group('timing', f'/* {input_pin} */').add_attribute('related_pin', input_pin) # FIXME
     for name in measurement_names:
         # Get the worst delay & plot io
         if 'io' in config.plots:
@@ -180,7 +177,7 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
             plt.close(fig)
 
         # Build LUT
-        delay_measurements =[analysis.measurements[name] for analysis in analyses.values() if name in analysis.measurements] 
+        delay_measurements =[analysis.measurements[name] for analysis in analyses.values() if name in analysis.measurements]
         delay = criterion(delay_measurements) @ PySpice.Unit.u_s
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
@@ -188,6 +185,6 @@ def measure_delay_for_path_with_criterion(cell, config, settings, variation, pat
                           total_output_net_capacitance=[load.convert(settings.units.capacitance.prefixed_unit).value],
                           input_net_transition=[data_slew.convert(settings.units.time.prefixed_unit).value])
         lut.values[0,0] = delay.convert(settings.units.time.prefixed_unit).value
-        result.group('pin', output_port).group('timing', f'/* {input_port} */').add_group(lut) # FIXME
+        result.group('pin', output_pin).group('timing', f'/* {input_pin} */').add_group(lut) # FIXME
 
     return result

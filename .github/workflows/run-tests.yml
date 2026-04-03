@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - name: "Checkout repository"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
 
@@ -22,48 +22,77 @@ jobs:
         run: |
           pytest
 
-  Characterize-gf180mcu_osu_sc:
+  Characterize-osu035:
     runs-on: ubuntu-latest
 
     steps:
       - name: "Checkout repository"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
 
-      - name: "Install ngspice"
+      - name: "Install Charlib"
         run: |
           sudo apt update && sudo apt install -y libngspice0-dev
+          pip install -e .
 
-      - name: "Install CharLib"
+      - name: "Download osu035 cells"
         run: |
-          pip install -e .[docs]
-
-      - name: "Download gf180mcu_osu_sc"
-        run: |
-          git clone https://github.com/infinitymdm/gf180mcu_osu_sc.git
-          pushd gf180mcu_osu_sc
-          mkdir models
-          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.ngspice > models/sm141064.ngspice
-          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.ngspice > models/design.ngspice
+          pushd test/pdks/osu350
+          bash fetch_spice.sh
           popd
 
-      - name: "Characterize 9t"
-        run: |
-          pushd gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3
-          charlib run . -o charlib-test.lib -j16
-          popd
-
-      - name: "Characterize 12t"
-        run: |
-          pushd gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3
-          charlib run . -o charlib-test.lib -j16
+      - name: "Characterize"
+          pushd test/pdks/osu350
+          charlib run osu350.yaml -o charlib-test-osu035.nldm.lib -j16
           popd
 
       - name: "Upload results"
         uses: actions/upload-artifact@v4
         with:
-          name: characterization-results
+          name: osu035-results
           path: |
-            gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3/charlib-test.lib
-            gf180mcu_osu_sc/gf180mcu_osu_sc_gp12t3v3/charlib-test.lib
+            test/pdks/osu350/charlib-test-osu035.nldm.lib
+
+  Characterize-gf180mcu_osu_sc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: "Install CharLib"
+        run: |
+          sudo apt update && sudo apt install -y libngspice0-dev
+          pip install -e .
+
+      - name: "Download gf180mcu_osu_sc"
+        run: |
+          pushd test/pdks/gf180mcu_osu_sc
+          mkdir models
+          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.ngspice > models/sm141064.ngspice
+          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.ngspice > models/design.ngspice
+          git clone https://github.com/stineje/globalfoundries-pdk-libs-gf180mcu_osu_sc
+          popd
+
+      - name: "Characterize 9t"
+        run: |
+          pushd test/pdks/gf180mcu_osu_sc
+          charlib run 9t.yaml -o charlib-test-gf180mcu_osu_sc_9t.nldm.lib -j16
+          popd
+
+      - name: "Characterize 12t"
+        run: |
+          pushd test/pdks/gf180mcu_osu_sc
+          charlib run 12t.yaml -o charlib-test-gf180mcu_osu_sc_12t.nldm.lib -j16
+          popd
+
+      - name: "Upload results"
+        uses: actions/upload-artifact@v4
+        with:
+          name: gf180mcu_osu_sc-results
+          path: |
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_9t.nldm.lib
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_12t.nldm.lib

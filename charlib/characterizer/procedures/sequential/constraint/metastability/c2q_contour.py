@@ -1,47 +1,14 @@
+import PySpice
+import numpy as np
+import math
+
 from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.characterizer import utils, plots
 from charlib.liberty.library import LookupTable
 
-import PySpice
-import numpy as np
-import math
-from collections import defaultdict
-
-def measure_recovery_constraint(cell_settings, charlib_settings, control_pin, trigger_pin, state_pin):
-    """Find the minimum time a control pin must be active before the trigger.
-
-    This is analagous to setup time for an asynchronous control pin.
-
-    For example, for a rising-edge DFF with an asynchronous reset, recovery time is the minimum
-    time the reset signal must be active before the rising clock edge in order to reset the device
-    state."""
-    pass # TODO
-
-def measure_removal_constraint(cell_settings, charlib_settings, control_pin, trigger_pin, state_pin):
-    """Find the mimimum time a control pin must remain active after the trigger.
-
-    This is analagous to hold time for an asynchronous control pin.
-
-    For example, for a rising-edge DFF with an asynchronous reset, removal time is the minimum time
-    that the reset signal must remain active after the rising clock edge in order to reset the
-    device state."""
-    pass # TODO
-
-@register
-def sequential_min_pulse_width(cell_settings, charlib_settings, data_pin, trigger_pin, state_pin):
-    """Find the minimum pulse width required for the trigger to activate the device.
-
-    This is analagous to the min_pulse_width property of a set, reset, enable, or clock pin.
-
-    For example, for a rising-edge DFF with an asynchronous reset, the minimum pulse width is the
-    minimum time the clock signal must be active before the rising edge in order to reset the
-    device state."""
-    pass # TODO
-
 @register
 def measure_setup_hold_from_contour(cell, cell_settings, charlib_settings):
     """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
-
     for variation in cell_settings.variations('data_slews', 'clock_slews'):
         for path in cell.paths():
             # cell.nonmasking_conditions_for_path filter out the impossible paths
@@ -192,7 +159,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         write_step_log(step4_path, 'step4', cell.name, ds, cs, path_str, state_str, constants,
                         f"step4 : find setup given hold= {step3_hold_result}",
                         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates)
-        
+
         # Step 5: sweep the setup×hold boundary and plot the latched contour
         step5_debug_path = (state_debug_path / 'step5') if settings.debug else None
         ref_c2q = get_c2q(cell, config, settings, cs, ds,
@@ -202,7 +169,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
 
         # latch_x : 2D numpy array, indexed by hold(first index) and setup(second index), stores a boolean that indicates whether such setup & hold combination meets requirement
         # c2q_x : 2D numpy array, indexed by hold(first index) and setup(second index), stores a number that indicates the c2q time for such setup & hold combination
-        # simulated_a : 2D numpy array, indexed by hold(first index) and setup(second index), stores a boolean that indicates whether such setup & hold combination has been simulated 
+        # simulated_a : 2D numpy array, indexed by hold(first index) and setup(second index), stores a boolean that indicates whether such setup & hold combination has been simulated
         (latched_a, c2q_a, simulated_a,
          latched_b, c2q_b, simulated_b,
          setup_vals_s, hold_vals_s) = sweep_2d_space_for_contour(
@@ -257,7 +224,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                          for hi, h_s in enumerate(hold_vals_s)
                          for si, s_s in enumerate(setup_vals_s)
                          if merged[hi, si]]
-        
+
         if settings.debug:
             plots.plot_contour(settings, points_merged, *_contour_args,
                                filename='contour.png',
@@ -488,8 +455,8 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     # Initialize circuit
     circuit = utils.init_circuit("sequential_setup_hold", cell.netlist, config.models,
                                     settings.named_nodes, settings.units)
-    circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power 
-    circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power 
+    circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power
+    circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power
     circuit.V('o_cap', 'vout', 'wout', 0) # 0 volt source in series with c_load is a trick to measure current through the load capacitor.
     circuit.C('c_load', 'wout', circuit.gnd, c_load)
 
@@ -517,18 +484,18 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
         (t['sim_end'], v0),
     ])
 
-    # Initialize device under test subcircuit and wire up ports
+    # Initialize device under test subcircuit and wire up pins
     connections = []
-    for port in cell.ports:
-      if port.role == 'clock':
+    for pin in cell.all_pins():
+      if pin.role == 'clock':
           connections.append('vclk')
-      elif port.name == data_pin:
+      elif pin.name == data_pin:
           connections.append('vdata')
-      elif port.name == output_pin:
-          connections.append('vout')          
-      elif port.role == 'primary_power':
+      elif pin.name == output_pin:
+          connections.append('vout')
+      elif pin.role == 'primary_power':
           connections.append('vdd')
-      elif port.role == 'primary_ground':
+      elif pin.role == 'primary_ground':
           connections.append('vss')
       else:
           connections.append('wfloat0')       # float unrecognized
