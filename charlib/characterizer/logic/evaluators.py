@@ -1,5 +1,6 @@
 """Tools for reliably evaluating functions"""
 
+import re
 from charlib.characterizer.port import Port
 
 OPERAND_REGEX = re.compile(r'(\w+)')
@@ -19,52 +20,44 @@ class BooleanEvaluator:
         )
         self.expression = eval(f'lambda {",".join(operands)}: int(pythonic_expr)')
 
-    def __call__(self, **inputs) -> bool
+    def __call__(self, **inputs) -> bool:
         """Call the evaluator's stored expression"""
         return bool(self.expression(**inputs))
 
     def operands(self):
-        return sorted(set(OPERAND_REGEX.findall(expression)))
+        return sorted(set(OPERAND_REGEX.findall(self.expression)))
 
 
 class StateMachineEvaluator:
-    """Given current state and inputs, evaluates outputs using an internal finite state machine."""
+    """Given current state and inputs, evaluates outputs using an internal pseudo-FSM."""
 
-    def __init__(self, expression, state, clock=None, clear=None, preset=None, enable=None):
-        """Initialize a new StateMachineEvaluator"""
-        # Build a 1-bit state machine using set, reset, clock, enable, etc.
-        self.evaluators = dict()
-        self.state = state
+    def __init__(self, expression, preset=None, clear=None, preset_state=1, clear_state=0):
+        """Initialize a new StateMachineEvaluator
 
-        # Build independent evaluators for each state
-        shared_expr = expression
-        get_prefixes = lambda p: ('', '~') if p.is_inverted() else ('~', '')
-        if clock:
-            not_clocking, clocking = get_prefixes(clock)
-            shared_expr = f'{clocking}{clock.name} & ({shared_expr}) | ' \
-                    f'{not_clocking}{clock.name} & {self.state}'
-        if enable:
-            not_enabling, enabling = get_prefixes(enable)
-            shared_expr = f'{enabling}{enable.name} & ({shared_expr}) | ' \
-                    f'{not_enabling}{enable.name} & {self.state}'
-        self.evaluators[0] = shared_expr
-        self.evaluators[1] = shared_expr
+        :param expression: A string containing a Boolean expression for the next state.
+        :param preset: A Pin object that sets the state to preset_state when asserted.
+        :param clear: A Pin object that sets the state to clear_state when asserted.
+        """
+        self.expression = BooleanEvaluator(expression)
+        self.preset = preset
+        self.preset_state = preset_state
+        self.clear = clear
+        self.clear_state = clear_state
 
-        # Handle set & reset differently based on state
-        if preset:
-            not_presetting, presetting = get_prefixes(preset)
-            self.evaluators[0] = f'{presetting}{preset.name} | {self.evaluators[0]}'
-            self.evaluators[1] = f'{presetting}{preset.name} | {self.evaluators[1]}'
-        if clear:
-            not_clearing, clearing = get_prefixes(clear)
-            self.evaluators[0] = f'{not_clearing}{clear.name} & {self.evaluators[0]}'
-            self.evaluators[1] = f'{not_clearing}{clear.name} & {self.evaluators[1]}'
-        self.evaluators[0] = BooleanEvaluator(self.evaluators[0])
-        self.evaluators[1] = BooleanEvaluator(self.evaluators[1])
-
-    def __call__(self, **inputs) -> bool
-        """Call the expression corresponding to the indicated state"""
-        return bool(self.evaluators[inputs[self.state_name]](**inputs))
+    def __call__(self, **inputs) -> bool:
+        """Compute the next state based on the inputs"""
+        if self.clear and self.clear.is_asserted(inputs[self.clear.name]):
+            return self.clear_state
+        elif self.preset and self.preset.is_asserted(inputs[self.preset.name]):
+            return self.preset_state
+        else:
+            return self.expression(**inputs)
 
     def operands(self):
-        return self.evaluators[0].operands() | self.evaluators[1].operands()
+        operands = set(self.expression.operands())
+        print(operands)
+        if self.preset:
+            operands.add(self.preset.name)
+        if self.clear:
+            operands.add(self.clear.name)
+        return sorted(operands)

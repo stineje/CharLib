@@ -1,10 +1,7 @@
 """Maps logic functions to truth tables and test vectors."""
 
-import re
-
 from charlib.characterizer.port import Port
-
-OPERAND_REGEX = re.compile(r'(\w+)')
+from charlib.characterizer.logic.evaluators import OPERAND_REGEX, BooleanEvaluator, StateMachineEvaluator
 
 class Function:
     """Provides function evaluation and mapping faculties"""
@@ -34,24 +31,38 @@ class Function:
 
         # Save ports which appear in the expression (or are relevant to state)
         # TODO: Handle multiple clocks/sets/resets/enables
+        operands = set(OPERAND_REGEX.findall(self.expression))
+        preset_state = True
+        clear_state = False
         for port in ports:
             match (bool(state), port.role):
                 case (True, Port.Role.CLOCK):
                     self.ports[port.name] = self.clock = port
                 case (True, Port.Role.CLEAR):
                     self.ports[port.name] = self.clear = port
+                    clear_state = self.clear.is_inverted() and not self.is_output_inverting
                 case (True, Port.Role.PRESET):
                     self.ports[port.name] = self.preset = port
+                    preset_state = not self.preset.is_inverted and not self.is_output_inverting
                 case (True, Port.Role.ENABLE):
                     self.ports[port.name] = self.enable = port
                 case _:
-                    if port.name in self.operands:
+                    if port.name in operands:
                         self.ports[port.name] = port
 
+        # Modify the expression based on the presence of clocks and/or enables
+        expr = self.expression
+        if self.enable:
+            not_en, en = ('', '~') if self.enable.is_inverted() else ('~', '')
+            expr = f'{en}{self.enable.name} & {expr} | {not_en}{self.enable.name} & {self.state}'
         if state:
-            self.evaluator = BooleanEvaluator(self.expression)
+            if self.clock:
+                not_clk, clk = ('', '~') if self.clock.is_inverted() else ('~', '')
+                expr = f'{clk}{self.clock.name} & {expr} | {not_clk}{self.clock.name} & {self.state}'
+            self.evaluator = StateMachineEvaluator(expr, self.preset, self.clear,
+                                                   preset_state, clear_state)
         else:
-            self.evaluator = StateMachineEvaluator(self.expression)
+            self.evaluator = BooleanEvaluator(expr)
 
     @property
     def operands(self) -> list:

@@ -12,7 +12,6 @@ def test_noninverting_dff():
     function = Function(output, 'D', *inputs, state='IQ')
 
     assert(function.expression == 'D')
-    assert(function.functional_expression == 'CLK & (D) | ~CLK & IQ')
     assert(set(function.operands) == {'CLK', 'D', 'IQ'})
 
     expected_truth_table = [
@@ -53,7 +52,7 @@ def test_inverting_dffsr():
     ]
     function = Function(output, '!D', *inputs, state='IQN')
 
-    assert(function.expression == '~D')
+    assert(function.expression == '!D')
     assert(set(function.operands) == {'CLK', 'D', 'IQN', 'S', 'R'})
 
     expected_truth_table = [

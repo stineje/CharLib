@@ -3,7 +3,8 @@
 import itertools, re
 from pathlib import Path
 
-from charlib.characterizer.logic.functions import Function, OPERAND_REGEX
+from charlib.characterizer.logic.evaluators import OPERAND_REGEX
+from charlib.characterizer.logic.functions import Function
 from charlib.characterizer.port import Port, Pin, DifferentialPair
 from charlib.characterizer.logic.Parser import parse_logic
 from charlib.liberty import liberty
