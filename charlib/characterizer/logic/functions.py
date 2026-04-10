@@ -23,9 +23,8 @@ class Function:
         # Initialize defaults
         self.output_key = output.name
         self.is_output_inverting = output.is_inverted()
-        self.expression = expression.replace('!','~').upper()
+        self.expression = expression
         self.state = state
-        self.functional_expression = self.expression
         self.ports = dict()
         self.clock = None
         self.clear = None
@@ -49,55 +48,19 @@ class Function:
                     if port.name in self.operands:
                         self.ports[port.name] = port
 
-        # Modify the functional expression based on state-related roles
         if state:
-            get_prefixes = lambda p: ('', '~') if p.is_inverted() else ('~', '')
-            expr = self.functional_expression
-            if self.clock:
-                not_clocking, clocking = get_prefixes(self.clock)
-                expr = f'{clocking}{self.clock.name} & ({expr}) | ' \
-                        f'{not_clocking}{self.clock.name} & {self.state}'
-            if self.enable:
-                not_enabling, enabling = get_prefixes(self.enable)
-                expr = f'{enabling}{self.enable.name} & ({expr}) | ' \
-                        f'{not_enabling}{self.enable.name} & {self.state}'
-            if self.preset:
-                not_presetting, presetting = get_prefixes(self.preset)
-                if self.is_output_inverting:
-                    expr = f'{not_presetting}{self.preset.name} & ({expr})'
-                else:
-                    expr = f'{presetting}{self.preset.name} | ({expr})'
-            if self.clear:
-                not_clearing, clearing = get_prefixes(self.clear)
-                if self.is_output_inverting:
-                    expr = f'{clearing}{self.clear.name} | ({expr})'
-                else:
-                    expr = f'{not_clearing}{self.clear.name} & ({expr})'
-            self.functional_expression = expr
-
-    @property
-    def pythonic_expression(self) -> str:
-        """Return a python-executable version of the function's expression"""
-        py_expr = (
-            self.functional_expression
-                .replace('~', ' not ')
-                .replace('&', ' and ')
-                .replace('|', ' or ')
-        )
-        return py_expr
+            self.evaluator = BooleanEvaluator(self.expression)
+        else:
+            self.evaluator = StateMachineEvaluator(self.expression)
 
     @property
     def operands(self) -> list:
         """Return a list of operand names"""
-        return sorted(set(OPERAND_REGEX.findall(self.functional_expression)))
+        return self.evaluator.operands()
 
     def eval(self, **inputs) -> bool:
         """Evaluate this function for the given inputs"""
-        operands = self.operands
-        if not len(inputs) == len(operands):
-            raise ValueError(f'Expected {len(operands)} inputs for function {self.expression}, got {len(inputs)}')
-        callable_expr = eval(f'lambda {",".join(operands)}: int({self.pythonic_expression})')
-        return callable_expr(**inputs)
+        return self.evaluator(**inputs)
 
     def truth_table(self) -> list:
         """Return a truth table for this function.
