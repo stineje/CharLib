@@ -93,7 +93,9 @@ class Pin(Port):
 
     def is_asserted(self, stimulus) -> bool:
         """Determine whether this pin is asserted based on the given stimulus"""
-        return int(stimulus) and not self.is_inverted()
+        if self.is_inverted():
+            return int('0' in str(stimulus))
+        return int('1' in str(stimulus))
 
 
 class DifferentialPair(Port):

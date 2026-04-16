@@ -38,7 +38,7 @@ def test_noninverting_dff():
         assert(vector in expected_test_vectors)
     assert(len(expected_test_vectors) == len(function.test_vectors))
 
-def test_inverting_dffsr():
+def test_inverting_dffsr_with_active_low_sr():
     """Verify truth table and test vectors for the inverting output of a DFFSR
 
     This test uses a DFF with posedge clock and active low set & reset.
@@ -97,13 +97,13 @@ def test_inverting_dffsr():
         # R->QN
         {'CLK': '0', 'D': '0', 'IQN': '0', 'S': '1', 'R': '10', 'QN': '01'},
         {'CLK': '0', 'D': '1', 'IQN': '0', 'S': '1', 'R': '10', 'QN': '01'},
-        {'CLK': '1', 'D': '0', 'IQN': '0', 'S': '1', 'R': '10', 'QN': '01'},
         {'CLK': '1', 'D': '1', 'IQN': '0', 'S': '1', 'R': '10', 'QN': '01'},
+        {'CLK': '1', 'D': '1', 'IQN': '1', 'S': '1', 'R': '01', 'QN': '10'},
         # S->QN
         {'CLK': '0', 'D': '0', 'IQN': '1', 'S': '10', 'R': '1', 'QN': '10'},
         {'CLK': '0', 'D': '1', 'IQN': '1', 'S': '10', 'R': '1', 'QN': '10'},
         {'CLK': '1', 'D': '0', 'IQN': '1', 'S': '10', 'R': '1', 'QN': '10'},
-        {'CLK': '1', 'D': '1', 'IQN': '1', 'S': '10', 'R': '1', 'QN': '10'},
+        {'CLK': '1', 'D': '0', 'IQN': '0', 'S': '01', 'R': '1', 'QN': '01'},
         # CLK->QN
         {'CLK': '01', 'D': '0', 'IQN': '0', 'S': '1', 'R': '1', 'QN': '01'},
         {'CLK': '01', 'D': '1', 'IQN': '1', 'S': '1', 'R': '1', 'QN': '10'},
@@ -112,7 +112,7 @@ def test_inverting_dffsr():
         {'CLK': '1', 'D': '01', 'IQN': '1', 'S': '1', 'R': '1', 'QN': '10'},
     ]
     for vector in function.test_vectors:
-        print(vector)
+        print('chk', vector)
         assert(vector in expected_test_vectors)
     assert(len(expected_test_vectors) == len(function.test_vectors))
 
