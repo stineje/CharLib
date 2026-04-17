@@ -43,8 +43,9 @@ jobs:
           popd
 
       - name: "Characterize"
+        run: |
           pushd test/pdks/osu350
-          charlib run osu350.yaml -o charlib-test-osu035.nldm.lib -j16
+          charlib run osu350.yml -o charlib-test-osu035.nldm.lib -j16
           popd
 
       - name: "Upload results"
