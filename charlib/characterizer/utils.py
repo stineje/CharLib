@@ -46,21 +46,22 @@ class PinStateMap:
                 continue
 
 
-def slew_pwl(v_0, v_1, t_slew, t_wait, low_threshold, high_threshold):
+def slew_pwl(v_0, v_1, t_slew, t_wait, low_threshold, high_threshold, t_start=0):
     """Return a list of 2-tuples describing the vertices of a piecewise linear slew waveform
 
     :param v_0: The initial voltage
     :param v_1: The voltage to slew to
-    :param t_slew: The slew rate under test
-    :param t_wait: The amount of time to hold the signal constant before slewing
+    :param t_slew: The duration for the signal to slew between the thresholds
+    :param t_wait: The duration after t_start to hold the signal constant before slewing
+    :param t_start: The start time for the waveform (useful for building multi-slew waves)
     """
     # Determine the full time it takes to slew based on thresholds. See Figure 2-2 in  the Liberty
     # User Guide, Vol. 1 for details
     t_full_slew = t_slew / (high_threshold - low_threshold)
     return [
-        (0,                         v_0),
-        (t_wait,                    v_0),
-        (t_wait + t_full_slew,      v_1) # simulator will hold this voltage until sim end
+        (t_start,                        v_0),
+        (t_start + t_wait,               v_0),
+        (t_start + t_wait + t_full_slew, v_1)
     ]
 
 def init_circuit(title, cell_netlist, models, supplies, units):

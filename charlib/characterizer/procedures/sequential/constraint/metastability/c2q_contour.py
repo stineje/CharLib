@@ -14,9 +14,8 @@ def measure_setup_hold_from_contour(cell, cell_settings, charlib_settings):
             # cell.nonmasking_conditions_for_path filter out the impossible paths
             # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
             state_maps = list(cell.nonmasking_conditions_for_path(*path))
-            if state_maps == []:
+            if not state_maps:
                 continue
-
             yield (find_setup_hold_for_path, cell, cell_settings, charlib_settings, variation, path, state_maps)
 
 def make_log_header(cell_name, ds, cs, path_str, constants):
@@ -424,6 +423,10 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
     for a given setup skew / hold skew, load capacitance, and stabilizing time."""
 
+    # Fail immediately for 0 data pulse width
+    if t_setup_skew + t_hold_skew < 0:
+        return float('nan')
+
     data_pin, data_transition, output_pin, output_transition = path
 
     if debug_path is not None:
@@ -432,57 +435,57 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     # Set up parameters
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
+    th_low = 1e-2*settings.logic_thresholds.low
+    th_high = 1e-2*settings.logic_thresholds.high
+    th_rise = 1e-2*settings.logic_thresholds.rising
+    th_fall = 1e-2*settings.logic_thresholds.falling
 
-    # building waveform for data
-    t = {}
-    t['clk_edge_1_start'] = t_stabilizing
-    t['clk_edge_1_end'] = t['clk_edge_1_start'] + t_clk_slew
-    t['clk_edge_2_start'] = t['clk_edge_1_end'] + t_stabilizing
-    t['clk_edge_2_end'] = t['clk_edge_2_start'] + t_clk_slew
-    t['clk_edge_3_start'] = t['clk_edge_2_end'] + 2 * t_stabilizing
-    t['clk_edge_3_end'] = t['clk_edge_3_start'] + t_clk_slew
+    # Build clock waveform
+    # FIXME: Use value from test vector instead of checking pin inversion
+    (v0, v1) = (vdd, vss) if cell.clock.is_inverted() else (vss, vdd)
+    clk_pwl = utils.slew_pwl(v0, v1, t_clk_slew, t_stabilizing, th_low, th_high)
+    clk_pwl += utils.slew_pwl(v1, v0, t_clk_slew, t_stabilizing, th_low, th_high, clk_pwl[-1][0])[1:]
+    clk_pwl += utils.slew_pwl(v0, v1, t_clk_slew, 2*t_stabilizing, th_low, th_high, clk_pwl[-1][0])[1:]
 
-    t['data_edge_1_start'] = (t['clk_edge_3_start'] + t_clk_slew/2) - t_setup_skew - t_data_slew/2 # 50% clk edge to 50% data edge
-    t['data_edge_1_end'] = t['data_edge_1_start'] + t_data_slew
-    t['data_edge_2_start'] = (t['clk_edge_3_start'] + t_clk_slew/2) + t_hold_skew - t_data_slew/2 # 50% clk edge to 50% data edge
-    t['data_edge_2_end'] = t['data_edge_2_start'] + t_data_slew
-    t['sim_end'] = t['data_edge_2_end'] + t_stabilizing
+    # Find the precise time that the clock activation (rise/fall) threshold is reached
+    # FIXME: Use value from test vector instead of checking pin inversion
+    th_clk_active = th_fall if cell.clock.is_inverted() else th_rise
+    t_clk_active = clk_pwl[-2][0] + (clk_pwl[-1][0] - clk_pwl[-2][0])*th_clk_active
 
-    # check for invalid timing conditions (all PWL timepoints must be non-decreasing)
-    if t['data_edge_1_end'] >= t['data_edge_2_start']:
-        return float('nan')
+    # Based on the time that the clock activates, find the time we want the data to start slewing
+    # Data should activate t_setup_skew before the clock activates, plus a bit more to account for
+    # the time data takes to slew.
+    # FIXME: Handle inverted data inputs, this code assumes non-inverting
+    t_data_full_slew = t_data_slew / (th_high - th_low)
+    t_data_start = t_clk_active - t_setup_skew - th_high * t_data_full_slew
+    # FIXME: This ^ code assumes setup is measured from the data high threshold to clock edge. Is
+    #   that correct since the data input is level-triggered?
+    #   The below assumes setup time is measured from data edge to clock edge instead:
+    # t_data_start = t_clk_active - t_setup_skew - th_rise * t_data_full_slew
+
+    # Find the pulse width of the data signal
+    # FIXME: Handle inverted data inputs, this code assumes non-inverting
+    data_pulse_width = (1-th_high)*t_data_slew + t_setup_skew + t_hold_skew + (1-th_low)*t_data_slew
+
+    # Build the data waveform
+    # FIXME: Handle inverted data inputs, this code assumes non-inverting
+    data_pwl = utils.slew_pwl(v0, v1, t_data_slew, t_data_start, th_low, th_high)
+    # FIXME: This assumes high and low thresholds are symmetric, they may not be
+    data_pwl += utils.slew_pwl(v1, v0, t_data_slew, data_pulse_width, th_low, th_high, data_pwl[-1][0])[1:]
 
     # Initialize circuit
     circuit = utils.init_circuit("sequential_setup_hold", cell.netlist, config.models,
                                     settings.named_nodes, settings.units)
+
+    # FIXME: figure out whether dyn supplies are used
     circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power
     circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power
     circuit.V('o_cap', 'vout', 'wout', 0) # 0 volt source in series with c_load is a trick to measure current through the load capacitor.
     circuit.C('c_load', 'wout', circuit.gnd, c_load)
 
-    # Set up clock input
-    (v0, v1) = (vdd, vss) if cell.clock.is_inverted() else (vss, vdd)
-    circuit.PieceWiseLinearVoltageSource('clk', 'vclk', circuit.gnd, values=[
-        (0, v0),
-        (t['clk_edge_1_start'], v0),
-        (t['clk_edge_1_end'], v1),
-        (t['clk_edge_2_start'], v1),
-        (t['clk_edge_2_end'], v0),
-        (t['clk_edge_3_start'], v0),
-        (t['clk_edge_3_end'], v1),
-        (t['sim_end'], v1)
-    ])
-
-    # Set up data input node
-    (v0, v1) = (vss, vdd) if data_transition == '01' else (vdd, vss)
-    circuit.PieceWiseLinearVoltageSource('data', 'vdata', circuit.gnd, values=[
-        (0, v0),
-        (t['data_edge_1_start'], v0),
-        (t['data_edge_1_end'], v1),
-        (t['data_edge_2_start'], v1),
-        (t['data_edge_2_end'], v0),
-        (t['sim_end'], v0),
-    ])
+    # Set up supplies for input signals
+    circuit.PieceWiseLinearVoltageSource('clk', 'vclk', circuit.gnd, values=clk_pwl)
+    circuit.PieceWiseLinearVoltageSource('data', 'vdata', circuit.gnd, values=data_pwl)
 
     # Initialize device under test subcircuit and wire up pins
     connections = []
@@ -509,9 +512,11 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
         nominal_temperature=settings.temperature
     )
     simulation.options('nopage', 'nomod', post=1, ingold=2, trtol=1)
-
-    # hardcode the simulation step and time for now, to be reviewed
-    simulation.transient(step_time=min(t_data_slew, t_clk_slew)/4, end_time=t['sim_end'], run=False)
+    simulation.transient(
+        step_time=min(t_data_slew, t_clk_slew)/4,
+        end_time=t_data_start + data_pulse_width + t_stabilizing,
+        run=False
+    )
     if settings.debug:
         with open(debug_path / f'{cell.name}_ts_{str(t_setup_skew).replace(" ", "")}_th_{str(t_hold_skew).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}.spice', 'w') as f:
             f.write(str(simulation))
@@ -519,7 +524,6 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     # run the simulation
     try:
         analysis = simulator.run(simulation)
-
     except Exception as e:
         if settings.debug:
             with open(debug_path / f'{cell.name}_ts_{str(t_setup_skew).replace(" ", "")}_th_{str(t_hold_skew).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}_failure.spice', 'w') as f:
@@ -534,6 +538,7 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     v_half = float(vdd / 2)
 
     # Find the 50% crossing of the 3rd clock rising edge (RISE=2 in 0-indexed terms)
+    # TODO: Use thresholds
     clk_crossings = np.where(np.diff(np.sign(vclk - v_half)) > 0)[0]
     if len(clk_crossings) < 2:
         return float('nan')
@@ -541,6 +546,7 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
                                     [time[clk_crossings[1]], time[clk_crossings[1] + 1]])
 
     # Check if vout crosses 50% after the clock edge (i.e. Q latched)
+    # TODO: Use thresholds
     after_clk = time >= t_clk_edge
     vout_after = vout[after_clk]
     time_after = time[after_clk]
@@ -552,6 +558,7 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
         return float('nan')
 
     # Interpolate the exact 50% crossing time on Q
+    # TODO: Use thresholds
     idx = q_crossings[0]
     if state_map['Q'] == '01':
         t_q_edge = np.interp(v_half, [vout_after[idx], vout_after[idx + 1]],
