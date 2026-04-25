@@ -8,7 +8,7 @@ from charlib.liberty.library import LookupTable
 @register
 def metastability_binary_search_worst_case(cell, config, settings):
     """Find the minimum setup & hold time such that the cell can still register data."""
-    for variation in config.variations('data_slews', 'loads', ''):
+    for variation in config.variations('data_slews', 'clock_slews', 'setup_hold_constraint_load'):
         for path in cell.paths():
             yield (worst_case_setup_hold_constraint, cell, config, settings, variation, path)
 
@@ -17,8 +17,7 @@ def worst_case_setup_hold_constraint(cell, config, settings, variation, path):
 
     This method tests all nonmasking conditions which produce the state transition indicated in
     the `path` tuple with the given slew rate and capacitive load, then returns data for the
-    worst-case (i.e. largest) setup & hold times. Much like combinational_worst_case, this gives an
-    overly pessimistic estimate of the constraint.
+    worst-case (i.e. largest) setup & hold times.
 
     :param cell: A Cell object to test.
     :param config: A CellTestConfig object containing cell-specific test configuration details.

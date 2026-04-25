@@ -91,6 +91,12 @@ class Pin(Port):
         pins, etc."""
         return self.inversion
 
+    def is_asserted(self, stimulus) -> bool:
+        """Determine whether this pin is asserted based on the given stimulus"""
+        if self.is_inverted():
+            return int('0' in str(stimulus))
+        return int('1' in str(stimulus))
+
 
 class DifferentialPair(Port):
     """Encapsulate a port consisting of a differential pair of physical pins"""

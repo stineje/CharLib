@@ -12,10 +12,14 @@ from charlib.characterizer.units import UnitsSettings
 from charlib.characterizer.procedures import registered_procedures, ProcedureFailedException
 from charlib.liberty.library import Library
 
-import charlib.characterizer.procedures.pin_capacitance
-import charlib.characterizer.procedures.combinational_delay
-import charlib.characterizer.procedures.metastability_delay
-import charlib.characterizer.procedures.sequential_delay
+import charlib.characterizer.procedures.pin_capacitance.ac_sweep
+import charlib.characterizer.procedures.combinational.delay
+import charlib.characterizer.procedures.sequential.delay
+import charlib.characterizer.procedures.sequential.constraint.metastability.binary_search
+import charlib.characterizer.procedures.sequential.constraint.metastability.c2q_contour
+import charlib.characterizer.procedures.sequential.constraint.recovery
+import charlib.characterizer.procedures.sequential.constraint.removal
+import charlib.characterizer.procedures.sequential.constraint.min_pulse_width
 
 class Characterizer:
     """Main object of Charlib. Keeps track of settings and cells, and schedules simulations."""
@@ -27,48 +31,36 @@ class Characterizer:
 
     def add_cell(self, name: str, properties: dict):
         """Add a cell to be characterized"""
-        # Get pg_pins from library config, then handle other special pins
-        special_pins = {self.settings.primary_power.name: 'primary_power',
-                        self.settings.primary_ground.name: 'primary_ground',
-                        self.settings.pwell.name: 'pwell',
-                        self.settings.nwell.name: 'nwell'}
-        for role in ['clock', 'set', 'reset', 'enable']:
-            match properties.pop(role, '').replace('!', 'not ').split():
-                case [edge_or_level, pin]:
-                    special_pins[pin.upper()] = f'{edge_or_level} {role}'
-                case [pin]:
-                    special_pins[pin.upper()] = role
+        # Get pg_pins from library settings, then construct the cell
+        supply_pins = {self.settings.primary_power.name: 'primary_power',
+                       self.settings.primary_ground.name: 'primary_ground',
+                       self.settings.pwell.name: 'pwell',
+                       self.settings.nwell.name: 'nwell'}
+        cell = Cell(name, supply_pins, **properties)
 
         # Handle keywords for plots
-        plots = properties.pop('plots', [])
-        if plots == 'all':
-            plots = ['delay', 'io']
-
-        # Construct the cell. All remaining properties go into config
-        cell = Cell(name, properties.pop('netlist'), properties.pop('functions'),
-                    special_pins=special_pins, state_aliases=properties.pop('state', []),
-                    diff_pairs=properties.pop('pairs', []),
-                    input_pins=properties.pop('inputs', []),
-                    output_pins=properties.pop('outputs', []), area=properties.pop('area', 0.0))
-        config = CellTestConfig(properties.pop('models'), plots=plots, **properties)
+        if properties.get('plots', []) == 'all':
+            properties['plots'] = ['delay', 'io']
+        config = CellTestConfig(properties.pop('models'), **properties)
         self.cells.append((cell, config))
 
     def analyse_cell(self, cell, config) -> list:
-        """Return a list of callable simulation tasks required for this cell."""
+        """Return a list of callable characterization tasks required for this cell."""
         simulations = []
 
         # Measure input pin capacitances
         simulations += self.settings.simulation.input_capacitance(cell, config, self.settings)
 
-        # Identify which delay sims to run based on cell & config
+        # Identify which delay and constraint procedures to run based on cell & config
         if cell.is_sequential:
-            # IN PROGRESS: Find setup & hold constraints (clock-to-q, en-to-q)
-            simulations += self.settings.simulation.measure_setup_hold_from_contour(cell, config, self.settings)
+            # Find setup & hold constraints (clock-to-q, en-to-q)
+            simulations += self.settings.simulation.metastability_constraint(cell, config, self.settings)
             # TODO: Find minimum pulse width constraints (set, reset, enable, clock)
-            # TODO: Find recovery & removal constraints (clk/en-to-set, clk/en-to-reset)
-            # TODO: Measure preset & clear delays (set-to-q, reset-to-q)
-            # TODO: Measure sequential propagation and transient delays (d-to-q, en-to-q)
-            # simulations += self.settings.simulation.sequential_delay(cell, config, self.settings)
+            # Find recovery & removal constraints (clk/en-to-set, clk/en-to-reset)
+            simulations += self.settings.simulation.recovery_constraint(cell, config, self.settings)
+            simulations += self.settings.simulation.removal_constraint(cell, config, self.settings)
+            # Measure sequential propagation and transient delays
+            simulations += self.settings.simulation.sequential_delay(cell, config, self.settings)
         else:
             # Measure combinational propagation and transient delays
             simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
@@ -185,12 +177,27 @@ class SimulationSettings:
     """Container for simulation backend and procedures"""
     def __init__(self, **kwargs):
         self.backend = kwargs.get('backend', 'ngspice-shared')
-        self.input_capacitance = registered_procedures[kwargs.get('input_capacitance_procedure', 'ac_sweep')]
-        self.combinational_delay = registered_procedures[kwargs.get('combinational_delay_procedure', 'combinational_worst_case')]
-        self.metastability_delay = registered_procedures[kwargs.get('metastability_delay_procedure', 'metastability_binary_search_worst_case')]
-        self.measure_setup_hold_from_contour = registered_procedures['measure_setup_hold_from_contour']
-        # self.sequential_delay = registered_procedures[kwargs.get('sequential_delay_procedure', 'sequential_delay')]
-        # self.sequential_min_pulse_width = registered_procedures[kwargs.get('sequential_min_pulse_width', 'sequential_min_pulse_width')]
+        self.input_capacitance = registered_procedures[
+            kwargs.get('input_capacitance_procedure', 'ac_sweep')
+        ]
+        self.combinational_delay = registered_procedures[
+            kwargs.get('combinational_delay_procedure', 'combinational_worst_case')
+        ]
+        self.sequential_delay = registered_procedures[
+            kwargs.get('sequential_delay_procedure', 'sequential_worst_case')
+        ]
+        self.metastability_constraint = registered_procedures[
+            kwargs.get('setup_hold_constraint_procedure', 'measure_setup_hold_from_contour')
+        ]
+        self.recovery_constraint = registered_procedures[
+            kwargs.get('recovery_constraint_procedure', 'recovery_constraint')
+        ]
+        self.removal_constraint = registered_procedures[
+            kwargs.get('removal_constraint_procedure', 'removal_constraint')
+        ]
+        self.min_pulse_width_constraint = registered_procedures[
+            kwargs.get('min_pulse_width_constraint_procedure', 'min_pulse_width_constraint')
+        ]
 
 class LogicThresholds:
     """Container for logic_thresholds settings"""

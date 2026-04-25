@@ -11,8 +11,8 @@ from charlib.liberty import liberty
 def ac_sweep(cell, config, settings):
     """Measure input capacitance for each input pin using ac sweep and return a liberty cell group"""
     # Yield simulation tasks for measuring capacitance of each pin
-    for target_pin in cell.filter_ports(directions=['input'],
-                                        roles=['logic', 'clock', 'set', 'reset', 'enable']):
+    roles=['logic', 'clock', 'set', 'reset', 'enable']
+    for target_pin in cell.filter_pins(direction=['input'], role=roles):
         yield (measure_pin_cap_by_ac_sweep, cell, settings, config, target_pin.name)
 
 def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
@@ -43,10 +43,10 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     circuit.I('in', circuit.gnd, 'vin', f'DC 0 AC {PySpice.Spice.unit.str_spice(i_in)}')
     circuit.R('in', circuit.gnd, 'vin', r_in)
 
-    # Initialize device under test and wire up ports
+    # Initialize device under test and wire up pins
     connections = []
-    for port in cell.ports:
-        match port.role:
+    for pin in cell.all_pins():
+        match pin.role:
             case Port.Role.POWER:
                 connections.append(settings.primary_power.name)
             case Port.Role.GROUND:
@@ -56,15 +56,15 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
             case Port.Role.PWELL:
                 connections.append(settings.pwell.name)
             case _: # Any other role (logic, clock, analog, clear, enable, set, or preset)
-                if port.name == target_pin:
+                if pin.name == target_pin:
                     connections.append('vin')
                 else:
-                    # Add a resistor and capacitor to each other port
+                    # Add a resistor and capacitor to each other pin
                     # TODO: Determine whether the capacitors are actually needed.
                     # In general this method for cap measurement needs further investigation.
-                    circuit.C(port.name, f'v{port.name}', circuit.gnd, c_out)
-                    circuit.R(port.name, f'v{port.name}', circuit.gnd, r_out)
-                    connections.append(f'v{port.name}')
+                    circuit.C(pin.name, f'v{pin.name}', circuit.gnd, c_out)
+                    circuit.R(pin.name, f'v{pin.name}', circuit.gnd, r_out)
+                    connections.append(f'v{pin.name}')
     circuit.X('dut', cell.name, *connections)
 
     simulator = PySpice.Simulator.factory(simulator=settings.simulation.backend)

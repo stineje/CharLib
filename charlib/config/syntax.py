@@ -210,6 +210,41 @@ class ConfigFile:
                                 'a combinational cell.' # TODO: Refer to docs for procedures
                 ), default='combinational_worst_case'
             ) : str,
+            Optional(
+                Literal(
+                    'sequential_delay_procedure',
+                    description='The name of a procedure used to measure delays associated with ' \
+                                'a sequential cell.' # TODO: Refer to docs for procedures
+                ), default='sequential_worst_case'
+            ) : str,
+            Optional(
+                Literal(
+                    'setup_hold_constraint_procedure',
+                    description='The name of a procedure used to find the setup & hold time ' \
+                                'constraints associated with a sequential cell.' # TODO: Refer to docs for procedures
+                ), default='measure_setup_hold_from_contour'
+            ) : str,
+            Optional(
+                Literal(
+                    'recovery_constraint_procedure',
+                    description='The name of a procedure used to find the recovery time ' \
+                                'constraint associated with a sequential cell.' # TODO: Refer to docs for procedures
+                ), default='recovery_constraint'
+            ) : str,
+            Optional(
+                Literal(
+                    'removal_constraint_procedure',
+                    description='The name of a procedure used to find the removal time ' \
+                                'constraint associated with a sequential cell.' # TODO: Refer to docs for procedures
+                ), default='removal_constraint'
+            ) : str,
+            Optional(
+                Literal(
+                    'min_pulse_width_constraint_procedure',
+                    description='The name of a procedure used to find the minimum pulse width ' \
+                                'constraints associated with edge-sensitive pins'
+                ), default='min_pulse_width_constraint'
+            ) : str
         },
 
         Optional(
