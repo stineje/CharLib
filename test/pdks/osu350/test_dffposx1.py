@@ -15,8 +15,8 @@ if __name__ == "__main__":
         },
     })
     characterizer.add_cell('DFFPOSX1', {
-        'netlist': 'pdks/osu350/osu350_spice_temp/DFFPOSX1.sp',
-        'models': ['pdks/osu350/model.sp'],
+        'netlist': 'osu350_spice_temp/DFFPOSX1.sp',
+        'models': ['model.sp'],
         'area': 384,
         'functions': ['Q<=D'],
         'state': ['IQ=Q'],
