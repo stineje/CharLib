@@ -346,41 +346,41 @@ class ConfigFile:
             Literal(
                 'logic_thresholds',
                 description='Voltage thresholds for tuning edge timing. Values are specified as ' \
-                            'percentages of VDD. See section 2.3 in the Liberty User Guide, ' \
-                            'Vol. 1 for more information.'
+                            'fractions of VDD between 0 and 1. See section 2.3 in the Liberty ' \
+                            'User Guide, Vol. 1 for more information.'
             )
         ) : {
             Optional(
                 Literal(
                     'low',
-                    description='The percentage of the supply voltage at which a signal is ' \
+                    description='The fraction of the supply voltage at which a signal is ' \
                                 'considered logic 0 for timing measurements. See figure 2-2 and ' \
                                 'sections 2.3.6-7 in the Liberty User Guide, Vol. 1.'
-                ), default=20.0
+                ), default=0.2
             ) : Or(float, int),
             Optional(
                 Literal(
                     'high',
-                    description='The percentage of the supply voltage at which a signal is ' \
+                    description='The fraction of the supply voltage at which a signal is ' \
                                 'considered logic 1 for timing measurements. See figure 2-2 and ' \
                                 'sections 2.3.8-9 in the Liberty User Guide, Vol. 1.'
-                ), default=80.0
+                ), default=0.8
             ) : Or(float, int),
             Optional(
                 Literal(
                     'falling',
-                    description='The percentage of the supply voltage at which a signal is ' \
+                    description='The fraction of the supply voltage at which a signal is ' \
                                 'considered falling for timing measurements. See figure 2-1 and ' \
                                 'sections 2.3.1 & 2.3.3 in the Liberty User Guide, Vol. 1.'
-                ), default=50.0
+                ), default=0.5
             ) : Or(float, int),
             Optional(
                 Literal(
                     'rising',
-                    description='The percentage of the supply voltage at which a signal is ' \
+                    description='The fraction of the supply voltage at which a signal is ' \
                                 'considered rising for timing measurements. See figure 2-1 and ' \
                                 'sections 2.3.2 & 2.3.4 in the Liberty User Guide, Vol. 1.'
-                ), default=50.0
+                ), default=0.5
             ) : Or(float, int)
         },
         Optional(
