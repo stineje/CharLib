@@ -119,9 +119,8 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
             ]
         )
 
-        def _valid_c2q(c2q):
-            """Return c2q if within threshold, else NaN (so find_min_valid treats it as invalid)."""
-            return c2q if (not math.isnan(c2q) and c2q < step_threshold) else float('nan')
+        # Return c2q if within threshold, else NaN (so find_min_valid treats it as invalid).
+        _valid_c2q = lambda c2q: c2q if (not math.isnan(c2q) and c2q < step_threshold) else float('nan')
 
         # Step 1: setup time with hold fixed at T_STABILZING, this gives min setup
         step1_path = (state_debug_path / 'step1') if settings.debug else None
@@ -209,12 +208,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                             title=_base_title + '\nSweep B: setup outer, hold inner')
 
         # Step 6: pick the balanced knee point from the merged contour.
-        print('latched_a', latched_a)
-        print('latched_b', latched_b)
-        print('setup_vals_s', setup_vals_s)
-        print('hold_vals_s', hold_vals_s)
         boundary_pts = extract_2d_contour(latched_a, latched_b, setup_vals_s, hold_vals_s)
-        print('boundary_pts', boundary_pts)
         (knee_setup_s, knee_hold_s), knee_is_fallback = utils.find_knee_point(
             boundary_pts,
             chord_p0=(to_t(step1_setup_result), to_t(step2_hold_result)),
@@ -440,16 +434,16 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     # Set up parameters
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
-    th_low = 1e-2*settings.logic_thresholds.low
-    th_high = 1e-2*settings.logic_thresholds.high
-    th_rise = 1e-2*settings.logic_thresholds.rising
-    th_fall = 1e-2*settings.logic_thresholds.falling
+    th_low = settings.logic_thresholds.low
+    th_high = settings.logic_thresholds.high
+    th_rise = settings.logic_thresholds.rising
+    th_fall = settings.logic_thresholds.falling
 
     # Build clock waveform
     (v0, v1) = (vss, vdd) if state_map[cell.clock.name] == '1' else (vdd, vss)
-    clk_pwl = utils.slew_pwl(v0, v1, t_clk_slew, t_stabilizing, th_low, th_high)
-    clk_pwl += utils.slew_pwl(v1, v0, t_clk_slew, t_stabilizing, th_low, th_high, clk_pwl[-1][0])[1:]
-    clk_pwl += utils.slew_pwl(v0, v1, t_clk_slew, 2*t_stabilizing, th_low, th_high, clk_pwl[-1][0])[1:]
+    clk_pwl = utils.slew_pwl(v0, v1, t_clk_slew, t_stabilizing, th_low, th_high, t_start=0*settings.units.time)
+    clk_pwl += utils.slew_pwl(v1, v0, t_clk_slew, t_stabilizing, th_low, th_high, t_start=clk_pwl[-1][0])[1:]
+    clk_pwl += utils.slew_pwl(v0, v1, t_clk_slew, 2*t_stabilizing, th_low, th_high, t_start=clk_pwl[-1][0])[1:]
 
     # Find the precise time that the clock activation (rise/fall) threshold is reached
     th_clk_active = th_rise if state_map[cell.clock.name] == '1' else th_fall
