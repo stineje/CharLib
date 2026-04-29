@@ -209,7 +209,12 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                             title=_base_title + '\nSweep B: setup outer, hold inner')
 
         # Step 6: pick the balanced knee point from the merged contour.
+        print('latched_a', latched_a)
+        print('latched_b', latched_b)
+        print('setup_vals_s', setup_vals_s)
+        print('hold_vals_s', hold_vals_s)
         boundary_pts = extract_2d_contour(latched_a, latched_b, setup_vals_s, hold_vals_s)
+        print('boundary_pts', boundary_pts)
         (knee_setup_s, knee_hold_s), knee_is_fallback = utils.find_knee_point(
             boundary_pts,
             chord_p0=(to_t(step1_setup_result), to_t(step2_hold_result)),
@@ -441,36 +446,32 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     th_fall = 1e-2*settings.logic_thresholds.falling
 
     # Build clock waveform
-    # FIXME: Use value from test vector instead of checking pin inversion
-    (v0, v1) = (vdd, vss) if cell.clock.is_inverted() else (vss, vdd)
+    (v0, v1) = (vss, vdd) if state_map[cell.clock.name] == '1' else (vdd, vss)
     clk_pwl = utils.slew_pwl(v0, v1, t_clk_slew, t_stabilizing, th_low, th_high)
     clk_pwl += utils.slew_pwl(v1, v0, t_clk_slew, t_stabilizing, th_low, th_high, clk_pwl[-1][0])[1:]
     clk_pwl += utils.slew_pwl(v0, v1, t_clk_slew, 2*t_stabilizing, th_low, th_high, clk_pwl[-1][0])[1:]
 
     # Find the precise time that the clock activation (rise/fall) threshold is reached
-    # FIXME: Use value from test vector instead of checking pin inversion
-    th_clk_active = th_fall if cell.clock.is_inverted() else th_rise
+    th_clk_active = th_rise if state_map[cell.clock.name] == '1' else th_fall
     t_clk_active = clk_pwl[-2][0] + (clk_pwl[-1][0] - clk_pwl[-2][0])*th_clk_active
 
     # Based on the time that the clock activates, find the time we want the data to start slewing
     # Data should activate t_setup_skew before the clock activates, plus a bit more to account for
     # the time data takes to slew.
-    # FIXME: Handle inverted data inputs, this code assumes non-inverting
     t_data_full_slew = t_data_slew / (th_high - th_low)
-    t_data_start = t_clk_active - t_setup_skew - th_high * t_data_full_slew
-    # FIXME: This ^ code assumes setup is measured from the data high threshold to clock edge. Is
-    #   that correct since the data input is level-triggered?
-    #   The below assumes setup time is measured from data edge to clock edge instead:
-    # t_data_start = t_clk_active - t_setup_skew - th_rise * t_data_full_slew
+    (th_data_start, th_data_end) = (th_high, th_low) if data_transition == '01' else (th_low, th_high)
+    # This ^ code assumes setup is measured from the data level threshold to clock edge.
+    # The below assumes setup time is measured from data rise threshold to clock edge instead:
+    # (th_data_start, th_data_end) = (th_rise, th_fall) if data_transition == '01' else (th_fall, th_rise)
+    # TODO: Figure out which of these ^ is actually correct
+    t_data_start = t_clk_active - t_setup_skew - th_data_start * t_data_full_slew
 
     # Find the pulse width of the data signal
-    # FIXME: Handle inverted data inputs, this code assumes non-inverting
-    data_pulse_width = (1-th_high)*t_data_slew + t_setup_skew + t_hold_skew + (1-th_low)*t_data_slew
+    data_pulse_width = (1-th_data_start)*t_data_slew + t_setup_skew + t_hold_skew + (1-th_data_end)*t_data_slew
 
     # Build the data waveform
-    # FIXME: Handle inverted data inputs, this code assumes non-inverting
+    (v0, v1) = (vss, vdd) if data_transition == '01' else (vdd, vss)
     data_pwl = utils.slew_pwl(v0, v1, t_data_slew, t_data_start, th_low, th_high)
-    # FIXME: This assumes high and low thresholds are symmetric, they may not be
     data_pwl += utils.slew_pwl(v1, v0, t_data_slew, data_pulse_width, th_low, th_high, data_pwl[-1][0])[1:]
 
     # Initialize circuit
