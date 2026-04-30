@@ -486,19 +486,19 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
 
     # Initialize device under test subcircuit and wire up pins
     connections = []
-    for pin in cell.all_pins():
-      if pin.role == 'clock':
-          connections.append('vclk')
-      elif pin.name == data_pin:
-          connections.append('vdata')
-      elif pin.name == output_pin:
-          connections.append('vout')
-      elif pin.role == 'primary_power':
-          connections.append('vdd')
-      elif pin.role == 'primary_ground':
-          connections.append('vss')
-      else:
-          connections.append('wfloat0')       # float unrecognized
+    for pin in cell.pins_in_netlist_order():
+        if pin.role == 'clock':
+            connections.append('vclk')
+        elif pin.name == data_pin:
+            connections.append('vdata')
+        elif pin.name == output_pin:
+            connections.append('vout')
+        elif pin.role == 'primary_power':
+            connections.append('vdd')
+        elif pin.role == 'primary_ground':
+            connections.append('vss')
+        else:
+            connections.append('wfloat0') # float unrecognized
     circuit.X('dut', cell.name, *connections)
 
     # Build the simulation

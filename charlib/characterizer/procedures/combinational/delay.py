@@ -65,7 +65,7 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
         pin_map = utils.PinStateMap(cell.inputs, cell.outputs, state_map)
         connections = []
         measurements = []
-        for pin in cell.all_pins():
+        for pin in cell.pins_in_netlist_order():
             match pin.role:
                 case Port.Role.LOGIC: # Digital logic inputs or outputs
                     if pin.name in pin_map.target_inputs:
