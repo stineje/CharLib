@@ -39,10 +39,10 @@ def test_settings_default():
     assert nodes["nwell"]["name"] == "VNW"
     assert nodes["nwell"]["voltage"] == 3.3
 
-    assert settings["logic_thresholds"]["low"] == 20
-    assert settings["logic_thresholds"]["high"] == 80
-    assert settings["logic_thresholds"]["rising"] == 50
-    assert settings["logic_thresholds"]["falling"] == 50
+    assert settings["logic_thresholds"]["low"] == 0.2
+    assert settings["logic_thresholds"]["high"] == 0.8
+    assert settings["logic_thresholds"]["rising"] == 0.5
+    assert settings["logic_thresholds"]["falling"] == 0.5
 
     assert settings["multithreaded"] == True
     assert settings["results_dir"] == "results"
