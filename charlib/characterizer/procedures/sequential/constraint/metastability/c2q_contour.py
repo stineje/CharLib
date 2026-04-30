@@ -444,21 +444,23 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     th_rise = settings.logic_thresholds.rising
     th_fall = settings.logic_thresholds.falling
 
-    # Build clock waveform
-    (v0, v1) = (vss, vdd) if state_map[cell.clock.name] == '1' else (vdd, vss)
+    # Build clock waveform (lockdown pulse, lockdown settling, clock activation)
+    clk_is_rising = state_map[cell.clock.name] == '1'
+    (v0, v1) = (vss, vdd) if clk_is_rising else (vdd, vss)
     clk_pwl = utils.slew_pwl(v0, v1, t_clk_slew, t_stabilizing, th_low, th_high)
     clk_pwl += utils.slew_pwl(v1, v0, t_clk_slew, t_stabilizing, th_low, th_high, t_start=clk_pwl[-1][0])[1:]
     clk_pwl += utils.slew_pwl(v0, v1, t_clk_slew, 2*t_stabilizing, th_low, th_high, t_start=clk_pwl[-1][0])[1:]
 
     # Find the precise time that the clock activation (rise/fall) threshold is reached
-    th_clk_active = th_rise if state_map[cell.clock.name] == '1' else th_fall
+    th_clk_active = th_rise if clk_is_rising else th_fall
     t_clk_active = clk_pwl[-2][0] + (clk_pwl[-1][0] - clk_pwl[-2][0])*th_clk_active
 
     # Based on the time that the clock activates, find the time we want the data to start slewing
     # Data should activate t_setup_skew before the clock activates, plus a bit more to account for
     # the time data takes to slew.
     t_data_full_slew = t_data_slew / (th_high - th_low)
-    (th_data_start, th_data_end) = (th_high, th_low) if data_transition == '01' else (th_low, th_high)
+    data_is_rising = data_transition == '01'
+    (th_data_start, th_data_end) = (th_high, th_low) if data_is_rising else (th_low, th_high)
     # This ^ code assumes setup is measured from the data level threshold to clock edge.
     # The below assumes setup time is measured from data rise threshold to clock edge instead:
     # (th_data_start, th_data_end) = (th_rise, th_fall) if data_transition == '01' else (th_fall, th_rise)
@@ -469,7 +471,7 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     data_pulse_width = (1-th_data_start)*t_data_slew + t_setup_skew + t_hold_skew + (1-th_data_end)*t_data_slew
 
     # Build the data waveform
-    (v0, v1) = (vss, vdd) if data_transition == '01' else (vdd, vss)
+    (v0, v1) = (vss, vdd) if data_is_rising else (vdd, vss)
     data_pwl = utils.slew_pwl(v0, v1, t_data_slew, t_data_start, th_low, th_high)
     data_pwl += utils.slew_pwl(v1, v0, t_data_slew, data_pulse_width, th_low, th_high, data_pwl[-1][0])[1:]
 
@@ -535,36 +537,30 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     time = np.array(analysis.time)
     vout = np.array(analysis['vout'])
     vclk = np.array(analysis['vclk'])
-    v_half = float(vdd / 2)
+    v_clk_active = vdd*th_clk_active
 
-    # Find the 50% crossing of the 3rd clock rising edge (RISE=2 in 0-indexed terms)
-    # TODO: Use thresholds
-    clk_crossings = np.where(np.diff(np.sign(vclk - v_half)) > 0)[0]
+    # Find the time where the 3rd clock edge crosses the activation threshold
+    clk_crossings = np.where(np.diff(np.sign(vclk - v_clk_active)) > 0)[0] if clk_is_rising else \
+                    np.where(np.diff(np.sign(vclk - v_clk_active)) < 0)[0]
     if len(clk_crossings) < 2:
+        # TODO: Log why the procedure failed (not enough clock edges; error in clk wave gen)
         return float('nan')
-    t_clk_edge = np.interp(v_half, [vclk[clk_crossings[1]], vclk[clk_crossings[1] + 1]],
-                                    [time[clk_crossings[1]], time[clk_crossings[1] + 1]])
+    t_clk_edge = np.interp(v_clk_active, [vclk[clk_crossings[1]], vclk[clk_crossings[1] + 1]],
+                                         [time[clk_crossings[1]], time[clk_crossings[1] + 1]])
 
-    # Check if vout crosses 50% after the clock edge (i.e. Q latched)
-    # TODO: Use thresholds
+    # Find when the output pin activates (i.e. Q latches) after the clock edge
+    # FIXME: It is be possible that Q latches before the clock edge in some cases (negative hold time)
     after_clk = time >= t_clk_edge
     vout_after = vout[after_clk]
     time_after = time[after_clk]
-    if state_map['Q'] == '01':
-        q_crossings = np.where(np.diff(np.sign(vout_after - v_half)) > 0)[0]
-    else:
-        q_crossings = np.where(np.diff(np.sign(vout_after - v_half)) < 0)[0]
+    output_is_rising = output_transition == '01'
+    v_q_active = vdd * (th_rise if output_is_rising else th_fall)
+    q_crossings = np.where(np.diff(np.sign(vout_after - v_q_active)) > 0)[0] if output_is_rising else \
+                  np.where(np.diff(np.sign(vout_after - v_q_active)) < 0)[0]
     if len(q_crossings) < 1:
+        # TODO: Log why the procedure failed (Q never latches; overconstrained setup/hold window)
         return float('nan')
-
-    # Interpolate the exact 50% crossing time on Q
-    # TODO: Use thresholds
-    idx = q_crossings[0]
-    if state_map['Q'] == '01':
-        t_q_edge = np.interp(v_half, [vout_after[idx], vout_after[idx + 1]],
-                                     [time_after[idx], time_after[idx + 1]])
-    else:
-        t_q_edge = np.interp(v_half, [vout_after[idx + 1], vout_after[idx]],
-                                     [time_after[idx + 1], time_after[idx]])
+    t_q_edge = np.interp(v_q_active, [vout_after[q_crossings[0]], vout_after[q_crossings[0] + 1]],
+                                     [time_after[q_crossings[0]], time_after[q_crossings[0] + 1]])
 
     return t_q_edge - t_clk_edge
