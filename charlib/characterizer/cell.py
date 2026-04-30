@@ -163,6 +163,12 @@ class Cell:
         for pair in self.diff_pairs.values():
             yield from pair.as_pins()
 
+    def pins_in_netlist_order(self):
+        """Yield all pins in the order they appear in the netlist"""
+        pins = {p.name: p for p in self.all_pins()}
+        for pin_name in self.subckt().split()[2:]:
+            yield pins[pin_name]
+
     def filter_pins(self, **attrs):
         """Return a collection of pins matching the given directions, roles, etc.
 

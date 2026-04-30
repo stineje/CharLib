@@ -45,7 +45,7 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
 
     # Initialize device under test and wire up pins
     connections = []
-    for pin in cell.all_pins():
+    for pin in cell.pins_in_netlist_order():
         match pin.role:
             case Port.Role.POWER:
                 connections.append(settings.primary_power.name)
