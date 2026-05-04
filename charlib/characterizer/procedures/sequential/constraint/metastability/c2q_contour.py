@@ -418,18 +418,10 @@ def extract_2d_contour(latched_a, latched_b, setup_vals, hold_vals):
 
     return pts
 
-def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hold_skew, c_load, t_stabilizing, path, state_map, debug_path=None):
-    """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
-    for a given setup skew / hold skew, load capacitance, and stabilizing time."""
-
-    # Fail immediately for 0 data pulse width
-    if t_setup_skew + t_hold_skew < 0:
-        return float('nan')
+def sim_latch(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, t_stabilizing, c_load, path, state_map, debug_dir=None):
+    """Build a SPICE test bench and run transient simulation. Return an analysis object."""
 
     data_pin, data_transition, output_pin, output_transition = path
-
-    if debug_path is not None:
-        debug_path.mkdir(parents=True, exist_ok=True)
 
     # Set up parameters
     vdd = settings.primary_power.voltage * settings.units.voltage
@@ -451,7 +443,7 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     t_clk_active = clk_pwl[-2][0] + (clk_pwl[-1][0] - clk_pwl[-2][0])*th_clk_active
 
     # Based on the time that the clock activates, find the time we want the data to start slewing
-    # Data should activate t_setup_skew before the clock activates, plus a bit more to account for
+    # Data should activate t_setup before the clock activates, plus a bit more to account for
     # the time data takes to slew.
     t_data_full_slew = t_data_slew / (th_high - th_low)
     data_is_rising = data_transition == '01'
@@ -460,10 +452,10 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
     # The below assumes setup time is measured from data rise threshold to clock edge instead:
     # (th_data_start, th_data_end) = (th_rise, th_fall) if data_transition == '01' else (th_fall, th_rise)
     # TODO: Figure out which of these ^ is actually correct
-    t_data_start = t_clk_active - t_setup_skew - th_data_start * t_data_full_slew
+    t_data_start = t_clk_active - t_setup - th_data_start * t_data_full_slew
 
     # Find the pulse width of the data signal
-    data_pulse_width = (1-th_data_start)*t_data_slew + t_setup_skew + t_hold_skew + (1-th_data_end)*t_data_slew
+    data_pulse_width = (1-th_data_start)*t_data_slew + t_setup + t_hold + (1-th_data_end)*t_data_slew
 
     # Build the data waveform
     (v0, v1) = (vss, vdd) if data_is_rising else (vdd, vss)
@@ -508,33 +500,61 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
         temperature=settings.temperature,
         nominal_temperature=settings.temperature
     )
-    simulation.options('nopage', 'nomod', post=1, ingold=2, trtol=1)
+    simulation.options('nopage', 'nomod', rshunt=1e9, trtol=1)
     simulation.transient(
         step_time=min(t_data_slew, t_clk_slew)/4,
         end_time=t_data_start + data_pulse_width + t_stabilizing,
         run=False
     )
-    if settings.debug:
-        with open(debug_path / f'{cell.name}_ts_{str(t_setup_skew).replace(" ", "")}_th_{str(t_hold_skew).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}.spice', 'w') as f:
-            f.write(str(simulation))
+    return (simulator, simulation)
 
-    # run the simulation
+
+def get_t_stabilizing(cell, config, settings, t_clk_slew, t_data_slew, t_0, c_load, path, state_map, debug_dir):
+    pass # TODO
+
+
+def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, c_load, t_stabilizing, path, state_map, debug_dir=None):
+    """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
+    for a given setup skew / hold skew, load capacitance, and stabilizing time."""
+
+    # Fail immediately for 0 data pulse width
+    if t_setup + t_hold < 0:
+        return float('nan')
+
+    # Set up parameters
+    data_pin, data_transition, output_pin, output_transition = path
+    vdd = settings.primary_power.voltage * settings.units.voltage
+    vss = settings.primary_ground.voltage * settings.units.voltage
+    th_low = settings.logic_thresholds.low
+    th_high = settings.logic_thresholds.high
+    th_rise = settings.logic_thresholds.rising
+    th_fall = settings.logic_thresholds.falling
+
+    simulator, simulation = sim_latch(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, t_stabilizing, c_load, path, state_map, debug_dir)
+
+    if settings.debug:
+        if debug_dir is not None:
+            debug_dir.mkdir(parents=True, exist_ok=True)
+        with open(debug_dir / f'{cell.name}_ts_{str(t_setup).replace(" ", "")}_th_{str(t_hold).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}.spice', 'w') as f:
+            f.write(str(simulation))
     try:
         analysis = simulator.run(simulation)
     except Exception as e:
         if settings.debug:
-            with open(debug_path / f'{cell.name}_ts_{str(t_setup_skew).replace(" ", "")}_th_{str(t_hold_skew).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}_failure.spice', 'w') as f:
+            with open(debug_dir / f'{cell.name}_ts_{str(t_setup).replace(" ", "")}_th_{str(t_hold).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}_failure.spice', 'w') as f:
                 f.write(str(simulation))
-        msg = f'Procedure get_c2q failed for cell {cell.name}, data_slew = {t_data_slew}, clk_slew = {t_clk_slew}, setup_skew = {t_setup_skew}, hold_skew = {t_hold_skew}'
+        msg = f'Procedure get_c2q failed for cell {cell.name}, data_slew = {t_data_slew}, clk_slew = {t_clk_slew}, setup = {t_setup}, hold = {t_hold}'
         raise ProcedureFailedException(msg) from e
 
     # Check whether Q latched the D value by looking at vout after the 3rd clock edge
     time = np.array(analysis.time)
     vout = np.array(analysis['vout'])
     vclk = np.array(analysis['vclk'])
-    v_clk_active = vdd*th_clk_active
 
     # Find the time where the 3rd clock edge crosses the activation threshold
+    clk_is_rising = state_map[cell.clock.name] == '1'
+    th_clk_active = th_rise if clk_is_rising else th_fall
+    v_clk_active = vdd*th_clk_active
     clk_crossings = np.where(np.diff(np.sign(vclk - v_clk_active)) > 0)[0] if clk_is_rising else \
                     np.where(np.diff(np.sign(vclk - v_clk_active)) < 0)[0]
     if len(clk_crossings) < 2:
@@ -544,7 +564,6 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup_skew, t_hol
                                          [time[clk_crossings[1]], time[clk_crossings[1] + 1]])
 
     # Find when the output pin activates (i.e. Q latches) after the clock edge
-    # FIXME: It is be possible that Q latches before the clock edge in some cases (negative hold time)
     after_clk = time >= t_clk_edge
     vout_after = vout[after_clk]
     time_after = time[after_clk]
