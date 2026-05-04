@@ -16,11 +16,12 @@ See the [documentation](https://stineje.github.io/CharLib/) for more details, in
 - [Configuration syntax reference](https://stineje.github.io/CharLib/chapters/04_syntax_reference.html)
 - [Information for developers & contributors](https://stineje.github.io/CharLib/chapters/05_contributing.html)
 
-## Videos
-- Introduction to using CharLib: [https://youtu.be/QYgwKUkUTOc?si=QH0ajlIu4vUQsxAa]
+We've also published a [video tutorial](https://youtu.be/QYgwKUkUTOc?si=QH0ajlIu4vUQsxAa) that
+walks through the process of getting started with CharLib, from installation to characterizing a
+PDK.
 
 ## Troubleshooting
-If you're having problems using CharLib, please [open a new issue](https://github.com/stineje/CharLib/issues/new/choose).
+If you have any trouble using CharLib, please [open a new issue](https://github.com/stineje/CharLib/issues/new/choose).
 
 ## Citing
 If you use this work in your research, please cite as follows:
