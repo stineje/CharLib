@@ -208,12 +208,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                             title=_base_title + '\nSweep B: setup outer, hold inner')
 
         # Step 6: pick the balanced knee point from the merged contour.
-        print('latched_a', latched_a)
-        print('latched_b', latched_b)
-        print('setup_vals_s', setup_vals_s)
-        print('hold_vals_s', hold_vals_s)
         boundary_pts = extract_2d_contour(latched_a, latched_b, setup_vals_s, hold_vals_s)
-        print('boundary_pts', boundary_pts)
         (knee_setup_s, knee_hold_s), knee_is_fallback = utils.find_knee_point(
             boundary_pts,
             chord_p0=(to_t(step1_setup_result), to_t(step2_hold_result)),
