@@ -20,12 +20,12 @@ def measure_setup_hold_from_contour(cell, cell_settings, charlib_settings):
 
 def make_log_header(cell_name, ds, cs, path_str, constants):
     """Return a metadata header block common to all log files."""
-    TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES = constants
+    TOLERANCE, STEP, C_LOAD, N_SWEEP_SAMPLES = constants
     return [
         f"Cell:      {cell_name}",
         f"Variation: data_slew={ds}, clock_slew={cs}",
         f"Path:      {path_str}",
-        f"Constants: stabilizing={T_STABILZING}, tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}, n_sweep_samples={N_SWEEP_SAMPLES}",
+        f"Constants: tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}, n_sweep_samples={N_SWEEP_SAMPLES}",
         f"",
     ]
 
@@ -70,10 +70,9 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
     """
     TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
     STEP = 5 @ PySpice.Unit.u_ps # 5 ps initial bound-finding step for binary search
-    T_STABILZING = 20 * max(config.parameters['clock_slews']) * settings.units.time # 20x worst case clock slew
     C_LOAD = config.parameters['setup_hold_constraint_load'] * settings.units.capacitance
     N_SWEEP_SAMPLES = config.parameters['sequential_n_sweep_samples']
-    constants = (TOLERANCE, STEP, T_STABILZING, C_LOAD, N_SWEEP_SAMPLES)
+    constants = (TOLERANCE, STEP, C_LOAD, N_SWEEP_SAMPLES)
 
     ds = variation['data_slew'] * settings.units.time
     cs = variation['clock_slew'] * settings.units.time
@@ -92,20 +91,23 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
     # for path D, 01 -> Q, 01, SD can be either 0 or 1, that will affect setup / hold time
     for state_map in state_maps:
         state_str = ', '.join(f"{k}={v}" for k, v in state_map.items())
-
         state_debug_path = path_debug_folder = None
         if settings.debug:
             state_folder = '__'.join(f"{k}_{v}" for k, v in state_map.items())
             path_debug_folder = variation_debug_path / path_str
             state_debug_path = path_debug_folder / state_folder
 
-        # Step 0: measure reference c2q at (T_STABILZING, T_STABILZING) — guaranteed relaxed point.
+        # Step -1: measure stabilizing time to minimize total runtime
+        # FIXME: safety factor k should be configurable
+        t_stabilizing = get_t_stabilizing(cell, config, settings, path, state_map, k=2, capacitive_load=C_LOAD)
+
+        step_c2q = lambda t_s, t_h, debug_dir: get_c2q(cell, config, settings, cs, ds, t_s, t_h, C_LOAD, t_stabilizing, path, state_map, debug_dir)
+
+        # Step 0: measure reference c2q at (t_stabilizing, t_stabilizing) — relaxed point.
         # Used to gate binary search steps 1–4: points with c2q > ref * 1.2 are treated
         # as invalid (metastable / degenerate operating region).
         step0_path = (state_debug_path / 'step0') if settings.debug else None
-        ref_c2q_steps = get_c2q(cell, config, settings, cs, ds,
-                                 T_STABILZING, T_STABILZING,
-                                 C_LOAD, T_STABILZING, path, state_map, step0_path)
+        ref_c2q_steps = step_c2q(t_stabilizing, t_stabilizing, step0_path)
         step_threshold = ref_c2q_steps * 1.2 if not math.isnan(ref_c2q_steps) else math.inf
         ref_c2q_display = to_t(ref_c2q_steps @ PySpice.Unit.u_s) if not math.isnan(ref_c2q_steps) else float('nan')
         threshold_display = to_t(step_threshold @ PySpice.Unit.u_s) if not math.isinf(step_threshold) else float('inf')
@@ -113,7 +115,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
             make_log_header(cell.name, ds, cs, path_str, constants) + [
                 f"State:     {state_str}",
                 f"",
-                f"step0 : measure ref c2q at setup=hold= {T_STABILZING}",
+                f"step0 : measure ref c2q at setup=hold= {t_stabilizing}",
                 f"  ref c2q   = {ref_c2q_display:.4g} {t_unit.str_spice()}",
                 f"  threshold = {threshold_display:.4g} {t_unit.str_spice()} (ref c2q * 1.2)",
             ]
@@ -122,47 +124,45 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         # Return c2q if within threshold, else NaN (so find_min_valid treats it as invalid).
         _valid_c2q = lambda c2q: c2q if (not math.isnan(c2q) and c2q < step_threshold) else float('nan')
 
-        # Step 1: setup time with hold fixed at T_STABILZING, this gives min setup
+        # Step 1: setup time with hold fixed at t_stabilizing, this gives min setup
         step1_path = (state_debug_path / 'step1') if settings.debug else None
         step1_setup_result, step1_phase1_candidates, step1_phase2_candidates = utils.find_min_valid(
-            lambda s: _valid_c2q(get_c2q(cell, config, settings, cs, ds, s, T_STABILZING, C_LOAD, T_STABILZING, path, state_map, step1_path)),
-            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+            lambda s: _valid_c2q(step_c2q(s, t_stabilizing, step1_path)),
+            start=t_stabilizing, step=STEP, tolerance=TOLERANCE)
         write_step_log(step1_path, 'step1', cell.name, ds, cs, path_str, state_str, constants,
-                        f"step1 : find setup given hold= {T_STABILZING}",
+                        f"step1 : find setup given hold= {t_stabilizing}",
                         step1_setup_result, step1_phase1_candidates, step1_phase2_candidates)
 
         # Step 2: hold time with setup fixed at min_setup, this gives max hold
         step2_path = (state_debug_path / 'step2') if settings.debug else None
         step2_hold_result, step2_phase1_candidates, step2_phase2_candidates = utils.find_min_valid(
-            lambda h: _valid_c2q(get_c2q(cell, config, settings, cs, ds, step1_setup_result, h, C_LOAD, T_STABILZING, path, state_map, step2_path)),
-            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+            lambda h: _valid_c2q(step_c2q(step1_setup_result, h, step2_path)),
+            start=t_stabilizing, step=STEP, tolerance=TOLERANCE)
         write_step_log(step2_path, 'step2', cell.name, ds, cs, path_str, state_str, constants,
                         f"step2 : find hold given setup= {step1_setup_result}",
                         step2_hold_result, step2_phase1_candidates, step2_phase2_candidates)
 
-        # Step 3: hold time with setup fixed T_STABILZING, this gives min hold
+        # Step 3: hold time with setup fixed t_stabilizing, this gives min hold
         step3_path = (state_debug_path / 'step3') if settings.debug else None
         step3_hold_result, step3_phase1_candidates, step3_phase2_candidates = utils.find_min_valid(
-            lambda h: _valid_c2q(get_c2q(cell, config, settings, cs, ds, T_STABILZING, h, C_LOAD, T_STABILZING, path, state_map, step3_path)),
-            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+            lambda h: _valid_c2q(step_c2q(t_stabilizing, h, step3_path)),
+            start=t_stabilizing, step=STEP, tolerance=TOLERANCE)
         write_step_log(step3_path, 'step3', cell.name, ds, cs, path_str, state_str, constants,
-                        f"step3 : find hold given setup= {T_STABILZING}",
+                        f"step3 : find hold given setup= {t_stabilizing}",
                         step3_hold_result, step3_phase1_candidates, step3_phase2_candidates)
 
         # Step 4: find setup time with hold fixed at min hold, this gives max setup
         step4_path = (state_debug_path / 'step4') if settings.debug else None
         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates = utils.find_min_valid(
-            lambda s: _valid_c2q(get_c2q(cell, config, settings, cs, ds, s, step3_hold_result, C_LOAD, T_STABILZING, path, state_map, step4_path)),
-            start=T_STABILZING, step=STEP, tolerance=TOLERANCE)
+            lambda s: _valid_c2q(step_c2q(s, step3_hold_result, step4_path)),
+            start=t_stabilizing, step=STEP, tolerance=TOLERANCE)
         write_step_log(step4_path, 'step4', cell.name, ds, cs, path_str, state_str, constants,
                         f"step4 : find setup given hold= {step3_hold_result}",
                         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates)
 
         # Step 5: sweep the setup×hold boundary and plot the latched contour
         step5_debug_path = (state_debug_path / 'step5') if settings.debug else None
-        ref_c2q = get_c2q(cell, config, settings, cs, ds,
-                          step4_setup_result, step2_hold_result,
-                          C_LOAD, T_STABILZING, path, state_map, step5_debug_path)
+        ref_c2q = step_c2q(step4_setup_result, step2_hold_result, step5_debug_path)
         c2q_threshold = ref_c2q * 1.2 if not math.isnan(ref_c2q) else math.inf
 
         # latch_x : 2D numpy array, indexed by hold(first index) and setup(second index), stores a boolean that indicates whether such setup & hold combination meets requirement
@@ -173,7 +173,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
          setup_vals_s, hold_vals_s) = sweep_2d_space_for_contour(
             lambda s, h: get_c2q(cell, config, settings, cs, ds,
                                  s * settings.units.time, h * settings.units.time,
-                                 C_LOAD, T_STABILZING, path, state_map, step5_debug_path),
+                                 C_LOAD, t_stabilizing, path, state_map, step5_debug_path),
             setup_min=to_t(step1_setup_result), setup_max=to_t(step4_setup_result),
             hold_min=to_t(step3_hold_result),   hold_max=to_t(step2_hold_result),
             c2q_threshold=c2q_threshold,
@@ -183,7 +183,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         # output some data into the debug folder
         if settings.debug:
             utils.write_c2q_csv(step5_debug_path, settings, c2q_a, c2q_b,
-                                setup_vals_s, hold_vals_s, T_STABILZING,
+                                setup_vals_s, hold_vals_s, t_stabilizing,
                                 ref_c2q_steps, c2q_threshold)
 
             _base_title = f'{cell.name}  |  {path_str}  |  {state_str}\ndata_slew={ds},  clk_slew={cs}'
@@ -418,20 +418,34 @@ def extract_2d_contour(latched_a, latched_b, setup_vals, hold_vals):
 
     return pts
 
-def sim_latch(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, t_stabilizing, c_load, path, state_map, debug_dir=None):
+def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
+              clock_slew_rate=None, data_slew_rate=None, setup_skew=None, hold_skew=None,
+              stabilizing_time=None
+    ):
     """Build a SPICE test bench and run transient simulation. Return an analysis object."""
 
+    # Set up parameters, using reasonable defaults where possible
     data_pin, data_transition, output_pin, output_transition = path
-
-    # Set up parameters
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
     th_low = settings.logic_thresholds.low
     th_high = settings.logic_thresholds.high
     th_rise = settings.logic_thresholds.rising
     th_fall = settings.logic_thresholds.falling
+    t_clk_slew = clock_slew_rate if clock_slew_rate else \
+                 max(config.parameters['clock_slews']) * settings.units.time
+    t_data_slew = data_slew_rate if data_slew_rate else \
+                  max(config.parameters['data_slews']) * settings.units.time
+    t_setup = setup_skew if setup_skew else \
+              10*max(config.parameters['clock_slews']) * settings.units.time
+    t_hold = hold_skew if hold_skew else \
+             10*max(config.parameters['clock_slews']) * settings.units.time
+    t_stabilizing = stabilizing_time if stabilizing_time else \
+                    20*max([t_clk_slew, t_data_slew, t_setup, t_hold])
+    c_load = capacitive_load if capacitive_load else \
+             max(config.parameters['loads']) * settings.units.capacitance
 
-    # Build clock waveform (lockdown pulse, lockdown settling, clock activation)
+    # Build clock waveform (lockdown pulse, stabilizing, clock activation)
     clk_is_rising = state_map[cell.clock.name] == '1'
     (v0, v1) = (vss, vdd) if clk_is_rising else (vdd, vss)
     clk_pwl = utils.slew_pwl(v0, v1, t_clk_slew, t_stabilizing, th_low, th_high)
@@ -509,8 +523,41 @@ def sim_latch(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, 
     return (simulator, simulation)
 
 
-def get_t_stabilizing(cell, config, settings, t_clk_slew, t_data_slew, t_0, c_load, path, state_map, debug_dir):
-    pass # TODO
+def get_t_stabilizing(cell, config, settings, path, state_map, k=2, th_high=0.97, th_low=0.03, **sim_kwargs):
+    """Find a reasonable estimate of the stabilizing time for the current configuration.
+
+    The stabilizing time is the delay between lockdown and c2q measurement. It's important to
+    minimize stabilizing time as it has a major effect on total simulation runtime. This procedure
+    measures the transient time of the output signal, then multiplies that by a 'safety factor' k
+    to determine a reasonable stabilizing time."""
+
+    simulator, simulation = sim_latch(cell, config, settings, path, state_map, **sim_kwargs)
+
+    if settings.debug:
+        pass # TODO: write to debug dir
+
+    try:
+        analysis = simulator.run(simulation)
+    except Exception as e:
+        raise ProcedureFailedException('get_t_stabilizing failed') from e
+
+    # Set up post-processing parameters
+    *_, output_transition = path
+    output_is_rising = output_transition == '01'
+    vdd = settings.primary_power.voltage * settings.units.voltage
+    v_start = th_low*vdd if output_is_rising else th_high*vdd
+    v_end = vdd - v_start
+    time = np.array(analysis.time)
+    vout = np.array(analysis['vout'])
+
+    # Measure the amount of time the output takes to slew
+    start_crossings = np.where(np.diff(np.sign(vout - v_start)) > 0) if output_is_rising else \
+                      np.where(np.diff(np.sign(vout - v_start)) < 0)
+    end_crossings = np.where(np.diff(np.sign(vout - v_end)) > 0) if output_is_rising else \
+                    np.where(np.diff(np.sign(vout - v_end)) < 0)
+    transient_time = time[end_crossings[-1]][0] - time[start_crossings[-1]][0]
+
+    return k * transient_time @ PySpice.Unit.u_s
 
 
 def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, c_load, t_stabilizing, path, state_map, debug_dir=None):
@@ -521,7 +568,26 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, c_
     if t_setup + t_hold < 0:
         return float('nan')
 
-    # Set up parameters
+    simulator, simulation = sim_latch(cell, config, settings, path, state_map,
+                                      clock_slew_rate=t_clk_slew, data_slew_rate=t_data_slew,
+                                      setup_skew=t_setup, hold_skew=t_hold,
+                                      stabilizing_time=t_stabilizing,
+                                      capacitive_load=c_load)
+
+    if settings.debug and debug_dir is not None:
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        with open(debug_dir / f'{cell.name}_ts_{str(t_setup).replace(" ", "")}_th_{str(t_hold).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}.spice', 'w') as f:
+            f.write(str(simulation))
+    try:
+        analysis = simulator.run(simulation)
+    except Exception as e:
+        if settings.debug and debug_dir is not None:
+            with open(debug_dir / f'{cell.name}_ts_{str(t_setup).replace(" ", "")}_th_{str(t_hold).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}_failure.spice', 'w') as f:
+                f.write(str(simulation))
+        msg = f'Procedure get_c2q failed for cell {cell.name}, data_slew = {t_data_slew}, clk_slew = {t_clk_slew}, setup = {t_setup}, hold = {t_hold}'
+        raise ProcedureFailedException(msg) from e
+
+    # Set up post-processing parameters
     data_pin, data_transition, output_pin, output_transition = path
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
@@ -529,22 +595,6 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, c_
     th_high = settings.logic_thresholds.high
     th_rise = settings.logic_thresholds.rising
     th_fall = settings.logic_thresholds.falling
-
-    simulator, simulation = sim_latch(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, t_stabilizing, c_load, path, state_map, debug_dir)
-
-    if settings.debug:
-        if debug_dir is not None:
-            debug_dir.mkdir(parents=True, exist_ok=True)
-        with open(debug_dir / f'{cell.name}_ts_{str(t_setup).replace(" ", "")}_th_{str(t_hold).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}.spice', 'w') as f:
-            f.write(str(simulation))
-    try:
-        analysis = simulator.run(simulation)
-    except Exception as e:
-        if settings.debug:
-            with open(debug_dir / f'{cell.name}_ts_{str(t_setup).replace(" ", "")}_th_{str(t_hold).replace(" ", "")}_cl_{str(c_load).replace(" ", "")}_failure.spice', 'w') as f:
-                f.write(str(simulation))
-        msg = f'Procedure get_c2q failed for cell {cell.name}, data_slew = {t_data_slew}, clk_slew = {t_clk_slew}, setup = {t_setup}, hold = {t_hold}'
-        raise ProcedureFailedException(msg) from e
 
     # Check whether Q latched the D value by looking at vout after the 3rd clock edge
     time = np.array(analysis.time)
