@@ -99,7 +99,8 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
 
         # Step -1: measure stabilizing time to minimize total runtime
         # FIXME: safety factor k should be configurable
-        t_stabilizing = get_t_stabilizing(cell, config, settings, path, state_map, k=2, capacitive_load=C_LOAD)
+        t_stabilizing = get_t_stabilizing(cell, config, settings, path, state_map, k=2,
+                                          capacitive_load=C_LOAD, debug_dir=state_debug_path)
 
         step_c2q = lambda t_s, t_h, debug_dir: get_c2q(cell, config, settings, cs, ds, t_s, t_h, C_LOAD, t_stabilizing, path, state_map, debug_dir)
 
@@ -437,9 +438,9 @@ def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
     t_data_slew = data_slew_rate if data_slew_rate else \
                   max(config.parameters['data_slews']) * settings.units.time
     t_setup = setup_skew if setup_skew else \
-              10*max(config.parameters['clock_slews']) * settings.units.time
+              10*max(config.parameters['data_slews']) * settings.units.time
     t_hold = hold_skew if hold_skew else \
-             10*max(config.parameters['clock_slews']) * settings.units.time
+             10*max(config.parameters['data_slews']) * settings.units.time
     t_stabilizing = stabilizing_time if stabilizing_time else \
                     20*max([t_clk_slew, t_data_slew, t_setup, t_hold])
     c_load = capacitive_load if capacitive_load else \
@@ -523,7 +524,7 @@ def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
     return (simulator, simulation)
 
 
-def get_t_stabilizing(cell, config, settings, path, state_map, k=2, th_high=0.97, th_low=0.03, **sim_kwargs):
+def get_t_stabilizing(cell, config, settings, path, state_map, k=2, th_high=0.97, th_low=0.03, debug_dir=None, **sim_kwargs):
     """Find a reasonable estimate of the stabilizing time for the current configuration.
 
     The stabilizing time is the delay between lockdown and c2q measurement. It's important to
@@ -532,10 +533,10 @@ def get_t_stabilizing(cell, config, settings, path, state_map, k=2, th_high=0.97
     to determine a reasonable stabilizing time."""
 
     simulator, simulation = sim_latch(cell, config, settings, path, state_map, **sim_kwargs)
-
-    if settings.debug:
-        pass # TODO: write to debug dir
-
+    if settings.debug and debug_dir is not None:
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        with open(debug_dir / 'get_t_stabilizing.spice', 'w') as f:
+            f.write(str(simulation))
     try:
         analysis = simulator.run(simulation)
     except Exception as e:
