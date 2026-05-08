@@ -13,9 +13,9 @@ if __name__ == "__main__":
         'state': ['IQ=Q', 'IQN=QN'],
         'clock': 'posedge CLK',
         'pairs': ['Q QN'],
-        'clock_slews': [0.07, 2.5, 10],
-        'loads': [0.005, 0.06, 0.2],
-        'data_slews': [0.1, 0.5, 1.2],
+        'data_slews':  [0.0706, 0.1903, 0.5123, 1.3794, 3.7140, 10],
+        'loads':       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901],
+        'clock_slews': [0.0699991, 2.64574, 10],
         'setup_hold_constraint_load': 0.24,
         'sequential_n_sweep_samples': 40,
     })
@@ -26,5 +26,3 @@ if __name__ == "__main__":
         print(task.__name__, args)
         cell_group = task(*args)
         characterizer.library.add_group(cell_group)
-        break
-    print(str(characterizer.library))
