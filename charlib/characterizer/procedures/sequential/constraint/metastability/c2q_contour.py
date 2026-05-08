@@ -421,7 +421,7 @@ def extract_2d_contour(latched_a, latched_b, setup_vals, hold_vals):
 
 def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
               clock_slew_rate=None, data_slew_rate=None, setup_skew=None, hold_skew=None,
-              stabilizing_time=None
+              stabilizing_time=None, circuit_title='sim_latch'
     ):
     """Build a SPICE test bench and run transient simulation. Return an analysis object."""
 
@@ -462,10 +462,10 @@ def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
     # the time data takes to slew.
     t_data_full_slew = t_data_slew / (th_high - th_low)
     data_is_rising = data_transition == '01'
-    (th_data_start, th_data_end) = (th_high, th_low) if data_is_rising else (th_low, th_high)
+    # (th_data_start, th_data_end) = (th_high, th_low) if data_is_rising else (th_low, th_high)
     # This ^ code assumes setup is measured from the data level threshold to clock edge.
     # The below assumes setup time is measured from data rise threshold to clock edge instead:
-    # (th_data_start, th_data_end) = (th_rise, th_fall) if data_transition == '01' else (th_fall, th_rise)
+    (th_data_start, th_data_end) = (th_rise, th_fall) if data_transition == '01' else (th_fall, th_rise)
     # TODO: Figure out which of these ^ is actually correct
     t_data_start = t_clk_active - t_setup - th_data_start * t_data_full_slew
 
@@ -478,8 +478,7 @@ def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
     data_pwl += utils.slew_pwl(v1, v0, t_data_slew, data_pulse_width, th_low, th_high, data_pwl[-1][0])[1:]
 
     # Initialize circuit
-    circuit = utils.init_circuit("sequential_setup_hold", cell.netlist, config.models,
-                                    settings.named_nodes, settings.units)
+    circuit = utils.init_circuit(circuit_title, cell.netlist, config.models, settings.named_nodes, settings.units)
 
     # FIXME: figure out whether dyn supplies are used
     circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power
@@ -569,11 +568,10 @@ def get_c2q(cell, config, settings, t_clk_slew, t_data_slew, t_setup, t_hold, c_
     if t_setup + t_hold < 0:
         return float('nan')
 
-    simulator, simulation = sim_latch(cell, config, settings, path, state_map,
+    simulator, simulation = sim_latch(cell, config, settings, path, state_map, circuit_title='get_c2q',
                                       clock_slew_rate=t_clk_slew, data_slew_rate=t_data_slew,
                                       setup_skew=t_setup, hold_skew=t_hold,
-                                      stabilizing_time=t_stabilizing,
-                                      capacitive_load=c_load)
+                                      stabilizing_time=t_stabilizing, capacitive_load=c_load)
 
     if settings.debug and debug_dir is not None:
         debug_dir.mkdir(parents=True, exist_ok=True)
