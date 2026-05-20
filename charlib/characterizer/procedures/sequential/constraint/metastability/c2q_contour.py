@@ -99,10 +99,10 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
 
         # Step -1: measure stabilizing time to minimize total runtime
         k = 2 # FIXME: safety factor k should be configurable
-        t_stabilizing = k * get_c2q(cell, config, settings, path, state_map, clock_slew_rate=cs,
-                                    data_slew_rate=ds, capacitive_load=C_LOAD,
-                                    debug_dir=state_debug_path) @ PySpice.Unit.u_s
-        t_stabilizing = t_stabilizing.convert(t_unit)
+        t_stabilizing = get_t_stabilizing(cell, config, settings, path, state_map, k=k,
+                                          clock_slew_rate=cs,
+                                          data_slew_rate=ds, capacitive_load=C_LOAD,
+                                          debug_dir=state_debug_path)
         print(t_stabilizing)
 
         step_c2q = lambda t_s, t_h, debug_dir: get_c2q(cell, config, settings, path, state_map,
@@ -116,6 +116,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         # as invalid (metastable / degenerate operating region).
         step0_path = (state_debug_path / 'step0') if settings.debug else None
         ref_c2q_steps = step_c2q(t_stabilizing, t_stabilizing, step0_path)
+        print(ref_c2q_steps)
         step_threshold = ref_c2q_steps * 1.2 if not math.isnan(ref_c2q_steps) else math.inf
         ref_c2q_display = to_t(ref_c2q_steps @ PySpice.Unit.u_s) if not math.isnan(ref_c2q_steps) else float('nan')
         threshold_display = to_t(step_threshold @ PySpice.Unit.u_s) if not math.isinf(step_threshold) else float('inf')
@@ -543,6 +544,14 @@ def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
     return (simulator, simulation)
 
 
+def get_t_stabilizing(cell, config, settings, path, state_map, k=2, **sim_kwargs):
+    """Get a valid stabilizing time. Default to max(clock_slews) if unable to measure."""
+    relaxed_c2q = get_c2q(cell, config, settings, path, state_map, **sim_kwargs)
+    if math.isnan(relaxed_c2q) or relaxed_c2q < 0:
+        return max(config.parameters['clock_slews']) * settings.units.time
+    return (k*relaxed_c2q @ PySpice.Unit.u_s).convert(settings.units.time.prefixed_unit)
+
+
 def get_c2q(cell, config, settings, path, state_map, debug_dir=None, **sim_kwargs):
     """Build a SPICE testbench and run a transient simulation to get the clock-to-q delay
     for a given setup skew / hold skew, load capacitance, and stabilizing time."""
@@ -586,22 +595,21 @@ def get_c2q(cell, config, settings, path, state_map, debug_dir=None, **sim_kwarg
                     np.where(np.diff(np.sign(vclk - v_clk_active)) < 0)[0]
     if len(clk_crossings) < 2:
         # TODO: Log why the procedure failed (not enough clock edges; error in clk wave gen)
+        print('Fewer than 2 edges in vclk!')
         return float('nan')
-    t_clk_edge = np.interp(v_clk_active, [vclk[clk_crossings[1]], vclk[clk_crossings[1] + 1]],
-                                         [time[clk_crossings[1]], time[clk_crossings[1] + 1]])
+    t_clk_edge = np.interp(v_clk_active, [vclk[clk_crossings[-1]], vclk[clk_crossings[-1] + 1]],
+                                         [time[clk_crossings[-1]], time[clk_crossings[-1] + 1]])
 
-    # Find when the output pin activates (i.e. Q latches) after the clock edge
-    after_clk = time >= t_clk_edge
-    vout_after = vout[after_clk]
-    time_after = time[after_clk]
+    # Find when the output pin activates (i.e. Q latches) relative to the clock edge
     output_is_rising = output_transition == '01'
     v_q_active = vdd * (th_rise if output_is_rising else th_fall)
-    q_crossings = np.where(np.diff(np.sign(vout_after - v_q_active)) > 0)[0] if output_is_rising else \
-                  np.where(np.diff(np.sign(vout_after - v_q_active)) < 0)[0]
+    q_crossings = np.where(np.diff(np.sign(vout - v_q_active)) > 0)[0] if output_is_rising else \
+                  np.where(np.diff(np.sign(vout - v_q_active)) < 0)[0]
     if len(q_crossings) < 1:
         # TODO: Log why the procedure failed (Q never latches; overconstrained setup/hold window)
+        print('No edges in vout signal!')
         return float('nan')
-    t_q_edge = np.interp(v_q_active, [vout_after[q_crossings[0]], vout_after[q_crossings[0] + 1]],
-                                     [time_after[q_crossings[0]], time_after[q_crossings[0] + 1]])
+    t_q_edge = np.interp(v_q_active, [vout[q_crossings[-1]], vout[q_crossings[-1] + 1]],
+                                     [time[q_crossings[-1]], time[q_crossings[-1] + 1]])
 
     return t_q_edge - t_clk_edge
