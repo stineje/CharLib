@@ -98,7 +98,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
             state_debug_path = path_debug_folder / state_folder
 
         # Step -1: measure stabilizing time to minimize total runtime
-        k = 4 # FIXME: safety factor k should be configurable
+        k = 2 # FIXME: safety factor k should be configurable
         t_stabilizing = get_t_stabilizing(cell, config, settings, path, state_map, k=k,
                                           clock_slew_rate=cs,
                                           data_slew_rate=ds, capacitive_load=C_LOAD,
@@ -543,7 +543,7 @@ def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
     return (simulator, simulation)
 
 
-def get_t_stabilizing(cell, config, settings, path, state_map, k=2, **sim_kwargs):
+def get_t_stabilizing(cell, config, settings, path, state_map, k=2, th_low=0.03, th_high=0.99, **sim_kwargs):
     """Find a reasonable estimate of the stabilizing time for the current configuration.
 
     The stabilizing time is the delay between lockdown (when any existing state is cleared) and c2q
@@ -561,7 +561,7 @@ def get_t_stabilizing(cell, config, settings, path, state_map, k=2, **sim_kwargs
     *_, output_transition = path
     output_is_rising = output_transition == '01'
     vdd = settings.primary_power.voltage * settings.units.voltage
-    v_start = vdd * (settings.logic_thresholds.low if output_is_rising else settings.logic_thresholds.high)
+    v_start = vdd * (th_low if output_is_rising else th_high)
     v_end = vdd - v_start
     time = np.array(analysis.time)
     vout = np.array(analysis['vout'])
