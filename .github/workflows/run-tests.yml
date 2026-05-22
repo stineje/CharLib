@@ -73,8 +73,8 @@ jobs:
         run: |
           pushd test/pdks/gf180mcu_osu_sc
           mkdir models
-          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.ngspice > models/sm141064.ngspice
-          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.ngspice > models/design.ngspice
+          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.spice > models/sm141064.ngspice
+          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.spice > models/design.ngspice
           git clone https://github.com/stineje/globalfoundries-pdk-libs-gf180mcu_osu_sc
           popd
 
