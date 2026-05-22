@@ -6,17 +6,30 @@ from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.characterizer import utils, plots
 from charlib.liberty.library import LookupTable
 
-@register
-def measure_setup_hold_from_contour(cell, cell_settings, charlib_settings):
+@register(
+    'data_slews',
+    'clock_slews',
+    'metastability_constraint_search_tolerance',
+    'metastability_constraint_search_timestep',
+    'metastability_constraint_load',
+    'metastability_constraint_sweep_samples'
+)
+def measure_setup_hold_from_contour(cell, config, settings):
     """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
-    for variation in cell_settings.variations('data_slews', 'clock_slews'):
+    for variation in config.variations(
+            'data_slews',
+            'clock_slews',
+            'metastability_constraint_search_tolerance',
+            'metastability_constraint_search_timestep',
+            'metastability_constraint_load',
+            'metastability_constraint_sweep_samples'):
         for path in cell.paths():
             # cell.nonmasking_conditions_for_path filter out the impossible paths
             # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
             state_maps = list(cell.nonmasking_conditions_for_path(*path))
             if not state_maps:
                 continue
-            yield (find_setup_hold_for_path, cell, cell_settings, charlib_settings, variation, path, state_maps)
+            yield (find_setup_hold_for_path, cell, config, settings, variation, path, state_maps)
 
 def make_log_header(cell_name, ds, cs, path_str, constants):
     """Return a metadata header block common to all log files."""
@@ -68,16 +81,15 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
     Note: both setup time and hold time may be negative (data can arrive after the
     clock edge / change before the clock edge and the cell still latches).
     """
-    TOLERANCE = 10 @ PySpice.Unit.u_ps # binary search stops when iternation n - (n-1) < TOLERANCE
-    STEP = 5 @ PySpice.Unit.u_ps # 5 ps initial bound-finding step for binary search
-    C_LOAD = config.parameters['setup_hold_constraint_load'] * settings.units.capacitance
-    N_SWEEP_SAMPLES = config.parameters['sequential_n_sweep_samples']
+    TOLERANCE = variation['metastability_constraint_search_tolerance'] * settings.units.time
+    STEP = variation['metastability_constraint_search_timestep'] * settings.units.time
+    C_LOAD = variation['metastability_constraint_load'] * settings.units.capacitance
+    N_SWEEP_SAMPLES = variation['metastability_constraint_sweep_samples']
     constants = (TOLERANCE, STEP, C_LOAD, N_SWEEP_SAMPLES)
 
-    ds = variation['data_slew'] * settings.units.time
-    cs = variation['clock_slew'] * settings.units.time
+    ds = variation['data_slews'] * settings.units.time
+    cs = variation['clock_slews'] * settings.units.time
     variation_debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1] / f'variation_data_slew_{str(ds).replace(' ', '')}_clock_slew_{str(cs).replace(' ', '')}'
-    variation_debug_path.mkdir(parents=True, exist_ok=True)
     t_unit = settings.units.time.prefixed_unit
     to_t = lambda q: float(q.convert(t_unit).value)
 
@@ -103,7 +115,6 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                                           clock_slew_rate=cs,
                                           data_slew_rate=ds, capacitive_load=C_LOAD,
                                           debug_dir=state_debug_path)
-        print(t_stabilizing)
 
         step_c2q = lambda t_s, t_h, debug_dir: get_c2q(cell, config, settings, path, state_map,
                                                        clock_slew_rate=cs, data_slew_rate=ds,
@@ -140,7 +151,6 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         write_step_log(step1_path, 'step1', cell.name, ds, cs, path_str, state_str, constants,
                         f"step1 : find setup given hold= {t_stabilizing}",
                         step1_setup_result, step1_phase1_candidates, step1_phase2_candidates)
-        print('s1_setup: ', step1_setup_result)
 
         # Step 2: hold time with setup fixed at min_setup, this gives max hold
         step2_path = (state_debug_path / 'step2') if settings.debug else None
@@ -150,7 +160,6 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         write_step_log(step2_path, 'step2', cell.name, ds, cs, path_str, state_str, constants,
                         f"step2 : find hold given setup= {step1_setup_result}",
                         step2_hold_result, step2_phase1_candidates, step2_phase2_candidates)
-        print('s2_hold: ', step2_hold_result)
 
         # Step 3: hold time with setup fixed t_stabilizing, this gives min hold
         step3_path = (state_debug_path / 'step3') if settings.debug else None
@@ -160,7 +169,6 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         write_step_log(step3_path, 'step3', cell.name, ds, cs, path_str, state_str, constants,
                         f"step3 : find hold given setup= {t_stabilizing}",
                         step3_hold_result, step3_phase1_candidates, step3_phase2_candidates)
-        print('s3_hold: ', step3_hold_result)
 
         # Step 4: find setup time with hold fixed at min hold, this gives max setup
         step4_path = (state_debug_path / 'step4') if settings.debug else None
@@ -170,7 +178,6 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         write_step_log(step4_path, 'step4', cell.name, ds, cs, path_str, state_str, constants,
                         f"step4 : find setup given hold= {step3_hold_result}",
                         step4_setup_result, step4_phase1_candidates, step4_phase2_candidates)
-        print('s4_setup: ', step4_setup_result)
 
         # Step 5: sweep the setup×hold boundary and plot the latched contour
         step5_debug_path = (state_debug_path / 'step5') if settings.debug else None

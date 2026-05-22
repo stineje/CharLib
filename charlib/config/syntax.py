@@ -143,7 +143,21 @@ class ConfigFile:
         ) : [Or(float, int)],
         Optional(
             Literal(
-                'setup_hold_constraint_load',
+                'metastability_constraint_search_tolerance',
+                description='Tolerance used during setup/hold constraint search. Unit is ' \
+                            'specified by ``settings.units.time``.'
+            ), default=0.01
+        ) : Or(float, int),
+        Optional(
+            Literal(
+                'metastability_constraint_search_timestep',
+                description='Step size used during setup/hold constraint sweep. Unit is ' \
+                            'specified by ``settings.units.time``.'
+            ), default=0.005
+        ) : Or(float, int),
+        Optional(
+            Literal(
+                'metastability_constraint_load',
                 description='Capacitive load applied to the output during sequential ' \
                             'characterization. Unit is specified by ``settings.units.capacitive_load``. ' \
                             'Defaults to 0.1.'
@@ -151,7 +165,7 @@ class ConfigFile:
         ) : Or(float, int),
         Optional(
             Literal(
-                'sequential_n_sweep_samples',
+                'metastability_constraint_sweep_samples',
                 description='Number of samples per axis in the 2D setup/hold contour sweep ' \
                             'for sequential cell characterization. Higher values give finer ' \
                             'resolution at the cost of more simulations. Defaults to 40.'
@@ -163,7 +177,7 @@ class ConfigFile:
                 description='A string (or list of strings) specifying which plot(s) to show ' \
                             'for this cell.'
             )
-        ) : Or('all', 'none', 'io', 'delay', [str])
+        ) : Or('all', 'none', 'io', 'delay', [str]),
     }, description='Keys under a ``cell`` entry may be omitted by instead specifying them in ' \
                    'under ``settings.cell_defaults``. CharLib automatically merges any ' \
                    'key-value pairs from ``settings.cell_defaults`` into each cell entry prior ' \

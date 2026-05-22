@@ -5,10 +5,10 @@ from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
 
-@register
+@register('data_slews', 'clock_slews', 'metastability_constraint_load')
 def metastability_binary_search_worst_case(cell, config, settings):
     """Find the minimum setup & hold time such that the cell can still register data."""
-    for variation in config.variations('data_slews', 'clock_slews', 'setup_hold_constraint_load'):
+    for variation in config.variations('data_slews', 'clock_slews', 'metastability_constraint_load'):
         for path in cell.paths():
             yield (worst_case_setup_hold_constraint, cell, config, settings, variation, path)
 
@@ -28,24 +28,14 @@ def worst_case_setup_hold_constraint(cell, config, settings, variation, path):
     :param path: A list in the format [input_port, input_transition, output_port,
                  output_transtition] describing the path under test in the cell.
     """
-    [input_port, _, output_port, _] = path
-    data_slew = variation['data_slew'] * settings.units.time
-    load = variation['load'] * settings.units.capacitance
+    [input_port, input_transition, output_port, output_transition] = path
+    data_slew = variation['data_slews'] * settings.units.time
+    clock_slew = variation['clock_slews'] * settings.units.time
+    load = variation['metastability_constraint_load'] * settings.units.capacitance
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
 
     # Compute minimum setup & hold constraint for all nonmasking conditions
-    analyses = []
-    measurement_names = set()
-    for state_map in cell.nonmasking_conditions_for_path(*path):
-        # Build the test circuit
-        circuit = utils.init_circuit('seq_setup_hold_search', cell.netlist, config.models)
-        circuit.V('dd', 'vdd', circuit.gnd, vdd)
-        circuit.V('ss', 'vss', circuit.gnd, vss)
-
-        # Initialize device under test and wire up ports
-        # TODO:
-        # Clear any existing state
-        # Trigger the desired state change
+    # TODO: implement binary search for minimum setup/hold
 
     return cell.liberty # TODO
