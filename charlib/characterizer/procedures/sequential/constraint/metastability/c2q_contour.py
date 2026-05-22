@@ -474,31 +474,23 @@ def sim_latch(cell, config, settings, path, state_map, capacitive_load=None,
     # the time data takes to slew.
     t_data_full_slew = t_data_slew / (th_high - th_low)
     data_is_rising = data_transition == '01'
-    # (th_data_start, th_data_end) = (th_high, th_low) if data_is_rising else (th_low, th_high)
-    # This ^ code assumes setup is measured from the data level threshold to clock edge.
-    # The below assumes setup time is measured from data rise threshold to clock edge instead:
-    (th_data_start, th_data_end) = (th_rise, th_fall) if data_transition == '01' else (th_fall, th_rise)
-    # TODO: Figure out which of these ^ is actually correct
+    *_, data_port = cell.filter_pins(name=data_pin)
+    if data_port.trigger: # edge triggered
+        (th_data_start, th_data_end) = (th_rise, th_fall) if data_transition == '01' else (th_fall, th_rise)
+    else:
+        (th_data_start, th_data_end) = (th_high, th_low) if data_is_rising else (th_low, th_high)
     t_data_start = t_clk_active - t_setup - th_data_start * t_data_full_slew
 
-    # Find the pulse width of the data signal
+    # Find the pulse width of the data signal, then build the data waveform
     data_pulse_width = (1-th_data_start)*t_data_slew + t_setup + t_hold + (1-th_data_end)*t_data_slew
-
-    # Build the data waveform
     (v0, v1) = (vss, vdd) if data_is_rising else (vdd, vss)
     data_pwl = utils.slew_pwl(v0, v1, t_data_slew, t_data_start, th_low, th_high)
     data_pwl += utils.slew_pwl(v1, v0, t_data_slew, data_pulse_width, th_low, th_high, data_pwl[-1][0])[1:]
 
     # Initialize circuit
     circuit = utils.init_circuit(circuit_title, cell.netlist, config.models, settings.named_nodes, settings.units)
-
-    # FIXME: figure out whether dyn supplies are used
-    circuit.V('dd_dyn', 'vdd_dyn', circuit.gnd, vdd) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power
-    circuit.V('ss_dyn', 'vss_dyn', circuit.gnd, vss) # separate voltage sources for VDD / VSS pins of DUT for measuring dynamic power
     circuit.V('o_cap', 'vout', 'wout', 0) # 0 volt source in series with c_load is a trick to measure current through the load capacitor.
     circuit.C('c_load', 'wout', circuit.gnd, c_load)
-
-    # Set up supplies for input signals
     circuit.PieceWiseLinearVoltageSource('clk', 'vclk', circuit.gnd, values=clk_pwl)
     circuit.PieceWiseLinearVoltageSource('data', 'vdata', circuit.gnd, values=data_pwl)
 
