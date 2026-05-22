@@ -8,8 +8,10 @@ settings:
         data_slews:  [0.0706, 0.1903, 0.5123, 1.3794, 3.7140]
         loads:       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901]
         clock_slews: [0.0699991, 2.64574]
-        setup_hold_constraint_load: 0.24
-        sequential_n_sweep_samples: 40
+        metastability_constraint_search_tolerance: 0.01
+        metastability_constraint_search_timestep: 0.005
+        metastability_constraint_load: 0.24
+        metastability_constraint_sweep_samples: 40
         plots: 'delay'
 cells:
     gf180mcu_osu_sc_gp9t3v3__addf_1:

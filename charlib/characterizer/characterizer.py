@@ -179,25 +179,25 @@ class SimulationSettings:
         self.backend = kwargs.get('backend', 'ngspice-shared')
         self.input_capacitance = registered_procedures[
             kwargs.get('input_capacitance_procedure', 'ac_sweep')
-        ]
+        ]['callable']
         self.combinational_delay = registered_procedures[
             kwargs.get('combinational_delay_procedure', 'combinational_worst_case')
-        ]
+        ]['callable']
         self.sequential_delay = registered_procedures[
             kwargs.get('sequential_delay_procedure', 'sequential_worst_case')
-        ]
+        ]['callable']
         self.metastability_constraint = registered_procedures[
             kwargs.get('setup_hold_constraint_procedure', 'measure_setup_hold_from_contour')
-        ]
+        ]['callable']
         self.recovery_constraint = registered_procedures[
             kwargs.get('recovery_constraint_procedure', 'recovery_constraint')
-        ]
+        ]['callable']
         self.removal_constraint = registered_procedures[
             kwargs.get('removal_constraint_procedure', 'removal_constraint')
-        ]
+        ]['callable']
         self.min_pulse_width_constraint = registered_procedures[
             kwargs.get('min_pulse_width_constraint_procedure', 'min_pulse_width_constraint')
-        ]
+        ]['callable']
 
 class LogicThresholds:
     """Container for logic_thresholds settings"""

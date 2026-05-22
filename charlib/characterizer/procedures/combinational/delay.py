@@ -8,14 +8,14 @@ from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
 
-@register
+@register('data_slews', 'loads')
 def combinational_worst_case(cell, config, settings):
     """Measure worst-case combinational transient and propagation delays"""
     for variation in config.variations('data_slews', 'loads'):
         for path in cell.paths():
             yield (measure_delays_for_path_with_criterion, cell, config, settings, variation, path, max)
 
-@register
+@register('data_slews', 'loads')
 def combinational_average(cell, config, settings):
     """Measure combinational transient and propagation delays using a uniform average"""
     for variation in config.variations('data_slews', 'loads'):
@@ -48,8 +48,8 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
     """
     # Set up key parameters
     [input_pin, _, output_pin, _] = path
-    data_slew = variation['data_slew'] * settings.units.time
-    load = variation['load'] * settings.units.capacitance
+    data_slew = variation['data_slews'] * settings.units.time
+    load = variation['loads'] * settings.units.capacitance
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
 

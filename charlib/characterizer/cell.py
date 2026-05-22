@@ -3,6 +3,8 @@
 import itertools, re
 from pathlib import Path
 
+from charlib.characterizer.procedures import registered_procedures
+
 from charlib.characterizer.logic.evaluators import OPERAND_REGEX
 from charlib.characterizer.logic.functions import Function
 from charlib.characterizer.port import Port, Pin, DifferentialPair
@@ -283,13 +285,6 @@ class CellTestConfig:
             :param loads: A list of output load capacitances to test, specified in
                           settings.units.capacitance units
         """
-        supported_parameters = [
-            'data_slews',
-            'clock_slews',
-            'loads',
-            'setup_hold_constraint_load',
-            'sequential_n_sweep_samples'
-        ] # TODO: Allow procedure writers to register these like we do with procedure generator functions
         self.models = list()
         for model in models:
             # Split to path and (optional) section, then validate both
@@ -305,18 +300,19 @@ class CellTestConfig:
 
         self.timestep = timestep
         self.plots = plots
+        supported_parameters = {param for rp in registered_procedures.values() for param in rp['parameters']}
         self.parameters = {k: parameters[k] for k in supported_parameters if k in parameters}
 
     def variations(self, *keys):
         """Generator for test configuration variations
 
         Yields dictionaries containing key-value pairs for a single combination of parameters. For
-        example: {data_slew: 0.01, load: 0.025}
+        example: {data_slews: 0.01, loads: 0.025}
 
         :param *keys: If provided, only return variations of provided parameter names.
         """
         parameters = self.parameters if not keys else {k: self.parameters[k] for k in keys}
         param_names, values = zip(*parameters.items())
-        param_names = [n[0:-1] if n.endswith('s') else n for n in param_names]
+        values = [v if isinstance(v, list) else [v] for v in values]
         for combination in itertools.product(*values):
             yield dict(zip(param_names, combination))

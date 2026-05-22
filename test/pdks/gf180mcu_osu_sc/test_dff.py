@@ -8,21 +8,26 @@ if __name__ == "__main__":
     })
     characterizer.add_cell('gf180mcu_osu_sc_gp9t3v3__dff_1', {
         'netlist': 'globalfoundries-pdk-libs-gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3/spice/gf180mcu_osu_sc_gp9t3v3.spice',
-        'models': ['models/sm141064.ngspice typical', 'models/design.ngspice'],
+        'models': ['models/sm141064.spice typical', 'models/design.spice'],
         'functions': ['Q<=D', 'QN<=!D'],
         'state': ['IQ=Q', 'IQN=QN'],
         'clock': 'posedge CLK',
         'pairs': ['Q QN'],
-        'data_slews':  [0.0706, 0.1903, 0.5123, 1.3794, 3.7140, 10],
+        'data_slews':  [0.0706, 0.1903, 0.5123, 1.3794, 3.7140],
         'loads':       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901],
-        'clock_slews': [0.0699991, 2.64574, 10],
-        'setup_hold_constraint_load': 0.24,
-        'sequential_n_sweep_samples': 40,
+        'clock_slews': [0.0699991, 2.64574],
+        'metastability_constraint_search_tolerance': 0.01,
+        'metastability_constraint_search_timestep': 0.005,
+        'metastability_constraint_load': 0.24,
+        'metastability_constraint_sweep_samples': 40
     })
 
     cell, config = characterizer.cells.pop()
     metastability_tasks = characterizer.settings.simulation.metastability_constraint(cell, config, characterizer.settings)
     for task, *args in metastability_tasks:
+        # *_, variation, path, state_map = args
+        # if variation['clock_slew'] != 10:
+        #     continue
         print(task.__name__, args)
         cell_group = task(*args)
         characterizer.library.add_group(cell_group)
