@@ -2,8 +2,8 @@ settings:
     lib_name: gf180mcu_osu_sc_gp9t3v3_tt_25c.nldm
     cell_defaults:
         models: # From https://github.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/tree/main/models/ngspice
-            - models/sm141064.ngspice typical
-            - models/design.ngspice
+            - models/sm141064.spice typical
+            - models/design.spice
         netlist: globalfoundries-pdk-libs-gf180mcu_osu_sc/gf180mcu_osu_sc_gp9t3v3/spice/gf180mcu_osu_sc_gp9t3v3.spice
         data_slews:  [0.0706, 0.1903, 0.5123, 1.3794, 3.7140]
         loads:       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901]
