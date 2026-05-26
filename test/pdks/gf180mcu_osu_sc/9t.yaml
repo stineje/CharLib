@@ -124,22 +124,22 @@ cells:
             - Q <= D
             - QN <= !D
         clock: posedge clk
-        set: S
-        reset: R
+        set: not S
+        reset: not R
         state:
             - IQ = Q
             - IQN = QN
         pairs: [Q QN]
-    gf180mcu_osu_sc_gp9t3v3__dlat_1:
-        functions:
-            - Q = D
-        enable: CLK
-        state: [IQ = Q]
-    gf180mcu_osu_sc_gp9t3v3__dlatn_1:
-        functions:
-            - Q = D
-        enable: not CLK
-        state: [IQ = Q]
+    # gf180mcu_osu_sc_gp9t3v3__dlat_1:
+    #     functions:
+    #         - Q = D
+    #     enable: CLK
+    #     state: [IQ = Q]
+    # gf180mcu_osu_sc_gp9t3v3__dlatn_1:
+    #     functions:
+    #         - Q = D
+    #     enable: not CLK
+    #     state: [IQ = Q]
     # gf180mcu_osu_sc_gp9t3v3__fill_1:
     # gf180mcu_osu_sc_gp9t3v3__fill_16:
     # gf180mcu_osu_sc_gp9t3v3__fill_2:
