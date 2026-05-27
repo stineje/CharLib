@@ -36,7 +36,13 @@ class Characterizer:
                        self.settings.primary_ground.name: 'primary_ground',
                        self.settings.pwell.name: 'pwell',
                        self.settings.nwell.name: 'nwell'}
-        cell = Cell(name, supply_pins, **properties)
+        try:
+            cell = Cell(name, supply_pins, **properties)
+        except Exception: # FIXME: We should have a more specific error type than this!
+            if self.settings.omit_on_failure:
+                return
+            else:
+                raise
 
         # Handle keywords for plots
         if properties.get('plots', []) == 'all':
