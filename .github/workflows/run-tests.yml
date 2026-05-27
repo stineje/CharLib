@@ -78,16 +78,28 @@ jobs:
           git clone https://github.com/stineje/globalfoundries-pdk-libs-gf180mcu_osu_sc
           popd
 
-      - name: "Characterize 9t"
+      - name: "Characterize 9t (excluding sequential)"
         run: |
           pushd test/pdks/gf180mcu_osu_sc
-          charlib run 9t.yaml -o charlib-test-gf180mcu_osu_sc_9t.nldm.lib -j16
+          charlib run 9t.yaml -o charlib-test-gf180mcu_osu_sc_9t_comb.nldm.lib -j4 -f add and aoi buf inv mux nand nor oai or xnor xor
           popd
 
-      - name: "Characterize 12t"
+      - name: "Characterize 9t (sequential only)"
         run: |
           pushd test/pdks/gf180mcu_osu_sc
-          charlib run 12t.yaml -o charlib-test-gf180mcu_osu_sc_12t.nldm.lib -j16
+          charlib run 9t.yaml -o charlib-test-gf180mcu_osu_sc_9t_seq.nldm.lib -j8 -f dff dlat
+          popd
+
+      - name: "Characterize 12t (excluding sequential)"
+        run: |
+          pushd test/pdks/gf180mcu_osu_sc
+          charlib run 12t.yaml -o charlib-test-gf180mcu_osu_sc_12t_comb.nldm.lib -j4 -f add and aoi buf inv mux nand nor oai or xnor xor
+          popd
+
+      - name: "Characterize 12t (sequential only)"
+        run: |
+          pushd test/pdks/gf180mcu_osu_sc
+          charlib run 12t.yaml -o charlib-test-gf180mcu_osu_sc_12t_seq.nldm.lib -j8 -f dff dlat
           popd
 
       - name: "Upload results"
@@ -95,5 +107,7 @@ jobs:
         with:
           name: gf180mcu_osu_sc-results
           path: |
-            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_9t.nldm.lib
-            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_12t.nldm.lib
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_9t_comb.nldm.lib
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_9t_seq.nldm.lib
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_12t_comb.nldm.lib
+            test/pdks/gf180mcu_osu_sc/charlib-test-gf180mcu_osu_sc_12t_seq.nldm.lib
