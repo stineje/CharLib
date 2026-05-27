@@ -38,11 +38,11 @@ class Characterizer:
                        self.settings.nwell.name: 'nwell'}
         try:
             cell = Cell(name, supply_pins, **properties)
-        except Exception: # FIXME: We should have a more specific error type than this!
+        except Exception as e: # FIXME: We should have a more specific error type than this!
             if self.settings.omit_on_failure:
                 return
             else:
-                raise
+                raise ValueError(f'Unable to add cell {name}') from e
 
         # Handle keywords for plots
         if properties.get('plots', []) == 'all':
