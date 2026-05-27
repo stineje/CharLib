@@ -95,7 +95,7 @@ class Cell:
                 case True, True:  return 'inout'
                 case False, True: return 'output'
                 case True, False: return 'input'
-            raise ValueError('Unable to determine direction for pin "{pin_name}"')
+            raise ValueError(f'Unable to determine direction for pin "{pin_name}"')
 
         # Get pin names from subckt and iterate until there are no unassigned pins remaining
         unassigned_pins = self.subckt().split()[2:]
