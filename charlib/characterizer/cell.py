@@ -152,12 +152,13 @@ class Cell:
 
 
     def subckt(self) -> str:
-        """Return the subckt line from the spice file"""
+        """Return the subckt line matching this cell"""
+        subckt_pattern = re.compile(rf'^\s*\.subckt\s+{re.escape(self.name)}\b', re.IGNORECASE)
         with open(self.netlist, 'r') as file:
             for line in file:
-                if self.name in line and 'SUBCKT' in line.upper():
+                if subckt_pattern.match(line):
                     return line.upper()
-            raise ValueError(f'Failed to identify a .subckt in netlist "{self.netlist}"')
+            raise ValueError(f'Failed to identify a .subckt for cell {self.name} in netlist "{self.netlist}"')
 
     def all_pins(self):
         """Yield all pins, including those stored as members of differential pairs"""
