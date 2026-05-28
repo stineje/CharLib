@@ -180,9 +180,9 @@ cells:
     # gf180mcu_osu_sc_gp12t3v3__lshifdown:
     # gf180mcu_osu_sc_gp12t3v3__lshifup:
     gf180mcu_osu_sc_gp12t3v3__mux2_1:
-        inputs: [A, B, SEL]
+        inputs: [I0, I1, S]
         outputs: ['Y']
-        functions: [Y=(A&!SEL) | (B&SEL)]
+        functions: [Y=(I0&!S) | (I1&S)]
     gf180mcu_osu_sc_gp12t3v3__nand2_1:
         inputs: [A, B]
         outputs: ['Y']

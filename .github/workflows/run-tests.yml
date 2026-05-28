@@ -1,7 +1,14 @@
 name: Tests
 run-name: ${{ github.actor }} is testing CharLib
 
-on: [push, pull_request]
+on:
+  - push
+  - pull_request
+
+env:
+  MOSIS_OSU035_COMMIT_HASH: b36db529c2dff117e1fbead561bf792ec866e1cb
+  GF180MCU_OSU_SC_COMMIT_HASH: 8a2f58f283a2eaa725314c9e1b8b7d1d343f23a3
+  GF180MCU_FD_PR_COMMIT_HASH: 4adc3a4704fbe722bdf2145341a409b6419788fd
 
 jobs:
 
@@ -39,7 +46,10 @@ jobs:
       - name: "Download osu035 cells"
         run: |
           pushd test/pdks/osu350
-          bash fetch_spice.sh
+          mkdir spice
+          curl -s https://raw.githubusercontent.com/stineje/MOSIS_SCMOS/$MOSIS_OSU035_COMMIT_HASH/latest/cadence/lib/ami035/signalstorm/osu035_stdcells.sp > spice/osu035_stdcells.sp
+          mkdir models
+          curl -s https://raw.githubusercontent.com/stineje/MOSIS_SCMOS/$MOSIS_OSU035_COMMIT_HASH/latest/cadence/lib/ami035/lib/ami035.m > models/ami035.m
           popd
 
       - name: "Characterize"
@@ -73,9 +83,12 @@ jobs:
         run: |
           pushd test/pdks/gf180mcu_osu_sc
           mkdir models
-          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.spice > models/sm141064.spice
-          curl https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.spice > models/design.spice
+          curl -s https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/$GF180MCU_FD_PR_COMMIT_HASH/models/ngspice/sm141064.spice > models/sm141064.spice
+          curl -s https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/$GF180MCU_FD_PR_COMMIT_HASH/main/models/ngspice/design.spice > models/design.spice
           git clone https://github.com/stineje/globalfoundries-pdk-libs-gf180mcu_osu_sc
+          pushd globalfoundries-pdk-libs-gf180mcu_osu_sc
+          git checkout $GF180MCU_OSU_SC_COMMIT_HASH
+          popd
           popd
 
       - name: "Characterize 9t (excluding sequential)"
