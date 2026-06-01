@@ -46,8 +46,11 @@ class Cell:
 
         # Validate netlist
         netlist = cell_config['netlist']
-        if isinstance(netlist, (str, Path)):
-            if not Path(netlist).is_file():
+        if isinstance(netlist, str):
+            # Check for ~ and expand if present
+            netlist = Path(netlist).expanduser() if '~' in netlist else Path(netlist)
+        if isinstance(netlist, Path):
+            if not netlist.is_file():
                 raise ValueError(f'Invalid value for netlist: "{netlist}" is not a file')
             self.netlist = Path(netlist)
         else:
@@ -290,14 +293,15 @@ class CellTestConfig:
         for model in models:
             # Split to path and (optional) section, then validate both
             filename, *libname = model.split()
-            if not Path(filename).exists():
+            filename = Path(filename).expanduser() if '~' in filename else Path(filename)
+            if not filename.exists():
                 raise ValueError(f'Unable to locate model at "{filename}"')
             if len(libname) > 1:
                 raise ValueError(f'Expected 1 libname in model "{model}", got {len(libname)}:' \
                                  f'{libname}')
             elif not len(libname) == 1:
                 libname = []
-            self.models.append((Path(filename), *libname))
+            self.models.append((filename, *libname))
 
         self.timestep = timestep
         self.plots = plots
