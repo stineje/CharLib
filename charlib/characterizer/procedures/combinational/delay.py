@@ -8,17 +8,17 @@ from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
 
-@register('data_slews', 'loads')
+@register('data_slews', 'loads', 'transient_sim_end_time')
 def combinational_worst_case(cell, config, settings):
     """Measure worst-case combinational transient and propagation delays"""
-    for variation in config.variations('data_slews', 'loads'):
+    for variation in config.variations('data_slews', 'loads', 'transient_sim_end_time'):
         for path in cell.paths():
             yield (measure_delays_for_path_with_criterion, cell, config, settings, variation, path, max)
 
-@register('data_slews', 'loads')
+@register('data_slews', 'loads', 'transient_sim_end_time')
 def combinational_average(cell, config, settings):
     """Measure combinational transient and propagation delays using a uniform average"""
-    for variation in config.variations('data_slews', 'loads'):
+    for variation in config.variations('data_slews', 'loads', 'transient_sim_end_time'):
         for path in cell.paths():
             yield (measure_delays_for_path_with_criterion, cell, config, settings, variation, path, average)
 
@@ -50,6 +50,7 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
     [input_pin, _, output_pin, _] = path
     data_slew = variation['data_slews'] * settings.units.time
     load = variation['loads'] * settings.units.capacitance
+    t_sim_end = max(variation['transient_sim_end_time'] * settings.units.time, 1000*data_slew)
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
 
@@ -140,7 +141,7 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
         simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
         for measure in measurements:
             simulation.measure(*measure, run=False)
-        simulation.transient(step_time=data_slew/8, end_time=1000*data_slew, run=False)
+        simulation.transient(step_time=data_slew/8, end_time=t_sim_end, run=False)
 
         stable_pins_map_str = ', '.join(['='.join([pin, state]) for pin, state in pin_map.stable_inputs.items()])
         try:

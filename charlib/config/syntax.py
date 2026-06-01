@@ -143,6 +143,15 @@ class ConfigFile:
         ) : [Or(float, int)],
         Optional(
             Literal(
+                'transient_sim_end_time',
+                description='Optional extended end time for transient simulations, specified in ' \
+                            '``settings.units.time`` units. Default 0. This key is not usually ' \
+                            'required except when underdriving cells. When set to 0, the ' \
+                            'default end time of 1000*data_slew is used.'
+            ), default=0
+        ): Or(float, int),
+        Optional(
+            Literal(
                 'metastability_constraint_search_tolerance',
                 description='Tolerance used during setup/hold constraint search. Unit is ' \
                             'specified by ``settings.units.time``.'
