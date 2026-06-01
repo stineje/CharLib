@@ -109,8 +109,9 @@ cells:
             - IQ = Q
             - IQN = QN
         pairs: [Q QN]
-        data_slews:  [0.0706, 0.1903, 0.5123]
-        loads:       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901]
+        # Limit DFFS to 1 slew/load/clk_slew corner
+        data_slews:  [0.0706]
+        loads:       [0.2206]
         clock_slews: [0.0699991]
     gf180mcu_osu_sc_gp12t3v3__dffn_1:
         functions:
@@ -121,8 +122,9 @@ cells:
             - IQ = Q
             - IQN = QN
         pairs: [Q QN]
-        data_slews:  [0.0706, 0.1903, 0.5123]
-        loads:       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901]
+        # Limit DFFS to 1 slew/load/clk_slew corner
+        data_slews:  [0.0706]
+        loads:       [0.2206]
         clock_slews: [0.0699991]
     gf180mcu_osu_sc_gp12t3v3__dffsr_1:
         functions:
@@ -135,8 +137,9 @@ cells:
             - IQ = Q
             - IQN = QN
         pairs: [Q QN]
-        data_slews:  [0.0706, 0.1903, 0.5123]
-        loads:       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901]
+        # Limit DFFS to 1 slew/load/clk_slew corner
+        data_slews:  [0.0706]
+        loads:       [0.2206]
         clock_slews: [0.0699991]
     # gf180mcu_osu_sc_gp12t3v3__dlat_1:
     #     inputs: [D]
