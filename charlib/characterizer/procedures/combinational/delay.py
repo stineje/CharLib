@@ -76,8 +76,8 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
                             pin.name,
                             f'v{pin.name}', circuit.gnd,
                             values=utils.slew_pwl(v_0, v_1, data_slew, 3*data_slew,
-                                                  1e-2*settings.logic_thresholds.low,
-                                                  1e-2*settings.logic_thresholds.high))
+                                                  settings.logic_thresholds.low,
+                                                  settings.logic_thresholds.high))
                     elif pin.name in pin_map.target_outputs:
                         connections.append(f'v{pin.name}')
                         circuit.C(pin.name, f'v{pin.name}', circuit.gnd, load)
@@ -102,14 +102,14 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
                             measurement_names.add(prop_name)
                             measurements.append((
                                 'tran', prop_name,
-                                f'trig v(v{in_pin}) val={float(vdd*1e-2*threshold_prop_0)} {in_direction}=1',
-                                f'targ v(v{pin.name}) val={float(vdd*1e-2*threshold_prop_1)} {out_direction}=1'))
+                                f'trig v(v{in_pin}) val={float(vdd*threshold_prop_0)} {in_direction}=1',
+                                f'targ v(v{pin.name}) val={float(vdd*threshold_prop_1)} {out_direction}=1'))
                             tran_name = f'{out_direction}_transition__{in_pin}_to_{pin.name}'.lower()
                             measurement_names.add(tran_name)
                             measurements.append((
                                 'tran', tran_name,
-                                f'trig v(v{pin.name}) val={float(vdd*1e-2*threshold_tran_0)} {out_direction}=1',
-                                f'targ v(v{pin.name}) val={float(vdd*1e-2*threshold_tran_1)} {out_direction}=1'))
+                                f'trig v(v{pin.name}) val={float(vdd*threshold_tran_0)} {out_direction}=1',
+                                f'targ v(v{pin.name}) val={float(vdd*threshold_tran_1)} {out_direction}=1'))
                     elif pin.name in pin_map.stable_inputs:
                         if pin_map.stable_inputs[pin.name] == '0':
                             connections.append(settings.primary_ground.name)
@@ -169,8 +169,8 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
             fig = plots.plot_io_voltages(analyses.values(), list(pin_map.target_inputs.keys()),
                                          list(pin_map.target_outputs.keys()),
                                          legend_labels=analyses.keys(),
-                                         indicate_voltages=[settings.primary_power.voltage*1e-2*settings.logic_thresholds.low,
-                                                            settings.primary_power.voltage*1e-2*settings.logic_thresholds.high])
+                                         indicate_voltages=[settings.primary_power.voltage*settings.logic_thresholds.low,
+                                                            settings.primary_power.voltage*settings.logic_thresholds.high])
             # FIXME: let user decide whether to show or save
             fig_path = settings.plots_dir / cell.name / 'io'
             fig_path.mkdir(parents=True, exist_ok=True)
