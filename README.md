@@ -6,6 +6,19 @@
 - 🐍 Implemented in Python 3 with a modified PySpice backend
 - 🌶️ Compatible with ngspice and Xyce
 
+## Getting Started
+
+
+```
+# Install libngspice (with shared library)
+sudo apt install libngspice0-dev # Your distro may have a different name for this package
+# Install CharLib
+python3 -m pip install git+https://github.com/stineje/CharLib.git@2.0.0
+# Characterize some cells
+cd test/pdks/osu350
+charlib run osu350.yml -j4 -f AND
+```
+
 ## Introduction
 CharLib is an open-source standard cell library characterizer. The current version supports NLDM
 timing characterization of combinational and sequential cells.
