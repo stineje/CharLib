@@ -48,7 +48,7 @@ Custom Procedures
 
 To create a custom measurement procedure, you must:
 
-1. Create a new Python file and add a generator and callble as described above. Use the existing
+1. Create a new Python file and add a generator and callable as described above. Use the existing
    procedures as reference material to build your own.
 2. Register your procedure using the ``@register`` decorator. Make sure to include any parameters
    from the cell configuration YAML as string arguments.
@@ -68,6 +68,6 @@ include the following in your YAML configuration:
         ...
 
 Assuming a procedure called ``my_min_pulse_width`` is registered, CharLib will now call that
-procedure when performing minumum pulse width measurements. For a complete list of available
+procedure when performing minimum pulse width measurements. For a complete list of available
 procedure types, see the :ref:`05_settings_yaml_syntax.json#/properties/simulation` key in the YAML
 syntax reference.
