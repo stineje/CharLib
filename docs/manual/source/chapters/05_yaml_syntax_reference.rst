@@ -1,15 +1,15 @@
 ***************************************************************************************************
-Syntax reference
+YAML Syntax Reference
 ***************************************************************************************************
 
-This section describes syntax of CharLibs YAML configuration file.
+This section describes syntax of CharLib YAML configuration files.
 All configuration data is passed as key-value pairs in the YAML file.
-The format of YAML contains two obligatory keywords:
+The following keys are required for any valid CharLib configuration:
 
- - ``settings``
- - ``cells``
+ - ``settings``: key-value pairs describing common settings for the whole standard cell library.
+ - ``cells``: key-value pairs describing individual cells.
 
- An example of the file is following:
+The general format of a CharLib configuration file is displayed below.
 
 .. code-block:: YAML
 
@@ -21,7 +21,7 @@ The format of YAML contains two obligatory keywords:
         <last_cell_name>:
             Cell keywords placed here
 
-The example above defines two cells to be characterized:
+This example defines two cells to be characterized:
 
 - ``first_cell_name``
 - ``last_cell_name``
@@ -30,6 +30,6 @@ There may be arbitrary number of cells defined under ``cells`` keyword.
 The cell name must match the ``.subckt`` name in the SPICE netlist that
 represents the circuit of this cell.
 
-.. include:: 04_syntax_reference_settings.rst
+.. include:: 05_settings_yaml_syntax.rst
 
-.. include:: 04_syntax_reference_cell.rst
+.. include:: 05_cell_yaml_syntax.rst

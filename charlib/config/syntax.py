@@ -452,7 +452,7 @@ class ConfigFile:
                 'cell_defaults',
                 description='Default values to use for all cells. See the ``cells`` keyword ' \
                             'for more information. May contain any key-value pair valid for a ' \
-                            ':ref:`04_syntax_reference_cell.json#/` entry.'
+                            ':ref:`05_cell_yaml_syntax.json#/` entry.'
             )
             # Do not pass cell_syntax here to:
             #   - avoid duplication in documentation

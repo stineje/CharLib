@@ -16,4 +16,4 @@ venv
 #*.lib
 *.txt
 *.v
-docs/manual/source/chapters/04_syntax_reference_*.rst
+docs/manual/source/chapters/05_*_yaml_syntax.rst
