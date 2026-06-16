@@ -14,7 +14,7 @@ settings:
             name:   GND
 cells:
     INVX1:
-        netlist:    osu350/spice/osu350_stdcells.sp
+        netlist:    osu350/spice/osu035_stdcells.sp
         models:     [osu350/models/ami035.sp]
         area:       128
         inputs:     [A]

@@ -16,7 +16,7 @@ if __name__ == "__main__":
         'functions':    ['Q <= D'],
         'data_slews':   [0.06, 0.18, 0.42, 0.6, 1.2],
         'loads':        [0.015, 0.04, 0.08, 0.2, 0.4],
-        'clock_slews':  [0.06, 0.3, 0,6],
+        'clock_slews':  [0.06, 0.3, 0.6],
         'metastability_constraint_search_tolerance': 0.01,
         'metastability_constraint_search_timestep': 0.005,
         'metastability_constraint_load': 0.24,
