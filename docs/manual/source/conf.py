@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'CharLib'
-copyright = '2025, Marcus Mellor, James Stine'
+copyright = '2026 Marcus Mellor and James Stine'
 author = 'Marcus Mellor, James Stine'
-release = '2.0.0'
+release = '2.1.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -3,11 +3,11 @@ User Guide
 ***************************************************************************************************
 
 ====================================================================================================
-Flow of operation
+Basic Operation
 ====================================================================================================
 
-CharLib runs analog simulation of the cells to be characterized to determine their electrical
-properties. The overal flow is shown in the figure below.
+CharLib runs analog simulation of the configured cells to determine their electrical properties.
+The overal flow is shown in the figure below.
 
 .. image:: figures/flow_block_diagram.svg
     :width: 400
@@ -22,6 +22,10 @@ To run characterization, you must provide:
 Typically the first two items are provided by your foundry as part of the PDK. The third item tells
 CharLib how to process the SPICE netlists and transistor models. Using CharLib basically boils down
 to constructing a YAML file detailing your cells and characterization conditions.
+
+We have also created a video guide that walks through the process of using installing CharLib,
+creating a configuration file, and characterizing a cell. You can
+`watch that video here on YouTube <https://youtu.be/QYgwKUkUTOc?si=QH0ajlIu4vUQsxAa>`.
 
 .. note::
 

@@ -14,8 +14,8 @@ if __name__ == "__main__":
     res_dir = os.path.join(this_file_dir, "..", "docs/manual/source/chapters")
 
     schemas = [
-        [ConfigFile.SchemaKind.CELL_SCHEMA,       "04_syntax_reference_cell"],
-        [ConfigFile.SchemaKind.SETTINGS_SCHEMA,   "04_syntax_reference_settings"]
+        [ConfigFile.SchemaKind.CELL_SCHEMA,       "05_cell_yaml_syntax"],
+        [ConfigFile.SchemaKind.SETTINGS_SCHEMA,   "05_settings_yaml_syntax"]
     ]
 
     # Generate JSONs
@@ -39,8 +39,8 @@ if __name__ == "__main__":
         # Make type look nicer
         os.system(f""" sed -i 's/:type: ``float or int``/:type: ``float`` or ``int``/g' {res_dir}/{sch_path}.rst""")
 
-    os.system(f""" sed -i '5s/04_syntax_reference_settings/settings/' {res_dir}/04_syntax_reference_settings.rst""")
-    os.system(f""" sed -i '5s/04_syntax_reference_cell/cell/' {res_dir}/04_syntax_reference_cell.rst""")
+    os.system(f""" sed -i '5s/05_settings_yaml_syntax/settings/' {res_dir}/05_settings_yaml_syntax.rst""")
+    os.system(f""" sed -i '5s/05_cell_yaml_syntax/cell/' {res_dir}/05_cell_yaml_syntax.rst""")
 
     os.system(f"rm -rf {res_dir}/index.rst")
     os.system(f"rm -rf {res_dir}/*.json")
