@@ -18,8 +18,8 @@ cell. Each procedure consists of two components:
 2. A function (the ``Callable`` above) which returns a Liberty ``Group`` object populated with
    measurement data.
 
-Procedures can be found in `CharLib's source code <https://github.com/stineje/CharLib/tree/main>`
-in the `charlib/characterizer/procedures directory <https://github.com/stineje/CharLib/tree/main/charlib/characterizer/procedures>`.
+Procedures can be found in `CharLib's source code <https://github.com/stineje/CharLib/tree/main>`_
+in the `charlib/characterizer/procedures directory <https://github.com/stineje/CharLib/tree/main/charlib/characterizer/procedures>`_.
 
 ====================================================================================================
 Registering a Procedure
@@ -55,10 +55,10 @@ To create a custom measurement procedure, you must:
 3. Document any new YAML parameters in ``charlib/config/syntax.py``.
 4. Import your procedure in ``charlib/characterizer/characterizer.py``.
 
-Once the above steps are complete, you should be able to select your procedure using the appropriate
-``settings.simulation`` key in your configuration YAML file. For example, if you wanted to add a
-new procedure called "my_min_pulse_width" for measuring minimum pulse width, you would include the
-following in your YAML configuration:
+Once the above steps are complete, you should be able to select your procedure using the
+appropriate ``settings.simulation`` key in your configuration YAML file. For example, if you wanted
+to add a new procedure called "my_min_pulse_width" for measuring minimum pulse width, you would
+include the following in your YAML configuration:
 
 .. code-block:: YAML
 
