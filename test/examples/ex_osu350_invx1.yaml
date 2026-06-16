@@ -15,7 +15,7 @@ settings:
 cells:
     INVX1:
         netlist:    osu350/spice/osu035_stdcells.sp
-        models:     [osu350/models/ami035.sp]
+        models:     [osu350/models/ami035.m]
         area:       128
         inputs:     [A]
         outputs:    ['Y'] # Must be in quotes because YAML interprets Y as boolean True
