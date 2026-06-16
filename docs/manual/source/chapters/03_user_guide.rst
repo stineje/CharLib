@@ -23,16 +23,16 @@ Typically the first two items are provided by your foundry as part of the PDK. T
 CharLib how to process the SPICE netlists and transistor models. Using CharLib basically boils down
 to constructing a YAML file detailing your cells and characterization conditions.
 
-We have also created a video guide that walks through the process of using installing CharLib,
-creating a configuration file, and characterizing a cell. You can
-`watch that video here on YouTube <https://youtu.be/QYgwKUkUTOc?si=QH0ajlIu4vUQsxAa>`.
-
 .. note::
 
     See :ref:`yaml_examples` for more information on configuring CharLib.
 
+We have also created a video guide that walks through the process of installing CharLib, creating a
+configuration file, and characterizing a cell. You can
+`watch that video here on YouTube <https://youtu.be/QYgwKUkUTOc?si=QH0ajlIu4vUQsxAa>`_.
+
 ====================================================================================================
-Invoking CharLib
+Running CharLib
 ====================================================================================================
 
 To interact with CharLib's command line interface, execute:
@@ -44,13 +44,13 @@ To interact with CharLib's command line interface, execute:
 CharLib supports the following commands:
 
 - ``run``: characterize cells using an existing configuration file
-- *``compare``: compare a liberty file against a benchmark "golden" liberty file
-- *``generate_functions``: generate test vectors for a particular function
+- ``compare``: (experimental) compare a liberty file against a benchmark "golden" liberty file
+- ``generate_functions``: (experimental) generate test vectors for a particular function
 
 .. note::
 
-    Commands marked with * are experimental features which may or may not be functional in any
-    given release of CharLib.
+    Commands marked with (experimental) may or may not be functional in any given release of
+    CharLib.
 
 Usage
 ----------------------------------------------------------------------------------------------------
@@ -88,28 +88,44 @@ Optional arguments for ``charlib run`` include:
 More information about optional arguments can be found by running ``charlib run --help``.
 
 .. _yaml_examples:
+
 ====================================================================================================
 YAML configuration examples
 ====================================================================================================
+
+The examples in this section can be run after `installing CharLib <02_installation.html>`_ and
+downloading the corresponding standard cells.
+
+To download the OSU350 cells and models:
+
+.. literalinclude:: ../../../../test/examples/get_osu350.sh
+    :language: bash
+    :linenos:
+
+To download the gf180mcu OSU 9t cells and models:
+
+.. literalinclude:: ../../../../test/examples/get_gf180mcu_osu_9t.sh
+    :language: bash
+    :linenos:
 
 Example 1: OSU350 INVX1 Characterization
 ----------------------------------------------------------------------------------------------------
 
 The example below is a configuration file for characterization of a single ``INVX1`` inverter cell.
 When run with this configuration file, CharLib will measure the properties of the inverter and
-produce a liberty file called "test_OSU350.lib".
+produce a liberty file called "osu350_inverter_example.lib".
 
-.. literalinclude:: ../../../../test/pdks/osu350/ex_invx1.yaml
+.. literalinclude:: ../../../../test/examples/ex_osu350_invx1.yaml
     :language: yaml
     :linenos:
 
-You can run this configuration by navigating to the ``test/pdks/osu350`` directory and executing
+You can run this configuration by navigating to CharLib's ``test/examples`` directory and executing
 the following commands.
 
 .. code-block:: SHELL
 
-    ./fetch_spice.sh # Download OSU350 cell spice & transistor models (tested on Linux)
-    charlib run ex_invx1.yaml
+    ./get_osu350.sh # Download OSU350 cell spice & transistor models
+    charlib run ex_osu350_invx1.yaml
 
 Example 2: Characterizing Multiple OSU350 Combinational Cells
 ----------------------------------------------------------------------------------------------------
@@ -122,112 +138,44 @@ adder (``HAX1``) cells. Notice the following changes from example 1:
 * The ``inputs`` and ``outputs`` keys are omitted from cell configurations. CharLib infers these
   from the cells' functions instead.
 
-.. literalinclude:: ../../../../test/pdks/osu350/ex_adders.yaml
+.. literalinclude:: ../../../../test/examples/ex_osu350_adders.yaml
     :language: yaml
     :linenos:
 
-You can run this configuration by navigating to the ``test/pdks/osu350`` directory and executing
+You can run this configuration by navigating to CharLib's ``test/examples`` directory and executing
 the following commands.
 
 .. code-block:: SHELL
 
-    ./fetch_spice.sh # Not required if run previously
-    charlib run ex_adder.yaml
+    ./get_osu350.sh # Download OSU350 cell spice & transistor models
+    charlib run ex_osu350_adders.yaml
 
-Example 3: OSU350 DFFSR Characterization
+Example 3: YAML-Free OSU350 DFFSR Characterization
 ---------------------------------------------------------------------------------------------------
 
+CharLib may be used as a Python module without creating a separate YAML configuration file. The
+example below shows the characterization of an OSU350 sequential cell using this method. Note that
+this example will take quite a bit longer to run than the combinational examples above, as
+sequential cell characterization is much more complex than combinational.
+
 .. note::
-    The timing procedures for sequential cells in CharLib 1.X were inaccurate and have been
-    deprecated as of CharLib 2.0.0. As a result, the example below does not work with the current
-    release. This will be updated when sequential cell characterization is restored.
 
-The example below is a config file for positive-edge triggered flip-flop (``DFFSR``) with
-asynchronous set and reset.
+    Using a CharLib ``Characterizer`` object directly (as shown below) bypasses all of the
+    validation checks built into CharLib's command-line interface. While this method of using
+    CharLib can grant much finer control over the characterization process, we recommend the use of
+    YAML configuration files to help avoid configuration errors.
 
-.. code-block:: YAML
+.. literalinclude:: ../../../../test/examples/ex_osu350_dffsr.py
+    :language: python
+    :linenos:
 
-    settings:
-        lib_name: test_OSU350
-        units:
-            pulling_resistance: kOhm
-        named_nodes:
-            primary_ground:
-                name: GND
-        cell_defaults:
-            models:     [model.sp]
-            clock_slews:[0.01, 0.08, 0.25]
-            data_slews: [0.015, 0.04, 0.08, 0.2, 0.4]
-            loads:      [0.06, 0.18, 0.42, 0.6, 1.2]
-    cells:
-        DFFSR:
-            netlist:    osu350_spice_temp/DFFSR.sp
-            area:       704
-            clock:      posedge CLK
-            set:        not S
-            reset:      not R
-            functions:  [Q <= D]
-            state:      [IQ = Q]
-
-Example 4: Characterizing Multiple GF180 Cells
+Example 4: Characterizing Multiple gf180mcu Cells
 ----------------------------------------------------------------------------------------------------
 
-The example below is a configuration file for characterization of multiple cells.
+The example below is a configuration file for characterization of several cells from the OSU
+9-track standard cell library. This configuration includes a mix of combinational and sequential
+cells.
 
-.. code-block:: YAML
-
-    settings:
-        lib_name: gf180mcu_osu_sc_gp9t3v3_tt_25c.nldm
-        results_dir: lib
-        cell_defaults:
-            models: # Download from corresponding links & place in the correct locations, or point to your clone of gf180mcu_fd_pr
-                - ../models/sm141064.ngspice typical # https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/sm141064.ngspice
-                - ../models/design.ngspice           # https://raw.githubusercontent.com/fossi-foundation/globalfoundries-pdk-libs-gf180mcu_fd_pr/refs/heads/main/models/ngspice/design.ngspice
-            netlist: spice/gf180mcu_osu_sc_gp9t3v3.spice
-            data_slews:  [0.0706, 0.1903, 0.5123, 1.3794, 3.7140, 10]
-            loads:       [0.0013, 0.0048, 0.0172, 0.0616, 0.2206, 0.7901]
-    cells:
-        gf180mcu_osu_sc_gp9t3v3__addf_1:
-            functions:
-                - SUM=A^B^CI
-                - CO=A&B | CI&(A^B)
-        gf180mcu_osu_sc_gp9t3v3__addh_1:
-            inputs: [A, B]
-            outputs: [SUM, CO]
-            functions:
-                - SUM=A^B
-                - CO=A&B
-        gf180mcu_osu_sc_gp9t3v3__and2_1:
-            inputs: [A, B]
-            outputs: ['Y']
-            functions: [Y=A&B]
-        gf180mcu_osu_sc_gp9t3v3__aoi21_1:
-            inputs: [A0, A1, B]
-            outputs: ['Y']
-            functions: [Y=(!A0&!B) | (!A1&!B)]
-        gf180mcu_osu_sc_gp9t3v3__inv_1:
-            inputs: [A]
-            outputs: ['Y']
-            functions: [Y=!A]
-        gf180mcu_osu_sc_gp9t3v3__mux2_1:
-            inputs: [A, B, SEL]
-            outputs: ['Y']
-            functions: [Y=(A&!SEL) | (B&SEL)]
-        gf180mcu_osu_sc_gp9t3v3__nand2_1:
-            inputs: [A, B]
-            outputs: ['Y']
-            functions: [Y=!(A&B)]
-        gf180mcu_osu_sc_gp9t3v3__nor2_1:
-            inputs: [A, B]
-            outputs: ['Y']
-            functions: [Y=!(A|B)]
-        gf180mcu_osu_sc_gp9t3v3__or2_1:
-            inputs: [A, B]
-            outputs: ['Y']
-            functions: [Y=A|B]
-        gf180mcu_osu_sc_gp9t3v3__xor2_1:
-            inputs: [A, B]
-            outputs: ['Y']
-            functions: [Y=A^B]
-
-This configuration can be run against the 9-track cells in https://github.com/stineje/globalfoundries-pdk-libs-gf180mcu_osu_sc.
+.. literalinclude:: ../../../../test/examples/ex_gf180_osu_9t.yaml
+    :language: yaml
+    :linenos:
