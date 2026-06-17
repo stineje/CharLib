@@ -114,13 +114,13 @@ class DifferentialPair(Port):
             return item in list(self.as_pins())
         return False
 
-    def complement(self, port_name):
+    def complement(self, port_name: str) -> str:
         """Given the name of one port in the pair, return the other port.
 
         Returns None if port_name is not in the DifferentialPair."""
         if port_name == self.noninverting_port_name:
             return self.inverting_port_name
-        elif port_name == self.inverting_port_name:
+        if port_name == self.inverting_port_name:
             return self.noninverting_port_name
         return None
 
