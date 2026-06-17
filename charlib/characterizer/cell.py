@@ -139,7 +139,7 @@ class Cell:
         ## 4. Add as much liberty data as we can right now
         self.liberty = liberty.Group('cell', name)
         self.liberty.add_attribute('area', cell_config.get('area', 0.0), 2)
-        def _to_lib_expr(pin):
+        def to_lib_expr(pin):
             return pin.name + "'" if pin.is_inverted() else ""
         for pin, var in feedback_paths.items(): # Add storage groups
             # Get variable names
