@@ -106,7 +106,7 @@ class DifferentialPair(Port):
         self.noninverting_port_name = noninverting_port_name
         self.inverting_port_name = inverting_port_name
 
-    def __contains__(self, item):
+    def __contains__(self, item) -> bool:
         """Implements 'in' operator"""
         if isinstance(item, str):
             return item in [self.noninverting_port_name, self.inverting_port_name]
@@ -114,7 +114,7 @@ class DifferentialPair(Port):
             return item in list(self.as_pins())
         return False
 
-    def complement(self, port_name: str) -> str:
+    def complement(self, port_name: str) -> str|None:
         """Given the name of one port in the pair, return the other port.
 
         Returns None if port_name is not in the DifferentialPair."""
