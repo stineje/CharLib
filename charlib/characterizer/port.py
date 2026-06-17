@@ -106,7 +106,26 @@ class DifferentialPair(Port):
         self.noninverting_port_name = noninverting_port_name
         self.inverting_port_name = inverting_port_name
 
+    def __contains__(self, item):
+        """Implements 'in' operator"""
+        if isinstance(item, str):
+            return item in [self.noninverting_port_name, self.inverting_port_name]
+        elif isinstance(item, Pin):
+            return item in list(self.as_pins())
+        return False
+
+    def complement(self, port_name):
+        """Given the name of one port in the pair, return the other port.
+
+        Returns None if port_name is not in the DifferentialPair."""
+        if port_name == self.noninverting_port_name:
+            return self.inverting_port_name
+        elif port_name == self.inverting_port_name:
+            return self.noninverting_port_name
+        return None
+
     def as_pins(self):
+        """Yield each member of the diff pair as Pin objects"""
         yield Pin(self.noninverting_port_name, self.direction, self.role, inverted=False,
                   edge_triggered=self.trigger)
         yield Pin(self.inverting_port_name, self.direction, self.role, inverted=True,
