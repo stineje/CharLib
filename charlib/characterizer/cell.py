@@ -148,7 +148,11 @@ class Cell:
             storage_vars = [var,]
             for pair in self.diff_pairs.values():
                 if pin == pair.noninverting_port_name:
-                    storage_vars.append(feedback_paths[pair.complement(pin)])
+                    try:
+                        complement_var = feedback_paths[pair.complement(pin)]
+                    except KeyError as e:
+                        raise ValueError(f'No state feedback path for differential pair member {pair.complement(pin)}') from e
+                    storage_vars.append(complement_var)
             if len(storage_vars) < 2:
                 # No inverting output. Append inv to the end of the first var name
                 storage_vars.append(f'{var}inv')
