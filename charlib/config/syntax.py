@@ -235,6 +235,13 @@ class ConfigFile:
             ) : str,
             Optional(
                 Literal(
+                    'combinational_leakage_procedure',
+                    description='The name of a procedure used to measure static leakage power ' \
+                                'for each input state of a combinational cell.' # TODO: Refer to docs for procedures
+                ), default='combinational_leakage'
+            ) : str,
+            Optional(
+                Literal(
                     'sequential_delay_procedure',
                     description='The name of a procedure used to measure delays associated with ' \
                                 'a sequential cell.' # TODO: Refer to docs for procedures

@@ -71,6 +71,8 @@ class Characterizer:
         else:
             # Measure combinational propagation and transient delays
             simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
+            # Measure static leakage power for all input states
+            simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
         return simulations
 
     def characterize(self):
@@ -189,6 +191,9 @@ class SimulationSettings:
         ]['callable']
         self.combinational_delay = registered_procedures[
             kwargs.get('combinational_delay_procedure', 'combinational_worst_case')
+        ]['callable']
+        self.combinational_leakage = registered_procedures[
+            kwargs.get('combinational_leakage_procedure', 'combinational_leakage')
         ]['callable']
         self.sequential_delay = registered_procedures[
             kwargs.get('sequential_delay_procedure', 'sequential_worst_case')
