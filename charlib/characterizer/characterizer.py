@@ -14,6 +14,7 @@ from charlib.liberty.library import Library
 
 import charlib.characterizer.procedures.pin_capacitance.ac_sweep
 import charlib.characterizer.procedures.combinational.delay
+import charlib.characterizer.procedures.combinational.leakage_power
 import charlib.characterizer.procedures.sequential.delay
 import charlib.characterizer.procedures.sequential.constraint.metastability.binary_search
 import charlib.characterizer.procedures.sequential.constraint.metastability.c2q_contour
