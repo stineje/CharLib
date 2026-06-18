@@ -140,7 +140,7 @@ class Cell:
         self.liberty = liberty.Group('cell', name)
         self.liberty.add_attribute('area', cell_config.get('area', 0.0), 2)
         def to_lib_expr(pin):
-            return pin.name + "'" if pin.is_inverted() else ""
+            return pin.name + "'" if pin.is_inverted() else pin.name
         for pin, var in feedback_paths.items(): # Add storage groups
             # Get variable names
             if pin in [pair.inverting_port_name for pair in self.diff_pairs.values()]:
