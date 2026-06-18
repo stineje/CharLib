@@ -80,10 +80,10 @@ def measure_leakage_for_state(cell, config, settings, state_map):
         raise ProcedureFailedException(msg) from e
 
     # Branch current: ngspice names it <element_name>#branch, simplified to <element_name> (lower)
-    i_vdd = float(analysis.branches[settings.primary_power.name.lower()])
+    i_vdd = float(analysis.branches[settings.primary_power.name.lower()][0])
     power_W = settings.primary_power.voltage * abs(i_vdd)
     power_value = (power_W @ PySpice.Unit.u_W).convert(
-        settings.units.leakage_power.prefixed_unit
+        settings.units.power.prefixed_unit
     ).value
 
     when_str = build_when_str(state_map)
