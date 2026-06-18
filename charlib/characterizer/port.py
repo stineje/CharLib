@@ -70,6 +70,13 @@ class Port:
     def __repr__(self) -> str:
         return f'Port({self.name}, {self.direction}, {self.role}, {self.trigger})'
 
+    def __eq__(self, other: Port) -> bool:
+        """Implements == operator"""
+        return self.name == other.name \
+            and self.direction == other.direction \
+            and self.role == other.role \
+            and self.trigger == other.trigger
+
     def is_edge_triggered(self) -> bool:
         """Return whether this port is edge-triggered."""
         return bool(self.trigger)
@@ -82,6 +89,10 @@ class Pin(Port):
         """Construct a new pin."""
         super().__init__(name, direction, role, edge_triggered)
         self.inversion = inverted
+
+    def __eq__(self, other: Pin) -> bool:
+        """Implements == operator"""
+        return super().__eq__(other) and self.inversion == other.inversion
 
     def is_inverted(self) -> bool:
         """Return whether this port is inverted.
