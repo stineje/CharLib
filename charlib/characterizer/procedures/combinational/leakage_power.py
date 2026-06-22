@@ -2,7 +2,6 @@ import itertools
 import PySpice
 
 from charlib.characterizer import utils
-from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 
