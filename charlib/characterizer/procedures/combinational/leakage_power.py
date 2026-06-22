@@ -2,7 +2,6 @@ import itertools
 import PySpice
 
 from charlib.characterizer import utils
-from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 
@@ -33,53 +32,14 @@ def measure_leakage_for_state(cell, config, settings, state_map):
     :param settings: CharacterizationSettings with library-wide config.
     :param state_map: dict mapping each logic input name to '0' or '1'.
     """
-    circuit = utils.init_circuit(
-        'leakage', cell.netlist, config.models, settings.named_nodes, settings.units
-    )
-
-    connections = []
-    for pin in cell.pins_in_netlist_order():
-        match pin.role:
-            case Port.Role.LOGIC:
-                connections.append(f'v{pin.name}')
-                if pin.name in cell.inputs:
-                    v = settings.primary_power.voltage if state_map[pin.name] == '1' else 0
-                    circuit.V(pin.name, f'v{pin.name}', circuit.gnd, v * settings.units.voltage)
-                # outputs: node named v{pin.name}, driven to DC rail by the cell, no load
-            case Port.Role.POWER:
-                connections.append(settings.primary_power.name)
-            case Port.Role.GROUND:
-                connections.append(settings.primary_ground.name)
-            case Port.Role.NWELL:
-                connections.append(settings.nwell.name)
-            case Port.Role.PWELL:
-                connections.append(settings.pwell.name)
-            case _:
-                raise ValueError(f'Unable to connect unrecognized pin {pin.name} in cell {cell.name}')
-    circuit.X('dut', cell.name, *connections)
-
-    simulator = PySpice.Simulator.factory(simulator=settings.simulation.backend)
-    simulation = simulator.simulation(
-        circuit,
-        temperature=settings.temperature,
-        nominal_temperature=settings.temperature
-    )
-    simulation.options('nopage', 'nomod')
-    simulation.operating_point()
-
+    debug_path = (settings.debug_dir / cell.name / __name__.split('.')[-1]) if settings.debug else None
     try:
-        analysis = simulator.run(simulation)
+        analysis = utils.operating_point_analysis(cell, config, settings, state_map, debug_path=debug_path)
     except Exception as e:
         msg = (f'Procedure measure_leakage_for_state failed for cell {cell.name} '
                f'with state {state_map}')
-        if settings.debug:
-            debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
-            debug_path.mkdir(parents=True, exist_ok=True)
-            with open(debug_path / f'state = {state_map}.sp', 'w', encoding='utf-8') as f:
-                f.write(str(simulation))
         raise ProcedureFailedException(msg) from e
 
-    # Branch current: ngspice names it <element_name>#branch, simplified to <element_name> (lower)
     i_vdd = float(analysis.branches[settings.primary_power.name.lower()][0])
     power_W = settings.primary_power.voltage * abs(i_vdd)
     power_value = (power_W @ PySpice.Unit.u_W).convert(

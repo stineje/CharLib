@@ -6,6 +6,8 @@ import math
 import PySpice
 import numpy as np
 
+from charlib.characterizer.port import Port
+
 
 class PinStateMap:
     """Connect ports of a cell to the appropriate waveforms for a test.
@@ -90,6 +92,65 @@ def init_circuit(title, cell_netlist, models, supplies, units):
         if supply.name.upper() not in ['GND', '0']:
             circuit.V(supply.subscript, supply.name, circuit.gnd, supply.voltage*units.voltage)
     return circuit
+
+
+def operating_point_analysis(cell, config, settings, state_map, debug_path=None):
+    """Build and run a DC operating point for the given input state.
+
+    Returns the PySpice analysis object, giving callers access to all branch currents
+    and node voltages. If debug_path is provided and the simulation fails, the SPICE
+    netlist is written there before re-raising.
+
+    :param cell: Cell object under test.
+    :param config: CellTestConfig with model paths.
+    :param settings: CharacterizationSettings with library-wide config.
+    :param state_map: dict mapping each input pin name to '0' or '1'.
+    :param debug_path: Optional Path; if given, SPICE file is written here on failure.
+    """
+    circuit = init_circuit('dc_op', cell.netlist, config.models, settings.named_nodes,
+                           settings.units)
+
+    connections = []
+    for pin in cell.pins_in_netlist_order():
+        match pin.role:
+            case Port.Role.LOGIC:
+                connections.append(f'v{pin.name}')
+                if pin.name in cell.inputs:
+                    v = settings.primary_power.voltage if state_map[pin.name] == '1' else 0
+                    circuit.V(pin.name, f'v{pin.name}', circuit.gnd, v * settings.units.voltage)
+            case Port.Role.POWER:
+                connections.append(settings.primary_power.name)
+            case Port.Role.GROUND:
+                connections.append(settings.primary_ground.name)
+            case Port.Role.NWELL:
+                connections.append(settings.nwell.name)
+            case Port.Role.PWELL:
+                connections.append(settings.pwell.name)
+            case _:
+                raise ValueError(
+                    f'Unable to connect unrecognized pin {pin.name} in cell {cell.name}')
+    circuit.X('dut', cell.name, *connections)
+
+    simulator = PySpice.Simulator.factory(simulator=settings.simulation.backend)
+    simulation = simulator.simulation(
+        circuit,
+        temperature=settings.temperature,
+        nominal_temperature=settings.temperature
+    )
+    simulation.options('nopage', 'nomod')
+    simulation.operating_point()
+
+    try:
+        analysis = simulator.run(simulation)
+    except Exception:
+        if debug_path is not None:
+            debug_path.mkdir(parents=True, exist_ok=True)
+            with open(debug_path / f'state = {state_map}.sp', 'w', encoding='utf-8') as f:
+                f.write(str(simulation))
+        raise
+
+    return analysis
+
 
 def find_min_valid(probe_fn, start, step, tolerance, max_exp=1000):
     """Find the minimum x such that probe_fn(x) is not NaN.
