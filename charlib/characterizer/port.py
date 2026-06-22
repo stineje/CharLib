@@ -70,8 +70,10 @@ class Port:
     def __repr__(self) -> str:
         return f'Port({self.name}, {self.direction}, {self.role}, {self.trigger})'
 
-    def __eq__(self, other: Port) -> bool:
+    def __eq__(self, other) -> bool:
         """Implements == operator"""
+        if type(other) is not type(self):
+            return NotImplemented
         return self.name == other.name \
             and self.direction == other.direction \
             and self.role == other.role \
@@ -90,8 +92,10 @@ class Pin(Port):
         super().__init__(name, direction, role, edge_triggered)
         self.inversion = inverted
 
-    def __eq__(self, other: Pin) -> bool:
+    def __eq__(self, other) -> bool:
         """Implements == operator"""
+        if type(other) is not type(self):
+            return NotImplemented
         return super().__eq__(other) and self.inversion == other.inversion
 
     def is_inverted(self) -> bool:
