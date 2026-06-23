@@ -218,7 +218,7 @@ class ConfigFile:
                                 'see https://pyspice.fabrice-salvaire.fr/releases/v1.4/faq.html#' \
                                 'how-to-set-the-simulator'
                 ), default='ngspice-shared'
-            ) : Or('ngspice-shared', 'ngspice-subprocess', 'xyce-serial', 'xyce-parallel'),
+            ) : Or('ngspice-shared', 'ngspice-subprocess', 'xyce-serial', 'xyce-parallel', 'hspice'),
             Optional(
                 Literal(
                     'input_capacitance_procedure',
