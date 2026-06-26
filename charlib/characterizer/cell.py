@@ -127,10 +127,10 @@ class Cell:
                 raise ValueError(f'Expected outputs {cell_config["outputs"]}, found {self.outputs}')
 
         ## 3. Construct functions based on pin types & feedback paths
-        state_map = {v: k for k, v in [_parse_expression(s) for s in cell_config.get('state', [])]}
+        feedback_paths = {v: k for k, v in [_parse_expression(s) for s in cell_config.get('state', [])]}
         for output, expression in functions.items():
             is_inverting = output in [pair.inverting_port_name for pair in self.diff_pairs.values()]
-            state = state_map.get(output, None)
+            state = feedback_paths.get(output, None)
             # TODO: Pass only pins which are related to this function
             # TODO: Handle multiple clocks, etc.
             [output_pin] = list(self.filter_pins(name=output))
@@ -139,7 +139,39 @@ class Cell:
         ## 4. Add as much liberty data as we can right now
         self.liberty = liberty.Group('cell', name)
         self.liberty.add_attribute('area', cell_config.get('area', 0.0), 2)
-        for pin in self.all_pins():
+        def to_lib_expr(pin):
+            return pin.name + "'" if pin.is_inverted() else pin.name
+        for pin, var in feedback_paths.items(): # Add storage groups
+            # Get variable names
+            if pin in [pair.inverting_port_name for pair in self.diff_pairs.values()]:
+                continue # skip inverting pins
+            storage_vars = [var,]
+            for pair in self.diff_pairs.values():
+                if pin == pair.noninverting_port_name:
+                    try:
+                        complement_var = feedback_paths[pair.complement(pin)]
+                    except KeyError as e:
+                        raise ValueError(f'No state feedback path for differential pair member {pair.complement(pin)}') from e
+                    storage_vars.append(complement_var)
+            if len(storage_vars) < 2:
+                # No inverting output. Append inv to the end of the first var name
+                storage_vars.append(f'{var}inv')
+            var_string = ', '.join(storage_vars)
+            if self.clock: # ff group
+                storage_group = liberty.Group('ff', var_string)
+                storage_group.add_attribute('next_state', self.functions[pin].expression)
+                storage_group.add_attribute('clocked_on', to_lib_expr(self.clock))
+            else: # latch group
+                storage_group = liberty.Group('latch', var_string)
+                storage_group.add_attribute('data_in', self.functions[pin].expression)
+                if self.enable:
+                    storage_group.add_attribute('enable', to_lib_expr(self.enable))
+            if self.clear:
+                storage_group.add_attribute('clear', to_lib_expr(self.clear))
+            if self.preset:
+                storage_group.add_attribute('preset', to_lib_expr(self.preset))
+            self.liberty.add_group(storage_group)
+        for pin in self.all_pins(): # Add pin groups
             if pin.name in self.pg_pins:
                 pin_group = liberty.Group('pg_pin', pin.name)
                 pin_group.add_attribute('voltage_name', pin.name)
@@ -152,7 +184,6 @@ class Cell:
                 elif pin.role == Port.Role.CLOCK:
                     pin_group.add_attribute('clock', "true")
             self.liberty.add_group(pin_group)
-
 
     def subckt(self) -> str:
         """Return the subckt line matching this cell"""

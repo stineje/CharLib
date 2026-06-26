@@ -70,6 +70,15 @@ class Port:
     def __repr__(self) -> str:
         return f'Port({self.name}, {self.direction}, {self.role}, {self.trigger})'
 
+    def __eq__(self, other) -> bool:
+        """Implements == operator"""
+        if type(other) is not type(self):
+            return NotImplemented
+        return self.name == other.name \
+            and self.direction == other.direction \
+            and self.role == other.role \
+            and self.trigger == other.trigger
+
     def is_edge_triggered(self) -> bool:
         """Return whether this port is edge-triggered."""
         return bool(self.trigger)
@@ -82,6 +91,12 @@ class Pin(Port):
         """Construct a new pin."""
         super().__init__(name, direction, role, edge_triggered)
         self.inversion = inverted
+
+    def __eq__(self, other) -> bool:
+        """Implements == operator"""
+        if type(other) is not type(self):
+            return NotImplemented
+        return super().__eq__(other) and self.inversion == other.inversion
 
     def is_inverted(self) -> bool:
         """Return whether this port is inverted.
@@ -106,7 +121,26 @@ class DifferentialPair(Port):
         self.noninverting_port_name = noninverting_port_name
         self.inverting_port_name = inverting_port_name
 
+    def __contains__(self, item) -> bool:
+        """Implements 'in' operator"""
+        if isinstance(item, str):
+            return item in [self.noninverting_port_name, self.inverting_port_name]
+        elif isinstance(item, Pin):
+            return item in list(self.as_pins())
+        return False
+
+    def complement(self, port_name: str) -> str|None:
+        """Given the name of one port in the pair, return the other port.
+
+        Returns None if port_name is not in the DifferentialPair."""
+        if port_name == self.noninverting_port_name:
+            return self.inverting_port_name
+        if port_name == self.inverting_port_name:
+            return self.noninverting_port_name
+        return None
+
     def as_pins(self):
+        """Yield each member of the diff pair as Pin objects"""
         yield Pin(self.noninverting_port_name, self.direction, self.role, inverted=False,
                   edge_triggered=self.trigger)
         yield Pin(self.inverting_port_name, self.direction, self.role, inverted=True,
