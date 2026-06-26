@@ -71,11 +71,13 @@ class Characterizer:
             simulations += self.settings.simulation.sequential_delay(cell, config, self.settings)
         else:
             # Measure static leakage power for all input states
-            simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
+            if self.settings.simulation.combinational_leakage:
+                simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
             # Measure combinational propagation and transient delays
             simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
             # Measure dynamic switching energy for all input-to-output paths
-            simulations += self.settings.simulation.combinational_dynamic_power(cell, config, self.settings)
+            if self.settings.simulation.combinational_dynamic_power:
+                simulations += self.settings.simulation.combinational_dynamic_power(cell, config, self.settings)
         return simulations
 
     def characterize(self):
@@ -196,12 +198,10 @@ class SimulationSettings:
         self.combinational_delay = registered_procedures[
             kwargs.get('combinational_delay_procedure', 'combinational_worst_case')
         ]['callable']
-        self.combinational_leakage = registered_procedures[
-            kwargs.get('combinational_leakage_procedure', 'combinational_leakage')
-        ]['callable']
-        self.combinational_dynamic_power = registered_procedures[
-            kwargs.get('combinational_dynamic_power_procedure', 'combinational_dynamic_power')
-        ]['callable']
+        leakage_proc = kwargs.get('combinational_leakage_procedure')
+        self.combinational_leakage = registered_procedures[leakage_proc]['callable'] if leakage_proc else None
+        dynamic_proc = kwargs.get('combinational_dynamic_power_procedure')
+        self.combinational_dynamic_power = registered_procedures[dynamic_proc]['callable'] if dynamic_proc else None
         self.sequential_delay = registered_procedures[
             kwargs.get('sequential_delay_procedure', 'sequential_worst_case')
         ]['callable']
