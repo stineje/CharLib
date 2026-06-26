@@ -242,6 +242,13 @@ class ConfigFile:
             ) : str,
             Optional(
                 Literal(
+                    'combinational_dynamic_power_procedure',
+                    description='The name of a procedure used to measure switching energy '
+                                'for each input-to-output path through a combinational cell.'
+                ), default='combinational_dynamic_power'
+            ) : str,
+            Optional(
+                Literal(
                     'sequential_delay_procedure',
                     description='The name of a procedure used to measure delays associated with ' \
                                 'a sequential cell.' # TODO: Refer to docs for procedures

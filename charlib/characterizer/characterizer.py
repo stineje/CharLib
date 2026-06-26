@@ -15,6 +15,7 @@ from charlib.liberty.library import Library
 import charlib.characterizer.procedures.pin_capacitance.ac_sweep
 import charlib.characterizer.procedures.combinational.delay
 import charlib.characterizer.procedures.combinational.leakage_power
+import charlib.characterizer.procedures.combinational.dynamic_power
 import charlib.characterizer.procedures.sequential.delay
 import charlib.characterizer.procedures.sequential.constraint.metastability.binary_search
 import charlib.characterizer.procedures.sequential.constraint.metastability.c2q_contour
@@ -69,10 +70,12 @@ class Characterizer:
             # Measure sequential propagation and transient delays
             simulations += self.settings.simulation.sequential_delay(cell, config, self.settings)
         else:
-            # Measure combinational propagation and transient delays
-            simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
             # Measure static leakage power for all input states
             simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
+            # Measure combinational propagation and transient delays
+            simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
+            # Measure dynamic switching energy for all input-to-output paths
+            simulations += self.settings.simulation.combinational_dynamic_power(cell, config, self.settings)
         return simulations
 
     def characterize(self):
@@ -100,8 +103,9 @@ class Characterizer:
 
         # Post-processing: Fetch generated table templates and add them to the library
         lut_templates = []
-        for timing_group in self.library.subgroups_with_name('timing'):
-            lut_templates += [lut_group.template for lut_group in timing_group.groups.values()]
+        for group_name in ('timing', 'internal_power'):
+            for group in self.library.subgroups_with_name(group_name):
+                lut_templates += [lut_group.template for lut_group in group.groups.values()]
         [self.library.add_group(lut_template) for lut_template in lut_templates]
 
         # Plot delay surfaces (if desired)
@@ -194,6 +198,9 @@ class SimulationSettings:
         ]['callable']
         self.combinational_leakage = registered_procedures[
             kwargs.get('combinational_leakage_procedure', 'combinational_leakage')
+        ]['callable']
+        self.combinational_dynamic_power = registered_procedures[
+            kwargs.get('combinational_dynamic_power_procedure', 'combinational_dynamic_power')
         ]['callable']
         self.sequential_delay = registered_procedures[
             kwargs.get('sequential_delay_procedure', 'sequential_worst_case')
