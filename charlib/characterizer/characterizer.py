@@ -200,10 +200,12 @@ class SimulationSettings:
         self.combinational_delay = registered_procedures[
             kwargs.get('combinational_delay_procedure', 'combinational_worst_case')
         ]['callable']
-        leakage_proc = kwargs.get('combinational_leakage_procedure')
-        self.combinational_leakage = registered_procedures[leakage_proc]['callable'] if leakage_proc else None
-        dynamic_proc = kwargs.get('combinational_dynamic_power_procedure')
-        self.combinational_dynamic_power = registered_procedures[dynamic_proc]['callable'] if dynamic_proc else None
+        self.combinational_leakage = registered_procedures[
+            kwargs.get('combinational_leakage_procedure', 'combinational_leakage')
+        ]['callable']
+        self.combinational_dynamic_power = registered_procedures[
+            kwargs.get('combinational_dynamic_power_procedure', 'combinational_dynamic_power')
+        ]['callable']
         self.sequential_delay = registered_procedures[
             kwargs.get('sequential_delay_procedure', 'sequential_worst_case')
         ]['callable']
