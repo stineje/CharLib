@@ -30,7 +30,7 @@ class PinStateMap:
         # TODO: Make this more sophisticated, with list of Port objects as input instead of input
         # and output port names
         for name in inputs:
-            state = pin_states[name]
+            state = pin_states.get(name, '0')  # default unrelated inputs to stable-low
             if len(state) == 2:
                 self.target_inputs[name] = state
             elif len(state) == 1:
