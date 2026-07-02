@@ -222,10 +222,11 @@ class ConfigFile:
             Optional(
                 Literal(
                     'input_capacitance_procedure',
-                    description='The name of a procedure used to measure the capacitance of ' \
-                                'each input pin for each cell.' # TODO: Refer to docs for procedures
+                    description='The name of a procedure used to measure the capacitance of '
+                                'each input pin for each cell. '
+                                'Options: "ac_sweep" (default) or "qv_method".'
                 ), default='ac_sweep'
-            ) : str,
+            ) : Or('ac_sweep', 'qv_method'),
             Optional(
                 Literal(
                     'combinational_delay_procedure',
