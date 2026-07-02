@@ -292,7 +292,7 @@ class Cell:
                                   '10'.
         """
         for tv in self.functions[output_pin].test_vectors:
-            if tv[input_pin] == input_transition and tv[output_pin] == output_transition:
+            if tv.get(input_pin) == input_transition and tv[output_pin] == output_transition:
                 yield tv
 
     @property
