@@ -13,7 +13,7 @@ from charlib.characterizer.procedures import registered_procedures, ProcedureFai
 from charlib.liberty.library import Library
 
 import charlib.characterizer.procedures.pin_capacitance.ac_sweep
-import charlib.characterizer.procedures.pin_capacitance.qv_method
+import charlib.characterizer.procedures.pin_capacitance.charge_integration
 import charlib.characterizer.procedures.combinational.delay
 import charlib.characterizer.procedures.combinational.leakage_power
 import charlib.characterizer.procedures.sequential.delay
