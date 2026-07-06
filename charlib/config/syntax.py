@@ -227,9 +227,9 @@ class ConfigFile:
                     'input_capacitance_procedure',
                     description='The name of a procedure used to measure the capacitance of '
                                 'each input pin for each cell. '
-                                'Options: "ac_sweep" (default) or "qv_method".'
+                                'Options: "ac_sweep" (default) or "charge_integration".'
                 ), default='ac_sweep'
-            ) : Or('ac_sweep', 'qv_method'),
+            ) : Or('ac_sweep', 'charge_integration'),
             Optional(
                 Literal(
                     'combinational_delay_procedure',

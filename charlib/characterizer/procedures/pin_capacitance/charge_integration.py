@@ -9,14 +9,14 @@ from charlib.characterizer.procedures import register, ProcedureFailedException
 
 
 @register
-def qv_method(cell, config, settings):
-    """Measure input capacitance for each input pin using Q/V integration and return a liberty cell group"""
+def charge_integration(cell, config, settings):
+    """Measure input capacitance for each input pin using charge integration and return a liberty cell group"""
     roles = ['logic', 'clock', 'set', 'reset', 'enable']
     for target_pin in cell.filter_pins(direction=['input'], role=roles):
-        yield (measure_pin_cap_by_qv_method, cell, settings, config, target_pin.name)
+        yield (measure_pin_cap_by_charge_integration, cell, settings, config, target_pin.name)
 
 
-def measure_pin_cap_by_qv_method(cell, settings, config, target_pin):
+def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     """Use a PWL stimulus to ramp the input through a full VDD swing and integrate i(vstim).
 
     Applies a VSS→VDD→VSS waveform to the target pin. The charge drawn on the rising
@@ -114,7 +114,7 @@ def measure_pin_cap_by_qv_method(cell, settings, config, target_pin):
     try:
         analysis = simulator.run(simulation)
     except Exception as e:
-        msg = (f'Procedure measure_pin_cap_by_qv_method failed for cell {cell.name}, '
+        msg = (f'Procedure measure_pin_cap_by_charge_integration failed for cell {cell.name}, '
                f'pin {target_pin}')
         raise ProcedureFailedException(msg) from e
 
