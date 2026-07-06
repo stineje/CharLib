@@ -123,10 +123,18 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     if math.isnan(q_rise) or math.isnan(q_fall):
         return result
 
-    # C = |Q| / VDD, averaged over both edges
-    capacitance_F = (abs(q_rise) + abs(q_fall)) / 2 / settings.primary_power.voltage
+    # C = |Q| / VDD per edge; capacitance is the average
+    vdd_v = settings.primary_power.voltage
+    rise_cap_F = abs(q_rise) / vdd_v
+    fall_cap_F = abs(q_fall) / vdd_v
+    avg_cap_F  = (rise_cap_F + fall_cap_F) / 2
 
-    converted_cap = (capacitance_F @ u_F).convert(settings.units.capacitance.prefixed_unit).value
-    result.group('pin', target_pin).add_attribute('capacitance', converted_cap)
+    def to_lib(cap_F):
+        return (cap_F @ u_F).convert(settings.units.capacitance.prefixed_unit).value
+
+    pin_group = result.group('pin', target_pin)
+    pin_group.add_attribute('rise_capacitance', to_lib(rise_cap_F))
+    pin_group.add_attribute('fall_capacitance', to_lib(fall_cap_F))
+    pin_group.add_attribute('capacitance',      to_lib(avg_cap_F))
 
     return result
