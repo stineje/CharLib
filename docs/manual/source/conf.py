@@ -14,7 +14,9 @@ release = '2.1.0'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = [
+    'sphinxcontrib.mermaid',
+]
 
 templates_path = ['_templates']
 exclude_patterns = []
@@ -26,3 +28,5 @@ exclude_patterns = []
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+mermaid_dark_theme = 'neutral'
+mermaid_light_theme = 'neutral'
