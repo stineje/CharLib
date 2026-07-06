@@ -4,7 +4,7 @@ version = "2.1.0"
 description = "An open-source standard cell library characterizer"
 license = "GPL-2.0"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [
     {name = "Marcus Mellor", email = "marcus@infinitymdm.dev"},
     {name = "James Stine",   email = "james.stine@okstate.edu"},
@@ -27,6 +27,7 @@ docs = [
     "Sphinx>=9.1.0",
     "jsonschema2rst>=0.1.7",
     "sphinx-rtd-theme>=3.1.0",
+    "sphinxcontrib-mermaid>=2.0.2",
 ]
 
 [project.urls]
