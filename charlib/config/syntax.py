@@ -214,11 +214,14 @@ class ConfigFile:
             Optional(
                 Literal(
                     'backend',
-                    description='Which PySpice simulator backend to use. For available options, ' \
-                                'see https://pyspice.fabrice-salvaire.fr/releases/v1.4/faq.html#' \
-                                'how-to-set-the-simulator'
+                    description='Which PySpice simulator backend to use.\n' \
+                                '* ``ngspice-shared``: Runs ngspice simulations as a shared library within the same process.\n' \
+                                '* ``ngspice-subprocess``: Runs ngspice simulations in separate subprocesses.\n' \
+                                '* ``xyce-serial``: Runs Xyce simulations in serial mode.\n' \
+                                '* ``xyce-parallel``: Runs Xyce simulations in parallel mode.\n' \
+                                '* ``hspice``: (Experimental) Runs HSPICE simulations.'
                 ), default='ngspice-shared'
-            ) : Or('ngspice-shared', 'ngspice-subprocess', 'xyce-serial', 'xyce-parallel'),
+            ) : Or('ngspice-shared', 'ngspice-subprocess', 'xyce-serial', 'xyce-parallel', 'hspice'),
             Optional(
                 Literal(
                     'input_capacitance_procedure',
