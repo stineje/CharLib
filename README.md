@@ -26,8 +26,7 @@ timing characterization of combinational and sequential cells.
 See the [documentation](https://stineje.github.io/CharLib/) for more details, including:
 - [Installation instructions](https://stineje.github.io/CharLib/chapters/02_installation.html)
 - [Detailed usage information](https://stineje.github.io/CharLib/chapters/03_user_guide.html)
-- [Configuration syntax reference](https://stineje.github.io/CharLib/chapters/04_syntax_reference.html)
-- [Information for developers & contributors](https://stineje.github.io/CharLib/chapters/05_contributing.html)
+- [Information for developers & contributors](https://stineje.github.io/CharLib/chapters/06_contributing.html)
 
 We've also published a [video tutorial](https://youtu.be/QYgwKUkUTOc?si=QH0ajlIu4vUQsxAa) that
 walks through the process of getting started with CharLib, from installation to characterizing a
