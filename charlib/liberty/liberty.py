@@ -16,6 +16,10 @@ class Statement:
             raise ValueError('Liberty object names must consist of only alphanumeric characters and underscores!')
         self._name = name
 
+    @property
+    def unique_key(self):
+        return (self.name, self.identifier)
+
     def to_liberty(self, indent=0, precision=6):
         return NotImplemented
 
@@ -37,15 +41,14 @@ class Group(Statement):
         self.groups = dict()
         self.attributes = dict()
 
-    def __hash__(self):
-        # Implements hash(Group)
-        return hash((self.name, self.identifier))
-
     def __eq__(self, other):
         # Implements == operation
         if not isinstance(other, Group):
             return NotImplemented
-        return hash(self) == hash(other) and self.groups == other.groups and self.attributes == other.attributes
+        return self.name == other.name \
+            and self.identifier == other.identifier \
+            and self.groups == other.groups \
+            and self.attributes == other.attributes
 
     def __iadd__(self, other):
         # In-place add. Implements += operation
@@ -57,6 +60,17 @@ class Group(Statement):
     def __repr__(self):
         # Display for debugging
         return f'Group({self.name}, {self.identifier})'
+
+    @property
+    def unique_key(self):
+        # overrides for groups which are not uniquely identifiable by group name and identifier
+        if self.name == 'timing' and self.attributes.get('related_pin') and self.attributes.get('timing_type'):
+            return (
+                self.name,
+                self.attributes.get('related_pin'),
+                self.attributes.get('timing_type')
+            )
+        return super().unique_key
 
     def add_group(self, group, group_id=''):
         """Add a sub-group.
@@ -72,15 +86,14 @@ class Group(Statement):
         except KeyError:
             pass
         finally:
-            self.groups[hash(group)] = group
+            self.groups[group.unique_key] = group
 
-    def group(self, name, identifier=''):
-        """Look up a sub-group by name and id"""
+    def group(self, *key):
+        """Look up a sub-group by key, such as name and id. Note that order matters for key args."""
         try:
-            return self.groups[hash((name, identifier))]
+            return self.groups[key]
         except KeyError as e:
-            # Use the non-hashed key in error display
-            raise KeyError((name, identifier)) from e
+            raise KeyError(key) from e
 
     def subgroups_with_name(self, name: str):
         """Yield subgroups with the specified name.
@@ -121,8 +134,8 @@ class Group(Statement):
         """Merge another group into this one, merging sub-groups and adding attributes.
 
         Note that attribute values from other will override attribute values from self."""
-        if not hash(self) == hash(other):
-            raise ValueError("Group name and id must match in order to merge!")
+        if not self.unique_key == other.unique_key:
+            raise ValueError(f'Cannot merge groups with different identifiers {self.unique_key} and {other.unique_key}')
         [self.add_group(group) for group in other.groups.values()]
         self.attributes |= other.attributes
 
@@ -163,10 +176,6 @@ class Attribute(Statement):
         # TODO: Validate attribute_value
         self.value = attribute_value
         self.precision = precision
-
-    def __hash__(self):
-        # Implements hash(Attribute)
-        return hash((self.name, *list(self.value)))
 
     def __eq__(self, other):
         # Implements == operation
