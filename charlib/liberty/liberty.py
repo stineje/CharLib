@@ -128,7 +128,7 @@ class Group(Statement):
         except KeyError as e:
             if attributes: # Fall back to subgroup search
                 groups = self.filter_subgroups(name, identifier, **attributes)
-                groups = [g for g in groups  if g.unique_key in self.groups]
+                groups = [g for g in groups if self.groups.get(g.unique_key) is g]
                 if len(groups) != 1:
                     raise KeyError(f'Subgroup search found {len(groups)} matching groups!') from e
                 return groups[0]
@@ -175,6 +175,7 @@ class Group(Statement):
             self.attributes[attr.name] = attr
         else:
             self.attributes[attr] = Attribute(attr, value, precision)
+        # If this is a subgroup, updating attributes may have changed this group's key
         if self._parent_dict:
             self._parent_dict._update_key(old_key, self)
 
