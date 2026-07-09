@@ -65,15 +65,14 @@ class Group(Statement):
     def unique_key(self):
         # overrides for groups which are not uniquely identifiable by group name and identifier
         if self.name == 'timing' and self.attributes.get('related_pin') and self.attributes.get('timing_type'):
-            return (
-                self.name,
-                self.attributes.get('related_pin'),
-                self.attributes.get('timing_type')
-            )
+            return (self.name, self.attributes.get('related_pin').value,
+                    self.attributes.get('timing_type').value)
+        elif self.name == 'leakage_power' and self.attributes.get('when'):
+            return (self.name, self.attributes.get('when').value)
         return super().unique_key
 
     def add_group(self, group, group_id=''):
-        """Add a sub-group.
+        """Add a subgroup.
 
         :param group: An existing Group object or the name of the group to create.
         :param group_id: The group identifier for the new group. Ignored if group is a Group object.
@@ -81,19 +80,37 @@ class Group(Statement):
         if not isinstance(group, Group):
             group = Group(group, group_id)
         try:
-            existing_group = self.group(group.name, group.identifier)
+            existing_group = self.groups[group.unique_key]
             group.merge(existing_group)
         except KeyError:
             pass
         finally:
             self.groups[group.unique_key] = group
 
-    def group(self, *key):
-        """Look up a sub-group by key, such as name and id. Note that order matters for key args."""
+    def group(self, name, identifier='', **attributes):
+        """Look up a subgroup by name and id
+
+        This method is primarily a convenience function for self.groups[(name, id)]. If the initial
+        (name, id) lookup fails and attrs are present, an attempt is made to find a unique subgroup
+        by checking attributes as well. This method will not return subgroups of subgroups; see
+        filter_subgroups if you need that behavior.
+
+        :param name: The subgroup name (i.e. 'timing' of 'cell')
+        :param identifier: (Optional) The subgroup identifier. Ignored if not specified.
+        :param **attributes: (Optional) Name-value pairs corresponding to subgroup attributes.
+        :raises KeyError: If unable to find a unique matching group.
+        """
         try:
-            return self.groups[key]
+            return self.groups[(name, identifier)]
         except KeyError as e:
-            raise KeyError(key) from e
+            if attributes: # Fall back to subgroup search
+                groups = self.filter_subgroups(name, identifier, **attributes)
+                groups = [g for g in groups  if g.unique_key in self.groups]
+                if len(groups) != 1:
+                    raise KeyError(f'Subgroup search found {len(groups)} matching groups!') from e
+                return groups[0]
+            else:
+                raise
 
     def subgroups_with_name(self, name: str):
         """Yield subgroups with the specified name.
@@ -106,16 +123,21 @@ class Group(Statement):
             elif group.groups:
                 yield from group.subgroups_with_name(name)
 
-    def subgroups_with_identifier(self, identifier: str):
-        """Yield subgroups with the specified identifier.
+    def filter_subgroups(self, name: str, identifier='', **attributes):
+        """Yield subgroups with the specified name, id, and matching attributes
 
-        :param identifier: The subgroup identifier to search for.
+        :param name: The subgroup name (i.e. 'timing' or 'cell') to search for.
+        :param identifier: (Optional) The subgroup identifier to search for. Ignored if not
+                           specified.
+        :param **attributes: (Optional) Name-value pairs corresponding to subgroup attributes
+                             to match.
         """
-        for group in self.groups.values():
-            if group.identifier == identifier:
-                yield group
-            elif group.groups:
-                yield from group.subgroups_with_identifier(identifier)
+        for group in self.subgroups_with_name(name):
+            if identifier and not group.identifier == identifier:
+                continue
+            if any([(group.attributes.get(k) != k,v) for k,v in attributes.items()]):
+                continue
+            yield group
 
     def add_attribute(self, attr: str, value=None, precision=None):
         """Add a simple or complex attribute.
@@ -179,7 +201,12 @@ class Attribute(Statement):
 
     def __eq__(self, other):
         # Implements == operation
-        return self.name == other.name and self.value == other.value
+        if isinstance(other, Attribute):
+            return self.name == other.name and self.value == other.value
+        elif isinstance(other, tuple) and len(other) == 2:
+            return (self.name, self.value) == other
+        else:
+            return NotImplemented
 
     def __repr__(self):
         # Display for debugging
