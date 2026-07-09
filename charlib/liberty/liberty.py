@@ -81,7 +81,8 @@ class Group(Statement):
             group = Group(group, group_id)
         try:
             existing_group = self.groups[group.unique_key]
-            group.merge(existing_group)
+            existing_group.merge(group)
+            group = existing_group
         except KeyError:
             pass
         finally:
@@ -133,9 +134,9 @@ class Group(Statement):
                              to match.
         """
         for group in self.subgroups_with_name(name):
-            if identifier and not group.identifier == identifier:
+            if identifier and group.identifier != identifier:
                 continue
-            if any([(group.attributes.get(k) != k,v) for k,v in attributes.items()]):
+            if any([group.attributes.get(k) != (k,v) for k,v in attributes.items()]):
                 continue
             yield group
 
