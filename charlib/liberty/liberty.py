@@ -1,8 +1,10 @@
 """Tools for creating Liberty groups. See Liberty User Guide Vol 1, Chapter 1."""
 
 import re
+from collections import UserDict
 
 INDENT_STR = '  '
+
 
 class Statement:
     """Abstract base class for Liberty statements, such as Groups and Attributes"""
@@ -25,6 +27,19 @@ class Statement:
 
 
 class Group(Statement):
+
+    class SubGroupDict(UserDict):
+        """Custom dictionary with auto-updating keys. Used for keeping track of subgroups."""
+
+        def __setitem__(self, key, value):
+            self._update_key(key, value)
+            value._bind_to_parent_group(self)
+
+        def _update_key(self, key, value):
+            if key in self.data and key != value.unique_key:
+                del self.data[key]
+            self.data[value.unique_key] = value
+
     def __init__(self, group_name: str, group_id: str=''):
         """Create a new Liberty group.
 
@@ -38,8 +53,12 @@ class Group(Statement):
         """
         self.name = group_name
         self.identifier = group_id # TODO: Validate
-        self.groups = dict()
+        self.groups = self.SubGroupDict()
         self.attributes = dict()
+        self._parent_dict = None
+
+    def _bind_to_parent_group(self, parent_group_dict):
+        self._parent_dict = parent_group_dict
 
     def __eq__(self, other):
         # Implements == operation
@@ -136,7 +155,7 @@ class Group(Statement):
         for group in self.subgroups_with_name(name):
             if identifier and group.identifier != identifier:
                 continue
-            if any([group.attributes.get(k) != (k,v) for k,v in attributes.items()]):
+            if any(group.attributes.get(k) != (k,v) for k,v in attributes.items()):
                 continue
             yield group
 
@@ -148,19 +167,25 @@ class Group(Statement):
         :param precision: If different from default, the number of digits to display when printed.
                           Ignored if attr is an Attribute object.
         """
+        old_key = self.unique_key
         if isinstance(attr, Attribute):
             self.attributes[attr.name] = attr
         else:
             self.attributes[attr] = Attribute(attr, value, precision)
+        if self._parent_dict:
+            self._parent_dict._update_key(old_key, self)
 
     def merge(self, other):
         """Merge another group into this one, merging sub-groups and adding attributes.
 
         Note that attribute values from other will override attribute values from self."""
+        old_key = self.unique_key
         if not self.unique_key == other.unique_key:
             raise ValueError(f'Cannot merge groups with different identifiers {self.unique_key} and {other.unique_key}')
         [self.add_group(group) for group in other.groups.values()]
         self.attributes |= other.attributes
+        if self._parent_dict:
+            self._parent_dict._update_key(old_key, self)
 
     def to_liberty(self, indent_level=0, precision=1, **kwargs):
         """Convert this group to a Liberty-format string
