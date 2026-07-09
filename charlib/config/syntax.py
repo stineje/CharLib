@@ -152,6 +152,28 @@ class ConfigFile:
         ): Or(float, int),
         Optional(
             Literal(
+                'charge_integration_t_slew',
+                description='Ramp duration (VSS->VDD or VDD->VSS) used by the ' \
+                            'charge_integration input-capacitance procedure. Shorter ramps ' \
+                            'reduce gate-leakage charge accumulated during integration; ' \
+                            'values in the range 0.01-0.5 work well for sub-100 nm nodes. ' \
+                            'Unit is specified by ``settings.units.time``. Default 0 means ' \
+                            'automatically set to min(data_slews).'
+            ), default=0
+        ) : Or(float, int),
+        Optional(
+            Literal(
+                'charge_integration_t_wait',
+                description='Settling time before and between ramp edges used by the ' \
+                            'charge_integration input-capacitance procedure. Must be long ' \
+                            'enough for the output isolation network (R_on x C_out) to reach ' \
+                            'steady state before the integration ramp begins. ' \
+                            'Unit is specified by ``settings.units.time``. Default 0 means ' \
+                            'automatically set to 1000 x charge_integration_t_slew.'
+            ), default=0
+        ) : Or(float, int),
+        Optional(
+            Literal(
                 'metastability_constraint_search_tolerance',
                 description='Tolerance used during setup/hold constraint search. Unit is ' \
                             'specified by ``settings.units.time``.'
