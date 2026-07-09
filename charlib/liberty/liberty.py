@@ -36,6 +36,9 @@ class Group(Statement):
             value._bind_to_parent_group(self)
 
         def _update_key(self, key, value):
+            existing_group = self.data.get(value.unique_key)
+            if existing_group and existing_group is not value:
+                raise ValueError(f'Duplicate subgroup with key {value.unique_key}')
             if key in self.data and key != value.unique_key:
                 del self.data[key]
             self.data[value.unique_key] = value
