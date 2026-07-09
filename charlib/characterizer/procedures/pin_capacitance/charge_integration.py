@@ -8,7 +8,7 @@ from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 
 
-@register
+@register('data_slews', 'charge_integration_t_slew', 'charge_integration_t_wait')
 def charge_integration(cell, config, settings):
     """Measure input capacitance for each input pin using charge integration and return a liberty cell group"""
     roles = ['logic', 'clock', 'set', 'reset', 'enable']
@@ -31,9 +31,14 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
 
-    # TODO: Make these values configurable
-    t_slew = 0.5 @ u_ns    # ramp duration VSS→VDD (or VDD→VSS)
-    t_wait = 5 * t_slew    # settling time before and between edges
+    t_slew_val = config.parameters.get('charge_integration_t_slew', 0)
+    if t_slew_val == 0:
+        t_slew_val = min(config.parameters.get('data_slews', [0.5]))  # default: fastest data slew
+    t_wait_val = config.parameters.get('charge_integration_t_wait', 0)
+    if t_wait_val == 0:
+        t_wait_val = 1000 * t_slew_val # default: 1000x t_slew
+    t_slew = t_slew_val * settings.units.time
+    t_wait = t_wait_val * settings.units.time
     r_out  = 10 @ u_GOhm
     c_out  = 1  @ u_pF
 
@@ -123,11 +128,11 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     if math.isnan(q_rise) or math.isnan(q_fall):
         return result
 
-    # C = |Q| / VDD per edge; capacitance is the average
+    # C = |Q| / VDD per edge; capacitance is the worst-case
     vdd_v = settings.primary_power.voltage
     rise_cap_F = abs(q_rise) / vdd_v
     fall_cap_F = abs(q_fall) / vdd_v
-    avg_cap_F  = (rise_cap_F + fall_cap_F) / 2
+    worst_cap_F  = max(rise_cap_F, fall_cap_F)
 
     def to_lib(cap_F):
         return (cap_F @ u_F).convert(settings.units.capacitance.prefixed_unit).value
@@ -135,6 +140,6 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     pin_group = result.group('pin', target_pin)
     pin_group.add_attribute('rise_capacitance', to_lib(rise_cap_F))
     pin_group.add_attribute('fall_capacitance', to_lib(fall_cap_F))
-    pin_group.add_attribute('capacitance',      to_lib(avg_cap_F))
+    pin_group.add_attribute('capacitance',      to_lib(worst_cap_F))
 
     return result
