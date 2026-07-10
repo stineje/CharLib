@@ -42,7 +42,8 @@ class Group(Statement):
                 # Rekeying value collided with an existing sibling. Rather than raising, merge
                 # the sibling into value, since both represent the same logical subgroup.
                 del self.data[new_key]
-                value.merge(existing_group)
+                existing_group.merge(value)
+                value = existing_group
                 new_key = value.unique_key
             if key in self.data and key != new_key:
                 del self.data[key]
@@ -287,7 +288,8 @@ class Attribute(Statement):
 class Define(Attribute):
     """A define is basically a complex attribute with a bit more input validation"""
     def __init__(self, attribute_name, group_name, attribute_type):
-        # TODO: validate attribute_type: must be one of 'Boolean', 'string', 'integer', or 'floating point'
+        if attribute_type not in ['Boolean', 'string', 'integer', 'float']:
+            raise ValueError("attribute_type must be one of 'Boolean', 'string', 'integer', or 'float'")
         super.__init__('define', [attribute_name, group_name, attribute_type])
 
 
