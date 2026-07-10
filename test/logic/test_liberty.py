@@ -16,12 +16,14 @@ def test_merge_rekey_collision_merges_into_existing_sibling():
     existing = liberty.Group('timing', '')
     existing.add_attribute('related_pin', 'X')
     existing.add_attribute('timing_type', 'combinational_rise')
-    existing.add_attribute('marker', 'existing')
+    existing.add_attribute('marker', 'existing') # This key should remain in the final merged group
+    existing.add_attribute('time', "11:59") # This key will be conflicted and should be overwritten
     cell.add_group(existing)
 
     # A timing group that only has related_pin so far; its key is still ('timing', '').
     partial = liberty.Group('timing', '')
     partial.add_attribute('related_pin', 'X')
+    partial.add_attribute('time', "12:00") # Create conflict with existing to test which attr wins
     cell.add_group(partial)
 
     # A separate cell with a timing group that only has timing_type; merging this
@@ -39,6 +41,7 @@ def test_merge_rekey_collision_merges_into_existing_sibling():
     assert merged.attributes['related_pin'] == ('related_pin', 'X')
     assert merged.attributes['timing_type'] == ('timing_type', 'combinational_rise')
     assert merged.attributes['marker'] == ('marker', 'existing')
+    assert merged.attributes['time'] == ('time', '12:00')
 
 
 def test_add_attribute_rekey_collision_merges_into_existing_sibling():
@@ -50,10 +53,12 @@ def test_add_attribute_rekey_collision_merges_into_existing_sibling():
     existing.add_attribute('related_pin', 'X')
     existing.add_attribute('timing_type', 'combinational_rise')
     existing.add_attribute('marker', 'existing')
+    existing.add_attribute('time', "11:59") # This key will be conflicted and should be overwritten
     cell.add_group(existing)
 
     partial = liberty.Group('timing', '')
     partial.add_attribute('related_pin', 'X')
+    partial.add_attribute('time', "12:00") # Create conflict with existing to test which attr wins
     cell.add_group(partial)
 
     # Directly completing partial's key should merge it with `existing`.
@@ -63,3 +68,4 @@ def test_add_attribute_rekey_collision_merges_into_existing_sibling():
     assert len(timing_groups) == 1
     merged = timing_groups[0]
     assert merged.attributes['marker'] == ('marker', 'existing')
+    assert merged.attributes['time'] == ('time', '12:00')
