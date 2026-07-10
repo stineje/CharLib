@@ -36,12 +36,17 @@ class Group(Statement):
             value._bind_to_parent_group(self)
 
         def _update_key(self, key, value):
-            existing_group = self.data.get(value.unique_key)
+            new_key = value.unique_key
+            existing_group = self.data.get(new_key)
             if existing_group and existing_group is not value:
-                raise ValueError(f'Duplicate subgroup with key {value.unique_key}')
-            if key in self.data and key != value.unique_key:
+                # Rekeying value collided with an existing sibling. Rather than raising, merge
+                # the sibling into value, since both represent the same logical subgroup.
+                del self.data[new_key]
+                value.merge(existing_group)
+                new_key = value.unique_key
+            if key in self.data and key != new_key:
                 del self.data[key]
-            self.data[value.unique_key] = value
+            self.data[new_key] = value
 
     def __init__(self, group_name: str, group_id: str=''):
         """Create a new Liberty group.
