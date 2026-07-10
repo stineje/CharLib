@@ -32,8 +32,8 @@ class Group(Statement):
         """Custom dictionary with auto-updating keys. Used for keeping track of subgroups."""
 
         def __setitem__(self, key, value):
-            self._update_key(key, value)
-            value._bind_to_parent_group(self)
+            survivor = self._update_key(key, value)
+            survivor._bind_to_parent_group(self)
 
         def _update_key(self, key, value):
             new_key = value.unique_key
@@ -48,6 +48,7 @@ class Group(Statement):
             if key in self.data and key != new_key:
                 del self.data[key]
             self.data[new_key] = value
+            return value
 
     def __init__(self, group_name: str, group_id: str=''):
         """Create a new Liberty group.
@@ -290,7 +291,7 @@ class Define(Attribute):
     def __init__(self, attribute_name, group_name, attribute_type):
         if attribute_type not in ['Boolean', 'string', 'integer', 'float']:
             raise ValueError("attribute_type must be one of 'Boolean', 'string', 'integer', or 'float'")
-        super.__init__('define', [attribute_name, group_name, attribute_type])
+        super().__init__('define', [attribute_name, group_name, attribute_type])
 
 
 if __name__ == "__main__":
