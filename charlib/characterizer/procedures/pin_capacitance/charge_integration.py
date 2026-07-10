@@ -8,15 +8,15 @@ from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 
 
-@register
-def qv_method(cell, config, settings):
-    """Measure input capacitance for each input pin using Q/V integration and return a liberty cell group"""
+@register('data_slews', 'charge_integration_t_slew', 'charge_integration_t_wait')
+def charge_integration(cell, config, settings):
+    """Measure input capacitance for each input pin using charge integration and return a liberty cell group"""
     roles = ['logic', 'clock', 'set', 'reset', 'enable']
     for target_pin in cell.filter_pins(direction=['input'], role=roles):
-        yield (measure_pin_cap_by_qv_method, cell, settings, config, target_pin.name)
+        yield (measure_pin_cap_by_charge_integration, cell, settings, config, target_pin.name)
 
 
-def measure_pin_cap_by_qv_method(cell, settings, config, target_pin):
+def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     """Use a PWL stimulus to ramp the input through a full VDD swing and integrate i(vstim).
 
     Applies a VSS→VDD→VSS waveform to the target pin. The charge drawn on the rising
@@ -31,9 +31,14 @@ def measure_pin_cap_by_qv_method(cell, settings, config, target_pin):
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
 
-    # TODO: Make these values configurable
-    t_slew = 0.5 @ u_ns    # ramp duration VSS→VDD (or VDD→VSS)
-    t_wait = 5 * t_slew    # settling time before and between edges
+    t_slew_val = config.parameters.get('charge_integration_t_slew', 0)
+    if t_slew_val == 0:
+        t_slew_val = min(config.parameters.get('data_slews', [0.5]))  # default: fastest data slew
+    t_wait_val = config.parameters.get('charge_integration_t_wait', 0)
+    if t_wait_val == 0:
+        t_wait_val = 1000 * t_slew_val # default: 1000x t_slew
+    t_slew = t_slew_val * settings.units.time
+    t_wait = t_wait_val * settings.units.time
     r_out  = 10 @ u_GOhm
     c_out  = 1  @ u_pF
 
@@ -114,7 +119,7 @@ def measure_pin_cap_by_qv_method(cell, settings, config, target_pin):
     try:
         analysis = simulator.run(simulation)
     except Exception as e:
-        msg = (f'Procedure measure_pin_cap_by_qv_method failed for cell {cell.name}, '
+        msg = (f'Procedure measure_pin_cap_by_charge_integration failed for cell {cell.name}, '
                f'pin {target_pin}')
         raise ProcedureFailedException(msg) from e
 
@@ -123,10 +128,18 @@ def measure_pin_cap_by_qv_method(cell, settings, config, target_pin):
     if math.isnan(q_rise) or math.isnan(q_fall):
         return result
 
-    # C = |Q| / VDD, averaged over both edges
-    capacitance_F = (abs(q_rise) + abs(q_fall)) / 2 / settings.primary_power.voltage
+    # C = |Q| / VDD per edge; capacitance is the worst-case
+    vdd_v = settings.primary_power.voltage
+    rise_cap_F = abs(q_rise) / vdd_v
+    fall_cap_F = abs(q_fall) / vdd_v
+    worst_cap_F  = max(rise_cap_F, fall_cap_F)
 
-    converted_cap = (capacitance_F @ u_F).convert(settings.units.capacitance.prefixed_unit).value
-    result.group('pin', target_pin).add_attribute('capacitance', converted_cap)
+    def to_lib(cap_F):
+        return (cap_F @ u_F).convert(settings.units.capacitance.prefixed_unit).value
+
+    pin_group = result.group('pin', target_pin)
+    pin_group.add_attribute('rise_capacitance', to_lib(rise_cap_F))
+    pin_group.add_attribute('fall_capacitance', to_lib(fall_cap_F))
+    pin_group.add_attribute('capacitance',      to_lib(worst_cap_F))
 
     return result

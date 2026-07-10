@@ -152,6 +152,28 @@ class ConfigFile:
         ): Or(float, int),
         Optional(
             Literal(
+                'charge_integration_t_slew',
+                description='Ramp duration (VSS->VDD or VDD->VSS) used by the ' \
+                            'charge_integration input-capacitance procedure. Shorter ramps ' \
+                            'reduce gate-leakage charge accumulated during integration; ' \
+                            'values in the range 0.01-0.5 work well for sub-100 nm nodes. ' \
+                            'Unit is specified by ``settings.units.time``. Default 0 means ' \
+                            'automatically set to min(data_slews).'
+            ), default=0
+        ) : Or(float, int),
+        Optional(
+            Literal(
+                'charge_integration_t_wait',
+                description='Settling time before and between ramp edges used by the ' \
+                            'charge_integration input-capacitance procedure. Must be long ' \
+                            'enough for the output isolation network (R_on x C_out) to reach ' \
+                            'steady state before the integration ramp begins. ' \
+                            'Unit is specified by ``settings.units.time``. Default 0 means ' \
+                            'automatically set to 1000 x charge_integration_t_slew.'
+            ), default=0
+        ) : Or(float, int),
+        Optional(
+            Literal(
                 'metastability_constraint_search_tolerance',
                 description='Tolerance used during setup/hold constraint search. Unit is ' \
                             'specified by ``settings.units.time``.'
@@ -214,19 +236,22 @@ class ConfigFile:
             Optional(
                 Literal(
                     'backend',
-                    description='Which PySpice simulator backend to use. For available options, ' \
-                                'see https://pyspice.fabrice-salvaire.fr/releases/v1.4/faq.html#' \
-                                'how-to-set-the-simulator'
+                    description='Which PySpice simulator backend to use.\n' \
+                                '* ``ngspice-shared``: Runs ngspice simulations as a shared library within the same process.\n' \
+                                '* ``ngspice-subprocess``: Runs ngspice simulations in separate subprocesses.\n' \
+                                '* ``xyce-serial``: Runs Xyce simulations in serial mode.\n' \
+                                '* ``xyce-parallel``: Runs Xyce simulations in parallel mode.\n' \
+                                '* ``hspice``: (Experimental) Runs HSPICE simulations.'
                 ), default='ngspice-shared'
-            ) : Or('ngspice-shared', 'ngspice-subprocess', 'xyce-serial', 'xyce-parallel'),
+            ) : Or('ngspice-shared', 'ngspice-subprocess', 'xyce-serial', 'xyce-parallel', 'hspice'),
             Optional(
                 Literal(
                     'input_capacitance_procedure',
                     description='The name of a procedure used to measure the capacitance of '
                                 'each input pin for each cell. '
-                                'Options: "ac_sweep" (default) or "qv_method".'
+                                'Options: "ac_sweep" (default) or "charge_integration".'
                 ), default='ac_sweep'
-            ) : Or('ac_sweep', 'qv_method'),
+            ) : Or('ac_sweep', 'charge_integration'),
             Optional(
                 Literal(
                     'combinational_delay_procedure',
