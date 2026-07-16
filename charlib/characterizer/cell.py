@@ -147,11 +147,12 @@ class Cell:
         self.liberty.add_attribute('area', cell_config.get('area', 0.0), 2)
         def to_lib_expr(pin):
             return pin.name + "'" if pin.is_inverted() else pin.name
+        inverting_pins = {pair.inverting_port_name for pair in self.diff_pairs.values()}
         for pin, var in states.items(): # Add storage groups
             # Get variable names
-            if pin in [pair.inverting_port_name for pair in self.diff_pairs.values()]:
+            if pin in inverting_pins:
                 continue # skip inverting pins
-            storage_vars = [var,]
+            storage_vars = [var]
             for pair in self.diff_pairs.values():
                 if pin == pair.noninverting_port_name:
                     try:
@@ -159,6 +160,7 @@ class Cell:
                     except KeyError as e:
                         raise ValueError(f'No state feedback path for differential pair member {pair.complement(pin)}') from e
                     storage_vars.append(complement_var)
+                    break
             if len(storage_vars) < 2:
                 # No inverting output. Append inv to the end of the first var name
                 storage_vars.append(f'{var}inv')
