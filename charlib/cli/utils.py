@@ -14,6 +14,20 @@ def find_yaml_files(path) -> list:
         return []
 
 
+def resolve_subkey(value):
+    """If a config value ends in .yml or .yaml, resolve it to the YAML contents."""
+    if isinstance(value, str):
+        if not any(value.lower().endswith(ext) for ext in ['.yml', '.yaml']):
+            return value
+        possible_yamls = find_yaml_files(value)
+        if len(possible_yamls) != 1:
+            raise ValueError(f'Unable to resolve {value} to a unique existing file')
+        with open(possible_yamls[0]) as file:
+            return yaml.safe_load(file)
+    return value
+
+
+
 def find_config(config_path, quiet=True):
     """Find an appropriately-formatted YAML file in `config_path`"""
 
@@ -21,25 +35,25 @@ def find_config(config_path, quiet=True):
         print(f'Searching for YAML files at {str(config_path)}')
     config = None
     for file in find_yaml_files(config_path):
+        # Load the file
         try:
-            with open(file, 'r') as f:
+            with open(file) as f:
                 config = yaml.safe_load(f)
-                # Allow "settings" and "cells" keys to point to other yaml files
-                settings = config.get('settings')
-                if isinstance(settings, str) and Path(settings).is_file():
-                    with open(settings, 'r') as sf:
-                        config['settings'] = yaml.safe_load(sf)
-                cells = config.get('cells')
-                if isinstance(cells, str) and Path(cells).is_file():
-                    with open(cells, 'r') as cf:
-                        config['cells'] = yaml.safe_load(cf)
-                config = ConfigFile.validate(config)
-            break # Use the first valid config we come across
         except yaml.YAMLError as e:
             if not quiet:
                 print(e)
                 print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
+
+        # Ensure the file contains a config dictionary
+        if not isinstance(config, dict):
+            if not quiet:
+                print(f'Skipping "{str(file)}": file does not contain a config dict')
+            continue
+
+        # Substitute in config keys which point to other YAML files or directories
+        config = {k: resolve_subkey(v) for k, v in config.items()}
+
     return config
 
 
