@@ -74,10 +74,6 @@ class Cell:
         diff_pairs = [tuple(pair.split()) for pair in cell_config.get('pairs', [])]
 
         # Parse functions to determine input and output mapping
-        functions = dict()
-        states = dict()
-        inputs = set()
-        outputs = set()
         def _parse_expression(expression):
             # Helper function for parsing expressions of the form Y=A&B etc.
             lhs, rhs = expression.split('=')
@@ -85,14 +81,22 @@ class Cell:
             if not parse_logic(rhs):
                 raise ValueError(f'Could not parse expression "{expression}"')
             return output, rhs.strip()
+
+        functions = dict()
+        states = dict()
+        inputs = set()
+        outputs = set()
+        parsed_states = dict()
+        if 'state' in cell_config:
+            for state in cell_config['state']:
+                internal_pin, state_expr = _parse_expression(state)
+                parsed_states[internal_pin] = state_expr
         for function in cell_config['functions']:
             output, func_expr = _parse_expression(function)
-            if 'state' in cell_config: # Read through functions that map to states
-                for state in cell_config['state']:
-                    internal_pin, state_expr = _parse_expression(state)
-                    if internal_pin == func_expr:
-                        func_expr = state_expr # Read through function
-                        states[output] = internal_pin # Store internal mapping
+            if func_expr in parsed_states:
+                func_expr = parsed_states[func_expr] # Read through function
+                # TODO: if output not in states, indicate problem with cell config
+                states[output] = internal_pin # Store internal mapping
             functions[output] = func_expr
             inputs.update(set(OPERAND_REGEX.findall(func_expr)))
             outputs.add(output)
