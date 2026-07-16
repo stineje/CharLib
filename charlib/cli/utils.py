@@ -14,18 +14,17 @@ def find_yaml_files(path) -> list:
         return []
 
 
-def resolve_subkey(value):
+def resolve_subkey(value, base_dir):
     """If a config value ends in .yml or .yaml, resolve it to the YAML contents."""
     if isinstance(value, str):
         if not any(value.lower().endswith(ext) for ext in ['.yml', '.yaml']):
             return value
-        possible_yamls = find_yaml_files(value)
+        possible_yamls = find_yaml_files(Path(base_dir) / value)
         if len(possible_yamls) != 1:
             raise ValueError(f'Unable to resolve {value} to a unique existing file')
         with open(possible_yamls[0]) as file:
             return yaml.safe_load(file)
     return value
-
 
 
 def find_config(config_path, quiet=True):
@@ -52,9 +51,11 @@ def find_config(config_path, quiet=True):
             continue
 
         # Substitute in config keys which point to other YAML files or directories
-        config = {k: resolve_subkey(v) for k, v in config.items()}
+        config = {k: resolve_subkey(v, file.parent) for k, v in config.items()}
 
-    return config
+        # Exit on success
+        break
+    return ConfigFile.validate(config)
 
 
 def filter_cells(cells: dict, filters: list) -> dict:
