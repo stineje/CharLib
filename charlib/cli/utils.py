@@ -23,7 +23,17 @@ def find_config(config_path, quiet=True):
     for file in find_yaml_files(config_path):
         try:
             with open(file, 'r') as f:
-                config = ConfigFile.validate(yaml.safe_load(f))
+                config = yaml.safe_load(f)
+                # Allow "settings" and "cells" keys to point to other yaml files
+                settings = config.get('settings')
+                if isinstance(settings, str) and Path(settings).is_file():
+                    with open(settings, 'r') as sf:
+                        config['settings'] = yaml.safe_load(sf)
+                cells = config.get('cells')
+                if isinstance(cells, str) and Path(cells).is_file():
+                    with open(cells, 'r') as cf:
+                        config['cells'] = yaml.safe_load(cf)
+                config = ConfigFile.validate(config)
             break # Use the first valid config we come across
         except yaml.YAMLError as e:
             if not quiet:
