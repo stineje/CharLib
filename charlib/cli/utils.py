@@ -2,6 +2,7 @@ import re, yaml
 from pathlib import Path
 
 from charlib.config.syntax import ConfigFile
+from schema import SchemaError
 
 def find_yaml_files(path) -> list:
     """Return a list of Paths containing all YAML files in the directory specified by `path`."""
@@ -17,7 +18,7 @@ def find_yaml_files(path) -> list:
 def resolve_subkey(value, base_dir):
     """If a config value ends in .yml or .yaml, resolve it to the YAML contents."""
     if isinstance(value, str):
-        if not any(value.lower().endswith(ext) for ext in ['.yml', '.yaml']):
+        if not value.lower().endswith(('.yml', '.yaml')):
             return value
         possible_yamls = find_yaml_files(Path(base_dir) / value)
         if len(possible_yamls) != 1:
@@ -43,19 +44,23 @@ def find_config(config_path, quiet=True):
                 print(e)
                 print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
-
         # Ensure the file contains a config dictionary
         if not isinstance(config, dict):
             if not quiet:
                 print(f'Skipping "{str(file)}": file does not contain a config dict')
             continue
-
         # Substitute in config keys which point to other YAML files or directories
         config = {k: resolve_subkey(v, file.parent) for k, v in config.items()}
-
-        # Exit on success
-        break
-    return ConfigFile.validate(config)
+        # Validate the schema
+        try:
+            config = ConfigFile.validate(config)
+            break # Exit on success
+        except SchemaError:
+            if not quiet:
+                print(f'Skipping "{str(file)}": file does not contain a valid CharLib config')
+    if not isinstance(config, dict):
+        raise FileNotFoundError(f'No valid configuration found in {config_path}')
+    return config
 
 
 def filter_cells(cells: dict, filters: list) -> dict:
