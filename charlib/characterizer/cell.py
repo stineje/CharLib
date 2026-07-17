@@ -94,9 +94,9 @@ class Cell:
         for function in cell_config['functions']:
             output, func_expr = _parse_expression(function)
             if func_expr in parsed_states:
-                func_expr = parsed_states[func_expr] # Read through function
                 # TODO: if output not in states, indicate problem with cell config
-                states[output] = internal_pin # Store internal mapping
+                states[output] = func_expr # Store internal mapping
+                func_expr = parsed_states[func_expr] # Read through function
             functions[output] = func_expr
             inputs.update(set(OPERAND_REGEX.findall(func_expr)))
             outputs.add(output)
