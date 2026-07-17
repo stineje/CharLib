@@ -38,9 +38,9 @@ class Cell:
         4. Construct a skeleton liberty object for this cell.
         """
         self.name = name
-        self.pins = dict()
-        self.diff_pairs = dict()
-        self.functions = dict()
+        self.pins = {}
+        self.diff_pairs = {}
+        self.functions = {}
 
         ## 1. Process cell_config
 
@@ -82,11 +82,11 @@ class Cell:
                 raise ValueError(f'Could not parse expression "{expression}"')
             return output, rhs.strip()
 
-        functions = dict()
-        states = dict()
+        functions = {}
+        states = {}
         inputs = set()
         outputs = set()
-        parsed_states = dict()
+        parsed_states = {}
         if 'state' in cell_config:
             for state in cell_config['state']:
                 internal_pin, state_expr = _parse_expression(state)
