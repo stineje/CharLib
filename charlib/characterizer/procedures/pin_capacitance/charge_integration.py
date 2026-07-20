@@ -26,7 +26,6 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
 
     Returns a liberty cell group with the capacitance set on the appropriate pin.
     """
-    result = cell.liberty
 
     vdd = settings.primary_power.voltage * settings.units.voltage
     vss = settings.primary_ground.voltage * settings.units.voltage
@@ -95,19 +94,13 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
         temperature=settings.temperature,
         nominal_temperature=settings.temperature
     )
-    simulation.options('nopage', 'nomod', post=1, ingold=2)
+    simulation.options('autostop')
 
     # Integrate i(vstim) over each edge; i(vstim) is negative when sourcing current
-    simulation.measure('tran', 'q_rise',
-                       'integ i(vstim)',
-                       f'from={t_rise_start:.6g}',
-                       f'to={t_rise_end:.6g}',
-                       run=False)
-    simulation.measure('tran', 'q_fall',
-                       'integ i(vstim)',
-                       f'from={t_fall_start:.6g}',
-                       f'to={t_fall_end:.6g}',
-                       run=False)
+    simulation.measure('tran', 'q_rise', 'integ i(vstim)',
+                       f'from={t_rise_start:.6g}', f'to={t_rise_end:.6g}', run=False)
+    simulation.measure('tran', 'q_fall', 'integ i(vstim)',
+                       f'from={t_fall_start:.6g}', f'to={t_fall_end:.6g}', run=False)
     simulation.transient(step_time=t_slew / 10, end_time=t_sim_end, run=False)
 
     if settings.debug:
@@ -116,23 +109,30 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
         with open(debug_path / f'{target_pin}.spice', 'w', encoding='utf-8') as spice_file:
             spice_file.write(str(simulation))
 
-    try:
-        analysis = simulator.run(simulation)
-    except Exception as e:
-        msg = (f'Procedure measure_pin_cap_by_charge_integration failed for cell {cell.name}, '
-               f'pin {target_pin}')
-        raise ProcedureFailedException(msg) from e
+    if settings.dry_run:
+        # TODO: Display a message if not settings.quiet
+        q_rise = -1
+        q_fall = -1
+    else:
+        try:
+            analysis = simulator.run(simulation)
+        except Exception as e:
+            msg = (f'Procedure measure_pin_cap_by_charge_integration failed for cell {cell.name}, '
+                   f'pin {target_pin}')
+            raise ProcedureFailedException(msg) from e
 
-    q_rise = analysis.measurements.get('q_rise', float('nan'))
-    q_fall = analysis.measurements.get('q_fall', float('nan'))
+        q_rise = abs(analysis.measurements.get('q_rise', float('nan')))
+        q_fall = abs(analysis.measurements.get('q_fall', float('nan')))
+
+    result = cell.liberty
     if math.isnan(q_rise) or math.isnan(q_fall):
         return result
 
     # C = |Q| / VDD per edge; capacitance is the worst-case
     vdd_v = settings.primary_power.voltage
-    rise_cap_F = abs(q_rise) / vdd_v
-    fall_cap_F = abs(q_fall) / vdd_v
-    worst_cap_F  = max(rise_cap_F, fall_cap_F)
+    rise_cap_F = q_rise / vdd_v
+    fall_cap_F = q_fall / vdd_v
+    worst_cap_F = max(rise_cap_F, fall_cap_F)
 
     def to_lib(cap_F):
         return (cap_F @ u_F).convert(settings.units.capacitance.prefixed_unit).value

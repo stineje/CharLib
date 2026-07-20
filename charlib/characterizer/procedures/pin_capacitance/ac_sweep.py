@@ -78,9 +78,13 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
             spice_file.write(str(simulation))
 
     # Measure capacitance as the slope of the conductance with respect to frequency
-    analysis = simulator.run(simulation)
-    conductance = np.reciprocal(np.abs(analysis.vin)/i_in)
-    [*_, capacitance] = np.polynomial.polynomial.polyfit(analysis.frequency, conductance, 1)
+    if settings.dry_run:
+        # TODO: Display a message if not settings.quiet
+        capacitance = -1
+    else:
+        analysis = simulator.run(simulation)
+        conductance = np.reciprocal(np.abs(analysis.vin)/i_in)
+        [*_, capacitance] = np.polynomial.polynomial.polyfit(analysis.frequency, conductance, 1)
 
     # Add to the liberty group
     converted_cap = (capacitance @ u_F).convert(settings.units.capacitance.prefixed_unit).value

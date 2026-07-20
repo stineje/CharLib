@@ -67,31 +67,33 @@ def measure_leakage_for_state(cell, config, settings, state_map):
     simulation.options('nopage', 'nomod')
     simulation.operating_point()
 
-    try:
-        analysis = simulator.run(simulation)
-    except Exception as e:
-        msg = (f'Procedure measure_leakage_for_state failed for cell {cell.name} '
-               f'with state {state_map}')
-        if settings.debug:
-            debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
-            debug_path.mkdir(parents=True, exist_ok=True)
-            with open(debug_path / f'state = {state_map}.sp', 'w', encoding='utf-8') as f:
-                f.write(str(simulation))
-        raise ProcedureFailedException(msg) from e
+    if settings.debug:
+        debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
+        debug_path.mkdir(parents=True, exist_ok=True)
+        with open(debug_path / f'state = {state_map}.sp', 'w', encoding='utf-8') as f:
+            f.write(str(simulation))
 
-    # Branch current: ngspice names it <element_name>#branch, simplified to <element_name> (lower)
-    i_vdd = float(analysis.branches[settings.primary_power.name.lower()][0])
-    power_W = settings.primary_power.voltage * abs(i_vdd)
-    power_value = (power_W @ PySpice.Unit.u_W).convert(
-        settings.units.power.prefixed_unit
-    ).value
+    if settings.dry_run:
+        # TODO: Display a message if not settings.quiet
+        power_value = -1
+    else:
+        try:
+            analysis = simulator.run(simulation)
+        except Exception as e:
+            msg = (f'Procedure measure_leakage_for_state failed for cell {cell.name} '
+                   f'with state {state_map}')
+            raise ProcedureFailedException(msg) from e
 
-    when_str = build_when_str(state_map)
+        # Branch current: ngspice names it <element_name>#branch, simplified to <element_name> (lower)
+        i_vdd = float(analysis.branches[settings.primary_power.name.lower()][0])
+        power_W = settings.primary_power.voltage * abs(i_vdd)
+        power_value = (power_W @ PySpice.Unit.u_W).convert(
+            settings.units.power.prefixed_unit
+        ).value
 
-    # Use when_str as identifier so multiple leakage_power groups in the same cell don't collide
     result = cell.liberty
-    lp_group = liberty.Group('leakage_power', f'/* {when_str} */')
-    lp_group.add_attribute('when', when_str)
+    lp_group = liberty.Group('leakage_power')
+    lp_group.add_attribute('when', build_when_str(state_map))
     lp_group.add_attribute('value', power_value)
     result.add_group(lp_group)
     return result

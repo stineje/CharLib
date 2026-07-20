@@ -27,6 +27,7 @@ def run(args):
     characterizer.settings.debug = characterizer.settings.debug or args.debug
     characterizer.settings.quiet = characterizer.settings.quiet or args.quiet
     characterizer.settings.jobs = args.jobs if args.jobs else characterizer.settings.jobs
+    characterizer.settings.dry_run = characterizer.settings.dry_run or args.no_sim
 
     # Filter and add cells
     if args.filters:
@@ -50,7 +51,3 @@ def run(args):
         f.write(str(liberty))
         if not characterizer.settings.quiet:
              print(f'Results written to {str(libfile.resolve())}')
-
-    # Run any post-characterization analysis
-    if args.comparewith:
-        compare(args.comparewith, library)
