@@ -4,6 +4,7 @@ import math
 
 from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.characterizer import utils, plots
+from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
 
 @register(
@@ -224,6 +225,13 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                             filename='contour_sweep_b_setup_as_outer_loop.png',
                             title=_base_title + '\nSweep B: setup outer, hold inner')
 
+        # If this is a dry-run, we can't proceed past this point because the next step relies on
+        # previously measured data
+        if settings.dry_run:
+            # TODO: Display a message if not settings.quiet
+            result_per_state[state_str] = (1 @ PySpice.Unit.u_s, 1 @ PySpice.Unit.u_s, None)
+            continue
+
         # Step 6: pick the balanced knee point from the merged contour.
         boundary_pts = extract_2d_contour(latched_a, latched_b, setup_vals_s, hold_vals_s)
         (knee_setup_s, knee_hold_s), knee_is_fallback = utils.find_knee_point(
@@ -255,7 +263,6 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
     worst_hold  = None
     worst_setup_state = None
     worst_hold_state  = None
-
     for state_str, (setup, hold, _) in result_per_state.items():
         if worst_setup is None or setup > worst_setup:
             worst_setup = setup
@@ -291,38 +298,30 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
 
     # Build liberty output
     result = cell.liberty
-    clock_pin = cell.clock
-    n_ds = len(config.parameters['data_slews'])
-    n_cs  = len(config.parameters['clock_slews'])
-    lut_template_size = f'{len(config.parameters["clock_slews"])}x{len(config.parameters["data_slews"])}'
+    lut_size = f'{len(config.parameters["clock_slews"])}x{len(config.parameters["data_slews"])}'
+    constraint_name = 'rise_constraint' if data_transition == '01' else 'fall_constraint'
 
     # Setup timing group
-    result.group('pin', data_pin).add_group('timing', "/* setup */")
-    stg = result.group('pin', data_pin).group('timing', "/* setup */")
-    stg.add_attribute('related_pin', clock_pin.name)
-    stg.add_attribute('timing_type', 'setup_falling' if clock_pin.is_inverted() else 'setup_rising')
-
-    # Hold timing group
-    result.group('pin', data_pin).add_group('timing', "/* hold */")
-    htg = result.group('pin', data_pin).group('timing', "/* hold */")
-    htg.add_attribute('related_pin', clock_pin.name)
-    htg.add_attribute('timing_type', 'hold_falling' if clock_pin.is_inverted() else 'hold_rising')
-
-    # add lut to timing group
-    # rise_constraint when D rises (01), fall_constraint when D falls (10)
-    cname = 'rise_constraint' if data_transition == '01' else 'fall_constraint'
-
-    setup_lut = LookupTable(cname, f'setup_template_{n_cs}x{n_ds}',
+    stg = liberty.Group('timing')
+    stg.add_attribute('related_pin', cell.clock.name)
+    stg.add_attribute('timing_type', 'setup_falling' if cell.clock.is_inverted() else 'setup_rising')
+    setup_lut = LookupTable(constraint_name, f'setup_template_{lut_size}',
                             related_pin_transition=[cs.convert(settings.units.time.prefixed_unit).value],
-                            constraint_pin_transition=[ds.convert(settings.units.time.prefixed_unit).value])
+                            constrained_pin_transition=[ds.convert(settings.units.time.prefixed_unit).value])
     setup_lut.values[0, 0] = worst_setup.convert(settings.units.time.prefixed_unit).value
     stg.add_group(setup_lut)
+    result.group('pin', data_pin).add_group(stg)
 
-    hold_lut = LookupTable(cname, f'hold_template_{n_cs}x{n_ds}',
+    # Hold timing group
+    htg = liberty.Group('timing')
+    htg.add_attribute('related_pin', cell.clock.name)
+    htg.add_attribute('timing_type', 'hold_falling' if cell.clock.is_inverted() else 'hold_rising')
+    hold_lut = LookupTable(constraint_name, f'hold_template_{lut_size}',
                            related_pin_transition=[cs.convert(settings.units.time.prefixed_unit).value],
-                           constraint_pin_transition=[ds.convert(settings.units.time.prefixed_unit).value])
+                           constrained_pin_transition=[ds.convert(settings.units.time.prefixed_unit).value])
     hold_lut.values[0, 0] = worst_hold.convert(settings.units.time.prefixed_unit).value
     htg.add_group(hold_lut)
+    result.group('pin', data_pin).add_group(htg)
 
     return result
 
@@ -550,6 +549,10 @@ def get_t_stabilizing(cell, config, settings, path, state_map, k=2, th_low=0.03,
     simulation runtime. This procedure measures the transient time of the output signal, then
     multiplies that by a 'safety factor' k to determine a reasonable stabilizing time."""
 
+    if settings.dry_run:
+        # TODO: Display a message if not settings.quiet
+        return -1. @ PySpice.Unit.u_s
+
     simulator, simulation = sim_latch(cell, config, settings, path, state_map, **sim_kwargs)
     try:
         analysis = simulator.run(simulation)
@@ -586,6 +589,10 @@ def get_c2q(cell, config, settings, path, state_map, debug_dir=None, **sim_kwarg
     except ValueError:
         # If t_setup + t_hold < 0 fail immediately
         return float('nan')
+
+    if settings.dry_run:
+        # TODO: Display a message if not settings.quiet
+        return -1. @ PySpice.Unit.u_s
 
     # Run simulation
     try:
