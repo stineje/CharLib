@@ -131,38 +131,44 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
                     raise ValueError(f'Unable to connect unrecognized pin {pin.name} in cell {cell.name}')
         circuit.X('dut', cell.name, *connections)
 
-        # Run the simulation, taking all measurements
+        # Build the simulation
         simulator = PySpice.Simulator.factory(simulator=settings.simulation.backend)
         simulation = simulator.simulation(
             circuit,
             temperature=settings.temperature,
             nominal_temperature=settings.temperature
         )
-        simulation.options('autostop', 'nopage', 'nomod', post=1, ingold=2, trtol=1)
+        simulation.options('autostop', trtol=1)
         for measure in measurements:
             simulation.measure(*measure, run=False)
         simulation.transient(step_time=data_slew/8, end_time=t_sim_end, run=False)
 
         stable_pins_map_str = ', '.join(['='.join([pin, state]) for pin, state in pin_map.stable_inputs.items()])
+
+        if settings.debug:
+            debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
+            debug_path.mkdir(parents=True, exist_ok=True)
+            with open(debug_path / f'slew = {data_slew} load = {load}.sp', 'w', encoding='utf-8') as file:
+                file.write(str(simulation))
+
+        # Skip simulation if this is a dry-run
+        if settings.dry_run:
+            # TODO: Display a message if not settings.quiet
+            continue
+
+        # Run the simulation, taking all measurements
         try:
             analyses[stable_pins_map_str] = simulator.run(simulation)
         except Exception as e:
             msg = f'Procedure measure_worst_case_delay_for_path failed for cell {cell.name} ' \
                   f'with variation {variation}, pin states {state_map}'
-            if settings.debug:
-                debug_path = settings.debug_dir / cell.name / __name__.split('.')[-1]
-                debug_path.mkdir(parents=True, exist_ok=True)
-                with open(debug_path / f'slew = {data_slew} load = {load}.sp', 'w', encoding='utf-8') as file:
-                    file.write(str(simulation))
             raise ProcedureFailedException(msg) from e
 
     # Select the worst-case delays and add to LUTs
     result = cell.liberty
-    result.group('pin', output_pin).add_group('timing', f'/* {input_pin} */') # FIXME: This is a \
-    # hack to allow multiple timing groups while the liberty API doesn't yet support multiple
-    # groups with the same name and no id. In practice timing groups are distinguished by
-    # their related_pin attribute.
-    result.group('pin', output_pin).group('timing', f'/* {input_pin} */').add_attribute('related_pin', input_pin) # FIXME
+    timing_group = liberty.Group('timing')
+    timing_group.add_attribute('related_pin', input_pin)
+    # TODO: Add timing_sense attribute to indicate unateness
     for name in measurement_names:
         # Get the worst delay & plot io
         if 'io' in config.plots:
@@ -179,13 +185,14 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
 
         # Build LUT
         delay_measurements =[analysis.measurements[name] for analysis in analyses.values() if name in analysis.measurements]
-        delay = criterion(delay_measurements) @ PySpice.Unit.u_s
+        delay = (criterion(delay_measurements) if delay_measurements else -1) @ PySpice.Unit.u_s
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
                           total_output_net_capacitance=[load.convert(settings.units.capacitance.prefixed_unit).value],
                           input_net_transition=[data_slew.convert(settings.units.time.prefixed_unit).value])
         lut.values[0,0] = delay.convert(settings.units.time.prefixed_unit).value
-        result.group('pin', output_pin).group('timing', f'/* {input_pin} */').add_group(lut) # FIXME
+        timing_group.add_group(lut)
+    result.group('pin', output_pin).add_group(timing_group)
 
     return result

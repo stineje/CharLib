@@ -134,8 +134,9 @@ class CharacterizationSettings:
         self.debug = kwargs.pop('debug', False)
         self.debug_dir = Path(kwargs.pop('debug_dir', 'debug'))
         self.quiet = kwargs.pop('quiet', False)
-        self.cell_defaults = kwargs.get('cell_defaults', {})
+        self.dry_run = kwargs.pop('dry_run', False)
         self.omit_on_failure = kwargs.get('omit_on_failure', False)
+        self.cell_defaults = kwargs.get('cell_defaults', {})
 
         # Simulation procedures
         self.simulation = SimulationSettings(**kwargs.get('simulation', {}))
