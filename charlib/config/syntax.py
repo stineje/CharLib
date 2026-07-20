@@ -265,10 +265,21 @@ class ConfigFile:
             Optional(
                 Literal(
                     'combinational_leakage_procedure',
-                    description='The name of a procedure used to measure static leakage power ' \
-                                'for each input state of a combinational cell.' # TODO: Refer to docs for procedures
-                ), default='combinational_leakage'
-            ) : str,
+                    description='The name of a procedure used to measure static leakage power '
+                                'for each input state of a combinational cell. '
+                                'Defaults to null (disabled). '
+                                'Set to "combinational_leakage" to enable.' # TODO: Refer to docs for procedures
+                ), default=None
+            ) : Or(str, None),
+            Optional(
+                Literal(
+                    'combinational_dynamic_power_procedure',
+                    description='The name of a procedure used to measure switching energy '
+                                'for each input-to-output path through a combinational cell. '
+                                'Defaults to null (disabled). '
+                                'Set to "combinational_dynamic_power" to enable.'
+                ), default=None
+            ) : Or(str, None),
             Optional(
                 Literal(
                     'sequential_delay_procedure',
