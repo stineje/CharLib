@@ -58,6 +58,7 @@ def find_config(config_path, quiet=True):
         except SchemaError:
             if not quiet:
                 print(f'Skipping "{str(file)}": file does not contain a valid CharLib config')
+            config = None
     if not isinstance(config, dict):
         raise FileNotFoundError(f'No valid configuration found in {config_path}')
     return config
