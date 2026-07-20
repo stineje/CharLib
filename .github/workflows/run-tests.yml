@@ -28,7 +28,7 @@ jobs:
       - name: "Run regression tests"
         run: |
           ./test/examples/get_osu350.sh
-          ./test/examples/get_gf180mcu_osu_sc_9t.sh
+          ./test/examples/get_gf180mcu_osu_9t.sh
           pytest
 
   Characterize-osu035:
