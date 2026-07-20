@@ -14,9 +14,18 @@ def run(settings, cells):
     with open(libfile, 'w') as f:
         f.write(str(libtext))
 
-def test_examples():
-    for file in utils.find_yaml_files(Path(__file__).resolve().parent):
-        if file.name.startswith("ex"):
-            config = utils.find_config(file)
-            run(config['settings'], config['cells'])
+def test_ex_osu350_adders():
+    config = utils.find_config('test/examples/ex_osu350_adders.yaml')
+    run(config['settings'], config['cells'])
 
+def test_ex_osu350_invx1():
+    config = utils.find_config('test/examples/ex_osu350_invx1.yaml')
+    run(config['settings'], config['cells'])
+
+def test_ex_gf180_osu_9t():
+    config = utils.find_config('test/examples/ex_gf180_osu_9t.yaml')
+    run(config['settings'], config['cells'])
+
+def test_ex_osu350_dffsr():
+    from ex_osu350_dffsr import characterize_osu350_dffsr
+    characterize_osu350_dffsr()

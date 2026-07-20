@@ -24,12 +24,12 @@ cells:
         functions: [Y=A]
     gf180mcu_osu_sc_gp9t3v3__dff_1:
         functions:
-            - Q <= D
-            - QN <= !D
+            - Q <= IQ
+            - QN <= IQN
         clock: posedge clk
         state:
-            - IQ = Q
-            - IQN = QN
+            - IQ = D
+            - IQN = !D
         pairs: [Q QN]
         # Limit DFFS to 1 slew/load/clk_slew corner, as this takes a long time
         data_slews:  [0.0706]
