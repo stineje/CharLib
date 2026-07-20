@@ -1,0 +1,2 @@
+* Disable Monte Carlo simulations for sky130
+.param mc_mm_switch=0
