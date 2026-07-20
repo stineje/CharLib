@@ -51,9 +51,12 @@ class ConfigFile:
         ) : [str],
         Literal(
             'functions',
-            description='A list of verilog functions describing each output as logical function ' \
-                        'of inputs. Input and output names must match ports names in the spice ' \
-                        'subcircuit.'
+            description='A list of Boolean functions describing each output as logical function ' \
+                        'of inputs. Each entry should be in the format ' \
+                        '``<output> = <function>``. For sequential cells, each output should ' \
+                        'be mapped to a state entry. Any inputs and outputs which appear in ' \
+                        'a function must match ports names in the spice subcircuit.' \
+
         ) : [str],
         Literal(
             'data_slews',
@@ -108,8 +111,8 @@ class ConfigFile:
         Optional(
             Literal(
                 'state',
-                description='A list of feedback paths which encode state in a sequential cell. ' \
-                            'Paths should be specified as ``<internal node> = <output pin>``.'
+                description='A list of virtual nodes which encode state in a sequential cell. ' \
+                            'Paths should be specified as ``<internal pin> = <function>``.'
             )
         ) : [str],
         Optional(
