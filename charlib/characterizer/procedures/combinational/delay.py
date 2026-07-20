@@ -47,7 +47,7 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
                       Default max.
     """
     # Set up key parameters
-    [input_pin, _, output_pin, _] = path
+    [input_pin, _, output_pin, output_transition] = path
     data_slew = variation['data_slews'] * settings.units.time
     load = variation['loads'] * settings.units.capacitance
     t_sim_end = max(variation['transient_sim_end_time'] * settings.units.time, 1000*data_slew)
@@ -168,7 +168,8 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
     result = cell.liberty
     timing_group = liberty.Group('timing')
     timing_group.add_attribute('related_pin', input_pin)
-    # TODO: Add timing_sense attribute to indicate unateness
+    timing_type = 'combinational_rise' if output_transition == '01' else 'combinational_fall'
+    timing_group.add_attribute('timing_type', timing_type)
     for name in measurement_names:
         # Get the worst delay & plot io
         if 'io' in config.plots:
