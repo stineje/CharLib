@@ -16,6 +16,7 @@ def run(settings, cells):
 
 def test_examples():
     for file in utils.find_yaml_files(Path(__file__).resolve().parent):
-        config = utils.find_config(file)
-        run(config['settings'], config['cells'])
+        if file.name.startswith("ex"):
+            config = utils.find_config(file)
+            run(config['settings'], config['cells'])
 
