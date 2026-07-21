@@ -185,8 +185,14 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
             plt.close(fig)
 
         # Build LUT
-        delay_measurements =[analysis.measurements[name] for analysis in analyses.values() if name in analysis.measurements]
-        delay = (criterion(delay_measurements) if delay_measurements else -1) @ PySpice.Unit.u_s
+        delay_measurements = [analysis.measurements[name] for analysis in analyses.values() if name in analysis.measurements]
+        try:
+            delay = criterion(delay_measurements) @ PySpice.Unit.u_s
+        except ValueError as e:
+            if settings.dry_run:
+                delay = -1 @ PySpice.Unit.u_s
+            else:
+                raise
         lut_name, meas_path = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
