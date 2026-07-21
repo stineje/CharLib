@@ -64,7 +64,6 @@ def measure_leakage_for_state(cell, config, settings, state_map):
         temperature=settings.temperature,
         nominal_temperature=settings.temperature
     )
-    simulation.options('nopage', 'nomod')
     simulation.operating_point()
 
     if settings.debug:
