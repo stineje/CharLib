@@ -1,12 +1,13 @@
 """Tools for creating Liberty groups. See Liberty User Guide Vol 1, Chapter 1."""
 
 import re
+from abc import ABC, abstractmethod
 from collections import UserDict
 
 INDENT_STR = '  '
 
 
-class Statement:
+class Statement(ABC):
     """Abstract base class for Liberty statements, such as Groups and Attributes"""
     @property
     def name(self):
@@ -22,8 +23,9 @@ class Statement:
     def unique_key(self):
         return (self.name, self.identifier)
 
+    @abstractmethod
     def to_liberty(self, indent=0, precision=6):
-        return NotImplemented
+        pass
 
 
 class Group(Statement):
