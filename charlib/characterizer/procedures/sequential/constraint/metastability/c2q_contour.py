@@ -229,7 +229,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         # previously measured data
         if settings.dry_run:
             # TODO: Display a message if not settings.quiet
-            result_per_state[state_str] = (1 @ PySpice.Unit.u_s, 1 @ PySpice.Unit.u_s, None)
+            result_per_state[state_str] = (-1 @ PySpice.Unit.u_s, -1 @ PySpice.Unit.u_s, None)
             continue
 
         # Step 6: pick the balanced knee point from the merged contour.
@@ -549,11 +549,12 @@ def get_t_stabilizing(cell, config, settings, path, state_map, k=2, th_low=0.03,
     simulation runtime. This procedure measures the transient time of the output signal, then
     multiplies that by a 'safety factor' k to determine a reasonable stabilizing time."""
 
+    simulator, simulation = sim_latch(cell, config, settings, path, state_map, **sim_kwargs)
+
     if settings.dry_run:
         # TODO: Display a message if not settings.quiet
         return -1. @ PySpice.Unit.u_s
 
-    simulator, simulation = sim_latch(cell, config, settings, path, state_map, **sim_kwargs)
     try:
         analysis = simulator.run(simulation)
     except Exception as e:
