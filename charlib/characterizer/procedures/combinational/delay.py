@@ -192,8 +192,10 @@ def measure_delays_for_path_with_criterion(cell, config, settings, variation, pa
             if settings.dry_run:
                 delay = -1 @ PySpice.Unit.u_s
             else:
-                raise
-        lut_name, meas_path = name.split('__')
+                msg = f'Procedure measure_worst_case_delay_for_path failed for cell {cell.name} ' \
+                      f'with variation {variation}, pin states {state_map}'
+                raise ProcedureFailedException(msg) from e
+        lut_name, *_ = name.split('__')
         lut_template_size = f'{len(config.parameters["loads"])}x{len(config.parameters["data_slews"])}'
         lut = LookupTable(lut_name, f'delay_template_{lut_template_size}',
                           total_output_net_capacitance=[load.convert(settings.units.capacitance.prefixed_unit).value],
