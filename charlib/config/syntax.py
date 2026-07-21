@@ -478,6 +478,13 @@ class ConfigFile:
         ) : str,
         Optional(
             Literal(
+                'dry_run',
+                description='If true, CharLib will perform all steps except for running SPICE ' \
+                            ' simulations. Equivalent to the ``--no-sim`` command line option.'
+            ), default=False
+        ) : bool,
+        Optional(
+            Literal(
                 'omit_on_failure',
                 description='Specifies whether to terminate if a cell fails to characterize ' \
                             '(``False``), or continue with the remaining cells (``True``).'
