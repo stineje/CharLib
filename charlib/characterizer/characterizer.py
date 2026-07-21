@@ -86,7 +86,7 @@ class Characterizer:
         # Run all simulation jobs and merge each resulting liberty cell group into the library
         with tqdm(bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]',
                   total=len(simulation_tasks), desc="Characterizing") as progress_bar:
-            with ProcessPoolExecutor(max_workers=self.settings.jobs) as executor:
+            with ProcessPoolExecutor(max_workers=self.settings.jobs, max_tasks_per_child=1) as executor:
                 futures = [executor.submit(task, *args) for (task, *args) in simulation_tasks]
                 for future in as_completed(futures):
                     try:
