@@ -155,6 +155,20 @@ class ConfigFile:
         ): Or(float, int),
         Optional(
             Literal(
+                'energy_settling_tolerance',
+                description='Relative tolerance (fraction of the peak switching current) used ' \
+                            'by the combinational_dynamic_power procedure to detect when the ' \
+                            'supply current has settled after a switching event. The energy ' \
+                            'integral runs only from the start of the input transition to the ' \
+                            'point where the supply current returns within this fraction of ' \
+                            'its final (post-transition) value, avoiding both premature ' \
+                            'truncation of the switching transient and needless leakage ' \
+                            'accumulation from an oversized fixed integration window. ' \
+                            'Dimensionless. Default 0.01 (1%).'
+            ), default=0.01
+        ) : Or(float, int),
+        Optional(
+            Literal(
                 'charge_integration_t_slew',
                 description='Ramp duration (VSS->VDD or VDD->VSS) used by the ' \
                             'charge_integration input-capacitance procedure. Shorter ramps ' \
@@ -293,7 +307,14 @@ class ConfigFile:
                     description='The name of a procedure used to measure switching energy '
                                 'for each input-to-output path through a combinational cell. '
                                 'Defaults to null (disabled). '
-                                'Set to "combinational_dynamic_power" to enable.'
+                                'Set to "combinational_dynamic_power" for a raw settle-cutoff '
+                                'VDD-current measurement, or to '
+                                '"combinational_dynamic_power_charge_corrected" for a variant '
+                                'calibrated to approximate industry (e.g. Cadence Liberate) '
+                                'internal_power conventions -- see that procedure\'s docstring '
+                                'for validated cell types and a known limitation on cells with '
+                                'internal fan-out to multiple output-producing gates '
+                                '(e.g. decoders, muxes).'
                 ), default=None
             ) : Or(str, None),
             Optional(
