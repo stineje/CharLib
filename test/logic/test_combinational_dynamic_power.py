@@ -2,7 +2,8 @@ import itertools
 from unittest.mock import MagicMock
 
 from charlib.characterizer.procedures.combinational.dynamic_power import (
-    combinational_dynamic_power, measure_dynamic_power_for_path
+    combinational_dynamic_power, combinational_dynamic_power_charge_corrected,
+    measure_dynamic_power_for_path, _apply_charge_correction
 )
 from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
@@ -30,7 +31,7 @@ def _make_config(slews=None, loads=None):
     loads = loads or [1.0]
     config = MagicMock()
     config.variations.return_value = [
-        {'data_slews': s, 'loads': l, 'transient_sim_end_time': 0}
+        {'data_slews': s, 'loads': l, 'transient_sim_end_time': 0, 'energy_settling_tolerance': 0.01}
         for s, l in itertools.product(slews, loads)
     ]
     return config
@@ -82,6 +83,77 @@ def test_generator_passes_path_as_last_element():
     job_paths = [job[-1] for job in jobs]
     for path in expected_paths:
         assert path in job_paths
+
+
+# ---------------------------------------------------------------------------
+# combinational_dynamic_power_charge_corrected generator tests
+# ---------------------------------------------------------------------------
+
+def test_charge_corrected_generator_yields_four_jobs_for_one_input_one_output():
+    """Same job-count behavior as combinational_dynamic_power for a 1-input/1-output cell."""
+    cell = _make_cell(['IN'], ['OUT'])
+    config = _make_config()
+    jobs = list(combinational_dynamic_power_charge_corrected(cell, config, None))
+    assert len(jobs) == 4
+
+
+def test_charge_corrected_generator_calls_same_measure_function():
+    """Jobs use the same measure_dynamic_power_for_path callable as the plain procedure."""
+    cell = _make_cell(['IN'], ['OUT'])
+    config = _make_config()
+    jobs = list(combinational_dynamic_power_charge_corrected(cell, config, None))
+    for job in jobs:
+        assert job[0] is measure_dynamic_power_for_path
+
+
+def test_charge_corrected_generator_passes_charge_corrected_flag_true():
+    """Each job's trailing argument is True, enabling the correction in measure_dynamic_power_for_path."""
+    cell = _make_cell(['IN'], ['OUT'])
+    config = _make_config()
+    jobs = list(combinational_dynamic_power_charge_corrected(cell, config, None))
+    for job in jobs:
+        assert job[-1] is True
+
+
+def test_plain_generator_job_has_no_charge_corrected_argument():
+    """combinational_dynamic_power's jobs are the plain 6-element form (no trailing flag),
+    confirming charge_corrected defaults to False for the existing, unmodified procedure."""
+    cell = _make_cell(['IN'], ['OUT'])
+    config = _make_config()
+    jobs = list(combinational_dynamic_power(cell, config, None))
+    for job in jobs:
+        assert len(job) == 6
+
+
+# ---------------------------------------------------------------------------
+# _apply_charge_correction unit tests
+# ---------------------------------------------------------------------------
+
+def test_charge_correction_subtracts_ideal_energy_when_charging():
+    """When charges_load is True (output rises), the ideal charge energy is subtracted before halving."""
+    result = _apply_charge_correction(gross_J=10.0, ideal_charge_energy_J=6.0, charges_load=True)
+    assert result == 0.5 * (10.0 - 6.0)
+
+
+def test_charge_correction_does_not_subtract_when_not_charging():
+    """When charges_load is False (output falls), only the 0.5x scaling applies, with no
+    load-charge term subtracted."""
+    result = _apply_charge_correction(gross_J=1.0, ideal_charge_energy_J=6.0, charges_load=False)
+    assert result == 0.5 * 1.0
+
+
+def test_charge_correction_ignores_energy_magnitude_when_charging_flag_set():
+    """charges_load is an explicit flag, not inferred from the energy ratio: even a gross_J
+    that's tiny relative to ideal_charge_energy_J still gets the full subtraction when
+    charges_load=True"""
+    result = _apply_charge_correction(gross_J=0.001, ideal_charge_energy_J=1000.0, charges_load=True)
+    assert result == 0.5 * (0.001 - 1000.0)
+
+
+def test_charge_correction_handles_zero_ideal_energy():
+    """A zero-load point (ideal_charge_energy_J == 0) must not raise a ZeroDivisionError."""
+    result = _apply_charge_correction(gross_J=5.0, ideal_charge_energy_J=0.0, charges_load=False)
+    assert result == 0.5 * 5.0
 
 
 # ---------------------------------------------------------------------------
