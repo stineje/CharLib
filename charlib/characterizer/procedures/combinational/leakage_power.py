@@ -2,6 +2,7 @@ import itertools
 import PySpice
 
 from charlib.characterizer import utils
+from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 from charlib.liberty import liberty
 
@@ -40,12 +41,35 @@ def measure_leakage_for_state(cell, config, settings, state_map):
                f'with state {state_map}')
         raise ProcedureFailedException(msg) from e
 
-        # Branch current: ngspice names it <element_name>#branch, simplified to <element_name> (lower)
-        i_vdd = float(analysis.branches[settings.primary_power.name.lower()][0])
-        power_W = settings.primary_power.voltage * abs(i_vdd)
-        power_value = (power_W @ PySpice.Unit.u_W).convert(
-            settings.units.power.prefixed_unit
-        ).value
+    # Total static power = sum of signed V*I across every pin/rail that has its own
+    # source in the DC testbench built by operating_point_analysis
+    total_power_W = 0.0
+    for pin in cell.pins_in_netlist_order():
+        match pin.role:
+            case Port.Role.LOGIC if pin.name in cell.inputs:
+                voltage = settings.primary_power.voltage if state_map[pin.name] == '1' else 0.0
+                elem = pin.name
+            case Port.Role.POWER:
+                voltage, elem = settings.primary_power.voltage, settings.primary_power.subscript
+            case Port.Role.GROUND:
+                voltage, elem = settings.primary_ground.voltage, settings.primary_ground.subscript
+            case Port.Role.NWELL:
+                voltage, elem = settings.nwell.voltage, settings.nwell.subscript
+            case Port.Role.PWELL:
+                voltage, elem = settings.pwell.voltage, settings.pwell.subscript
+            case _:
+                continue
+        branch = f'v{elem}'.lower()
+        if branch not in analysis.branches:
+            continue
+        i_branch = float(analysis.branches[branch][0])
+        # By SPICE convention a voltage source's branch current is defined flowing INTO its
+        # positive terminal from the external circuit
+        total_power_W += voltage * (-i_branch)
+
+    power_value = (total_power_W @ PySpice.Unit.u_W).convert(
+        settings.units.power.prefixed_unit
+    ).value
 
     result = cell.liberty
     lp_group = liberty.Group('leakage_power')
