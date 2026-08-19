@@ -84,7 +84,10 @@ def measure_pin_cap_by_ac_sweep(cell, settings, config, target_pin):
     else:
         analysis = simulator.run(simulation)
         conductance = np.reciprocal(np.abs(analysis.vin)/i_in)
-        [*_, capacitance] = np.polynomial.polynomial.polyfit(analysis.frequency, conductance, 1)
+        # |Y| = 2*pi*f*C in the capacitive region: the slope against frequency
+        # in Hz is 2*pi*C, not C
+        [*_, slope] = np.polynomial.polynomial.polyfit(analysis.frequency, conductance, 1)
+        capacitance = slope / (2 * np.pi)
 
     # Add to the liberty group
     converted_cap = (capacitance @ u_F).convert(settings.units.capacitance.prefixed_unit).value
