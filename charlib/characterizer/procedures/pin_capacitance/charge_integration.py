@@ -8,21 +8,68 @@ from charlib.characterizer.cell import Port
 from charlib.characterizer.procedures import register, ProcedureFailedException
 
 
-@register('data_slews', 'charge_integration_t_slew', 'charge_integration_t_wait')
+@register(
+    'data_slews',
+    'charge_integration_t_slew',
+    'charge_integration_t_wait',
+    'charge_integration_criterion'
+)
 def charge_integration(cell, config, settings):
     """Measure input capacitance for each input pin using charge integration and return a liberty cell group"""
     roles = ['logic', 'clock', 'set', 'reset', 'enable']
+    criterion = config.parameters.get('charge_integration_criterion', 'average')
     for target_pin in cell.filter_pins(direction=['input'], role=roles):
-        yield (measure_pin_cap_by_charge_integration, cell, settings, config, target_pin.name)
+        yield (
+            measure_pin_cap_by_charge_integration,
+            cell,
+            settings,
+            config,
+            target_pin.name,
+            criterion
+        )
 
 
-def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
+def _combine_capacitances(rise_capacitance, fall_capacitance, criterion='average'):
+    """Combine rise and fall capacitance using a named rule or callable."""
+    values = (rise_capacitance, fall_capacitance)
+    criteria = {
+        'average': lambda measurements: sum(measurements) / len(measurements),
+        'min': min,
+        'max': max,
+    }
+
+    if callable(criterion):
+        return criterion(values)
+
+    try:
+        criterion_function = criteria[criterion]
+    except (KeyError, TypeError) as error:
+        options = ', '.join(criteria)
+        raise ValueError(
+            f'Unknown charge integration criterion {criterion!r}. '
+            f'Expected one of: {options}, or a callable.'
+        ) from error
+
+    return criterion_function(values)
+
+
+def measure_pin_cap_by_charge_integration(
+    cell,
+    settings,
+    config,
+    target_pin,
+    criterion='average'
+):
     """Use a PWL stimulus to ramp the input through a full VDD swing and integrate i(vstim).
 
     Applies a VSS→VDD→VSS waveform to the target pin. The charge drawn on the rising
-    and falling edges is integrated separately; C_in = (|Q_rise| + |Q_fall|) / 2 / VDD.
-    All other pins are isolated with a large R and small C to ground, matching the AC
-    sweep topology.
+    and falling edges is integrated separately. Each edge yields C_in = |Q| / VDD,
+    and the configured criterion combines both measurements. All other pins are
+    isolated with a large R and small C to ground, matching the AC sweep topology.
+
+    The ``criterion`` argument controls how the two measurements are combined for
+    the generic ``capacitance`` attribute. It may be ``average``, ``min``, ``max``,
+    or a callable accepting both measurements.
 
     Returns a liberty cell group with the capacitance set on the appropriate pin.
     """
@@ -128,11 +175,11 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     if math.isnan(q_rise) or math.isnan(q_fall):
         return result
 
-    # C = |Q| / VDD per edge; capacitance is the worst-case
+    # C = |Q| / VDD per edge; combine both edges using the requested criterion
     vdd_v = settings.primary_power.voltage
     rise_cap_F = q_rise / vdd_v
     fall_cap_F = q_fall / vdd_v
-    worst_cap_F = max(rise_cap_F, fall_cap_F)
+    capacitance_F = _combine_capacitances(rise_cap_F, fall_cap_F, criterion)
 
     def to_lib(cap_F):
         return (cap_F @ u_F).convert(settings.units.capacitance.prefixed_unit).value
@@ -140,6 +187,6 @@ def measure_pin_cap_by_charge_integration(cell, settings, config, target_pin):
     pin_group = result.group('pin', target_pin)
     pin_group.add_attribute('rise_capacitance', to_lib(rise_cap_F))
     pin_group.add_attribute('fall_capacitance', to_lib(fall_cap_F))
-    pin_group.add_attribute('capacitance',      to_lib(worst_cap_F))
+    pin_group.add_attribute('capacitance',      to_lib(capacitance_F))
 
     return result

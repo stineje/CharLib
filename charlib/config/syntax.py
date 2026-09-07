@@ -177,6 +177,14 @@ class ConfigFile:
         ) : Or(float, int),
         Optional(
             Literal(
+                'charge_integration_criterion',
+                description='Criterion used to combine rise and fall capacitance into the ' \
+                            'generic capacitance attribute. Options are ``average`` (default), ' \
+                            '``min``, or ``max``.'
+            ), default='average'
+        ) : Or('average', 'min', 'max'),
+        Optional(
+            Literal(
                 'metastability_constraint_search_tolerance',
                 description='Tolerance used during setup/hold constraint search. Unit is ' \
                             'specified by ``settings.units.time``.'
