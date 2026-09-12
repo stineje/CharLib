@@ -26,10 +26,10 @@ class Cell:
             - The path to the cell's netlist.
             - Functions implemented in this cell (and optionally input and output pin names).
             - Which pins have special roles or are members of differential pairs.
-            - The names of any internal state elements / feedback paths..
+            - The functions of any internal state elements and/or feedback paths.
             - Cell metadata that belongs in the liberty file (such as area)
         2. Locate the cell netlist and read the .subckt line. For each pin in the netlist:
-            a. Determine pin direction from the function list.
+            a. Determine pin direction from functions and/or states.
             b. Determine pin role and trigger type from special pins (default: logic/level-sensing)
             c. Determine how to construct the pin and bind it to the cell.
                 - If the pin is a member of a differential pair, construct with DifferentialPair.
@@ -38,9 +38,9 @@ class Cell:
         4. Construct a skeleton liberty object for this cell.
         """
         self.name = name
-        self.pins = dict()
-        self.diff_pairs = dict()
-        self.functions = dict()
+        self.pins = {}
+        self.diff_pairs = {}
+        self.functions = {}
 
         ## 1. Process cell_config
 
@@ -74,9 +74,6 @@ class Cell:
         diff_pairs = [tuple(pair.split()) for pair in cell_config.get('pairs', [])]
 
         # Parse functions to determine input and output mapping
-        functions = dict()
-        inputs = set()
-        outputs = set()
         def _parse_expression(expression):
             # Helper function for parsing expressions of the form Y=A&B etc.
             lhs, rhs = expression.split('=')
@@ -84,10 +81,24 @@ class Cell:
             if not parse_logic(rhs):
                 raise ValueError(f'Could not parse expression "{expression}"')
             return output, rhs.strip()
+
+        functions = {}
+        states = {}
+        inputs = set()
+        outputs = set()
+        parsed_states = {}
+        if 'state' in cell_config:
+            for state in cell_config['state']:
+                internal_pin, state_expr = _parse_expression(state)
+                parsed_states[internal_pin] = state_expr
         for function in cell_config['functions']:
-            output, expression = _parse_expression(function)
-            functions[output] = expression
-            inputs.update(set(OPERAND_REGEX.findall(expression)))
+            output, func_expr = _parse_expression(function)
+            if func_expr in parsed_states:
+                # TODO: if output not in states, indicate problem with cell config
+                states[output] = func_expr # Store internal mapping
+                func_expr = parsed_states[func_expr] # Read through function
+            functions[output] = func_expr
+            inputs.update(set(OPERAND_REGEX.findall(func_expr)))
             outputs.add(output)
 
         ## 2. Read .subckt line from netlist and construct pins
@@ -127,10 +138,9 @@ class Cell:
                 raise ValueError(f'Expected outputs {cell_config["outputs"]}, found {self.outputs}')
 
         ## 3. Construct functions based on pin types & feedback paths
-        feedback_paths = {v: k for k, v in [_parse_expression(s) for s in cell_config.get('state', [])]}
         for output, expression in functions.items():
             is_inverting = output in [pair.inverting_port_name for pair in self.diff_pairs.values()]
-            state = feedback_paths.get(output, None)
+            state = states.get(output)
             # TODO: Pass only pins which are related to this function
             # TODO: Handle multiple clocks, etc.
             [output_pin] = list(self.filter_pins(name=output))
@@ -141,18 +151,20 @@ class Cell:
         self.liberty.add_attribute('area', cell_config.get('area', 0.0), 2)
         def to_lib_expr(pin):
             return pin.name + "'" if pin.is_inverted() else pin.name
-        for pin, var in feedback_paths.items(): # Add storage groups
+        inverting_pins = {pair.inverting_port_name for pair in self.diff_pairs.values()}
+        for pin, var in states.items(): # Add storage groups
             # Get variable names
-            if pin in [pair.inverting_port_name for pair in self.diff_pairs.values()]:
+            if pin in inverting_pins:
                 continue # skip inverting pins
-            storage_vars = [var,]
+            storage_vars = [var]
             for pair in self.diff_pairs.values():
                 if pin == pair.noninverting_port_name:
                     try:
-                        complement_var = feedback_paths[pair.complement(pin)]
+                        complement_var = states[pair.complement(pin)]
                     except KeyError as e:
                         raise ValueError(f'No state feedback path for differential pair member {pair.complement(pin)}') from e
                     storage_vars.append(complement_var)
+                    break
             if len(storage_vars) < 2:
                 # No inverting output. Append inv to the end of the first var name
                 storage_vars.append(f'{var}inv')

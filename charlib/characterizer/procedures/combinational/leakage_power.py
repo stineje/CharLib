@@ -71,12 +71,9 @@ def measure_leakage_for_state(cell, config, settings, state_map):
         settings.units.power.prefixed_unit
     ).value
 
-    when_str = build_when_str(state_map)
-
-    # Use when_str as identifier so multiple leakage_power groups in the same cell don't collide
     result = cell.liberty
-    lp_group = liberty.Group('leakage_power', f'/* {when_str} */')
-    lp_group.add_attribute('when', when_str)
+    lp_group = liberty.Group('leakage_power')
+    lp_group.add_attribute('when', build_when_str(state_map))
     lp_group.add_attribute('value', power_value)
     result.add_group(lp_group)
     return result

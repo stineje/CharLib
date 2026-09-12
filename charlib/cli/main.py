@@ -25,9 +25,6 @@ def main():
     parser_compare = subparser.add_parser(
         'compare',
         help='(experimental) Compare two liberty files')
-    parser_genfunctions = subparser.add_parser(
-        'generate_functions',
-        help='(experimental) Generate YAML maps for registered functions')
 
     # Set up charlib run arguments
     parser_characterize.add_argument(
@@ -40,8 +37,8 @@ def main():
         '-j', '--jobs', type=int, default=0,
         help='Specify the number of concurrent jobs')
     parser_characterize.add_argument(
-        '--comparewith', type=str, default='',
-        help='(experimental) A liberty file to compare results with')
+        '-n', '--no-sim', action='store_true',
+        help='Perform all tasks except for running simulations')
     parser_characterize.add_argument(
         '-f', '--filters', nargs='*',
         help='A list of one or more regex strings. charlib will only characterize cells matching one or more of the filters.')

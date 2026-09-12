@@ -101,12 +101,12 @@ cells:
     # gf180mcu_osu_sc_gp9t3v3__decap_1:
     gf180mcu_osu_sc_gp9t3v3__dff_1:
         functions:
-            - Q <= D
-            - QN <= !D
+            - Q <= IQ
+            - QN <= IQN
         clock: posedge clk
         state:
-            - IQ = Q
-            - IQN = QN
+            - IQ = D
+            - IQN = !D
         pairs: [Q QN]
         # Limit DFFS to 1 slew/load/clk_slew corner
         data_slews:  [0.0706]
@@ -114,12 +114,12 @@ cells:
         clock_slews: [0.0699991]
     gf180mcu_osu_sc_gp9t3v3__dffn_1:
         functions:
-            - Q <= D
-            - QN <= !D
+            - Q <= IQ
+            - QN <= IQN
         clock: negedge clk
         state:
-            - IQ = Q
-            - IQN = QN
+            - IQ = D
+            - IQN = !D
         pairs: [Q QN]
         # Limit DFFS to 1 slew/load/clk_slew corner
         data_slews:  [0.0706]
@@ -129,14 +129,14 @@ cells:
         inputs: [D]
         outputs: [Q, QN]
         functions:
-            - Q <= D
-            - QN <= !D
+            - Q <= IQ
+            - QN <= IQN
         clock: posedge clk
         set: not S
         reset: not R
         state:
-            - IQ = Q
-            - IQN = QN
+            - IQ = D
+            - IQN = !D
         pairs: [Q QN]
         # Limit DFFS to 1 slew/load/clk_slew corner
         data_slews:  [0.0706]
@@ -144,14 +144,14 @@ cells:
         clock_slews: [0.0699991]
     # gf180mcu_osu_sc_gp9t3v3__dlat_1:
     #     functions:
-    #         - Q = D
+    #         - Q = IQ
     #     enable: CLK
-    #     state: [IQ = Q]
+    #     state: [IQ = D]
     # gf180mcu_osu_sc_gp9t3v3__dlatn_1:
     #     functions:
-    #         - Q = D
+    #         - Q = IQ
     #     enable: not CLK
-    #     state: [IQ = Q]
+    #     state: [IQ = D]
     # gf180mcu_osu_sc_gp9t3v3__fill_1:
     # gf180mcu_osu_sc_gp9t3v3__fill_16:
     # gf180mcu_osu_sc_gp9t3v3__fill_2:

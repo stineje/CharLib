@@ -2,6 +2,7 @@ import re, yaml
 from pathlib import Path
 
 from charlib.config.syntax import ConfigFile
+from schema import SchemaError
 
 def find_yaml_files(path) -> list:
     """Return a list of Paths containing all YAML files in the directory specified by `path`."""
@@ -14,6 +15,19 @@ def find_yaml_files(path) -> list:
         return []
 
 
+def resolve_subkey(value, base_dir):
+    """If a config value ends in .yml or .yaml, resolve it to the YAML contents."""
+    if isinstance(value, str):
+        if not value.lower().endswith(('.yml', '.yaml')):
+            return value
+        possible_yamls = find_yaml_files(Path(base_dir) / value)
+        if len(possible_yamls) != 1:
+            raise ValueError(f'Unable to resolve {value} to a unique existing file')
+        with open(possible_yamls[0]) as file:
+            return yaml.safe_load(file)
+    return value
+
+
 def find_config(config_path, quiet=True):
     """Find an appropriately-formatted YAML file in `config_path`"""
 
@@ -21,15 +35,32 @@ def find_config(config_path, quiet=True):
         print(f'Searching for YAML files at {str(config_path)}')
     config = None
     for file in find_yaml_files(config_path):
+        # Load the file
         try:
-            with open(file, 'r') as f:
-                config = ConfigFile.validate(yaml.safe_load(f))
-            break # Use the first valid config we come across
+            with open(file) as f:
+                config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             if not quiet:
                 print(e)
                 print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
+        # Ensure the file contains a config dictionary
+        if not isinstance(config, dict):
+            if not quiet:
+                print(f'Skipping "{str(file)}": file does not contain a config dict')
+            continue
+        # Substitute in config keys which point to other YAML files or directories
+        config = {k: resolve_subkey(v, file.parent) for k, v in config.items()}
+        # Validate the schema
+        try:
+            config = ConfigFile.validate(config)
+            break # Exit on success
+        except SchemaError:
+            if not quiet:
+                print(f'Skipping "{str(file)}": file does not contain a valid CharLib config')
+            config = None
+    if not isinstance(config, dict):
+        raise FileNotFoundError(f'No valid configuration found in {config_path}')
     return config
 
 

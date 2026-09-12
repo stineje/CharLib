@@ -5,15 +5,13 @@ work
 debug
 results
 dist
+venv
 .venv
 .vscode
 docs/manual/build
 
 # Ignored files
 b3v3_1check.log
-venv
-#*.cmd
-#*.lib
 *.txt
 *.v
 docs/manual/source/chapters/05_*_yaml_syntax.rst

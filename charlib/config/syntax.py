@@ -51,9 +51,12 @@ class ConfigFile:
         ) : [str],
         Literal(
             'functions',
-            description='A list of verilog functions describing each output as logical function ' \
-                        'of inputs. Input and output names must match ports names in the spice ' \
-                        'subcircuit.'
+            description='A list of Boolean functions describing each output as logical function ' \
+                        'of inputs. Each entry should be in the format ' \
+                        '``<output> = <function>``. For sequential cells, each output should ' \
+                        'be mapped to a state entry. Any inputs and outputs which appear in ' \
+                        'a function must match ports names in the spice subcircuit.' \
+
         ) : [str],
         Literal(
             'data_slews',
@@ -108,8 +111,8 @@ class ConfigFile:
         Optional(
             Literal(
                 'state',
-                description='A list of feedback paths which encode state in a sequential cell. ' \
-                            'Paths should be specified as ``<internal node> = <output pin>``.'
+                description='A list of virtual nodes which encode state in a sequential cell. ' \
+                            'Paths should be specified as ``<internal pin> = <function>``.'
             )
         ) : [str],
         Optional(
@@ -186,6 +189,14 @@ class ConfigFile:
                             'automatically set to 1000 x charge_integration_t_slew.'
             ), default=0
         ) : Or(float, int),
+        Optional(
+            Literal(
+                'charge_integration_criterion',
+                description='Criterion used to combine rise and fall capacitance into the ' \
+                            'generic capacitance attribute. Options are ``average`` (default), ' \
+                            '``min``, or ``max``.'
+            ), default='average'
+        ) : Or('average', 'min', 'max'),
         Optional(
             Literal(
                 'metastability_constraint_search_tolerance',
@@ -505,6 +516,13 @@ class ConfigFile:
                             'keyword is set to ``True``'
             ), default='debug'
         ) : str,
+        Optional(
+            Literal(
+                'dry_run',
+                description='If true, CharLib will perform all steps except for running SPICE ' \
+                            ' simulations. Equivalent to the ``--no-sim`` command line option.'
+            ), default=False
+        ) : bool,
         Optional(
             Literal(
                 'omit_on_failure',
