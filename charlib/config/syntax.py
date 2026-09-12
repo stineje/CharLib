@@ -215,6 +215,14 @@ class ConfigFile:
         ) : int,
         Optional(
             Literal(
+                'delay_growth_threshold',
+                description='Maximum fractional increase over the reference clock-to-Q delay ' \
+                            'accepted during setup/hold constraint search. For example, 0.2 ' \
+                            'allows 20% delay growth. Defaults to 0.2.'
+            ), default=0.2
+        ) : Or(float, int),
+        Optional(
+            Literal(
                 'plots',
                 description='A string (or list of strings) specifying which plot(s) to show ' \
                             'for this cell.'
