@@ -7,6 +7,8 @@ from charlib.characterizer import utils, plots
 from charlib.liberty import liberty
 from charlib.liberty.library import LookupTable
 
+DEFAULT_DELAY_GROWTH_THRESHOLD = 0.2
+
 @register(
     'data_slews',
     'clock_slews',
@@ -18,14 +20,16 @@ from charlib.liberty.library import LookupTable
 )
 def measure_setup_hold_from_contour(cell, config, settings):
     """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
+    delay_growth_threshold = config.parameters.get(
+        'delay_growth_threshold', DEFAULT_DELAY_GROWTH_THRESHOLD)
     for variation in config.variations(
             'data_slews',
             'clock_slews',
             'metastability_constraint_search_tolerance',
             'metastability_constraint_search_timestep',
             'metastability_constraint_load',
-            'metastability_constraint_sweep_samples',
-            'delay_growth_threshold'):
+            'metastability_constraint_sweep_samples'):
+        variation['delay_growth_threshold'] = delay_growth_threshold
         for path in cell.paths():
             # cell.nonmasking_conditions_for_path filter out the impossible paths
             # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
