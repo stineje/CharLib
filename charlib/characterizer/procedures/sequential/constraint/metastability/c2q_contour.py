@@ -13,7 +13,8 @@ from charlib.liberty.library import LookupTable
     'metastability_constraint_search_tolerance',
     'metastability_constraint_search_timestep',
     'metastability_constraint_load',
-    'metastability_constraint_sweep_samples'
+    'metastability_constraint_sweep_samples',
+    'delay_growth_threshold'
 )
 def measure_setup_hold_from_contour(cell, config, settings):
     """find setup and hold time using the approach described in https://ieeexplore.ieee.org/document/4167994"""
@@ -23,7 +24,8 @@ def measure_setup_hold_from_contour(cell, config, settings):
             'metastability_constraint_search_tolerance',
             'metastability_constraint_search_timestep',
             'metastability_constraint_load',
-            'metastability_constraint_sweep_samples'):
+            'metastability_constraint_sweep_samples',
+            'delay_growth_threshold'):
         for path in cell.paths():
             # cell.nonmasking_conditions_for_path filter out the impossible paths
             # ex. non-inverting FF with D, Q, and CLK. it'll never have D_01 -> Q_10
@@ -34,14 +36,21 @@ def measure_setup_hold_from_contour(cell, config, settings):
 
 def make_log_header(cell_name, ds, cs, path_str, constants):
     """Return a metadata header block common to all log files."""
-    TOLERANCE, STEP, C_LOAD, N_SWEEP_SAMPLES = constants
+    TOLERANCE, STEP, C_LOAD, N_SWEEP_SAMPLES, DELAY_GROWTH_THRESHOLD = constants
     return [
         f"Cell:      {cell_name}",
         f"Variation: data_slew={ds}, clock_slew={cs}",
         f"Path:      {path_str}",
-        f"Constants: tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}, n_sweep_samples={N_SWEEP_SAMPLES}",
+        f"Constants: tolerance={TOLERANCE}, step={STEP}, c_load={C_LOAD}, "
+        f"n_sweep_samples={N_SWEEP_SAMPLES}, delay_growth_threshold={DELAY_GROWTH_THRESHOLD}",
         f"",
     ]
+
+def c2q_delay_limit(reference_delay, growth_threshold):
+    """Return the largest accepted delay for a reference C2Q measurement."""
+    if math.isnan(reference_delay):
+        return math.inf
+    return reference_delay * (1 + growth_threshold)
 
 def write_log(debug_path, filename, lines):
     """Write a list of lines to a log file. No-ops if debug_path is None."""
@@ -75,8 +84,8 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
       3. Find hold time with setup held at 'infinite'. Binary search finds absolute minimum hold where FF latches at all.
       4. Fix hold = result of step 3, then find setup time. Binary search finds absolute maximum setup where FF latches at all.
       ---- at this point we have absolute max setup and absolute min hold ----
-      5. with the boundaries we obtained, simulate every (setup, hold) combination; use a c2q threshold (20% worse
-         than c2q at the relaxed corner) to identify the valid-c2q contour within the full latching space
+      5. with the boundaries we obtained, simulate every (setup, hold) combination; use the configured c2q delay
+         growth threshold to identify the valid-c2q contour within the full latching space
       6. pick the knee point on the valid-c2q contour as the final setup and hold result for the current variation
 
     Note: both setup time and hold time may be negative (data can arrive after the
@@ -86,7 +95,8 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
     STEP = variation['metastability_constraint_search_timestep'] * settings.units.time
     C_LOAD = variation['metastability_constraint_load'] * settings.units.capacitance
     N_SWEEP_SAMPLES = variation['metastability_constraint_sweep_samples']
-    constants = (TOLERANCE, STEP, C_LOAD, N_SWEEP_SAMPLES)
+    DELAY_GROWTH_THRESHOLD = variation['delay_growth_threshold']
+    constants = (TOLERANCE, STEP, C_LOAD, N_SWEEP_SAMPLES, DELAY_GROWTH_THRESHOLD)
 
     ds = variation['data_slews'] * settings.units.time
     cs = variation['clock_slews'] * settings.units.time
@@ -124,11 +134,11 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                                                        capacitive_load=C_LOAD, debug_dir=debug_dir)
 
         # Step 0: measure reference c2q at (t_stabilizing, t_stabilizing) — relaxed point.
-        # Used to gate binary search steps 1–4: points with c2q > ref * 1.2 are treated
-        # as invalid (metastable / degenerate operating region).
+        # Used to gate binary search steps 1–4: points beyond the configured delay-growth
+        # threshold are treated as invalid (metastable / degenerate operating region).
         step0_path = (state_debug_path / 'step0') if settings.debug else None
         ref_c2q_steps = step_c2q(t_stabilizing, t_stabilizing, step0_path)
-        step_threshold = ref_c2q_steps * 1.2 if not math.isnan(ref_c2q_steps) else math.inf
+        step_threshold = c2q_delay_limit(ref_c2q_steps, DELAY_GROWTH_THRESHOLD)
         ref_c2q_display = to_t(ref_c2q_steps @ PySpice.Unit.u_s) if not math.isnan(ref_c2q_steps) else float('nan')
         threshold_display = to_t(step_threshold @ PySpice.Unit.u_s) if not math.isinf(step_threshold) else float('inf')
         write_log(step0_path, 'step0_log.txt',
@@ -137,7 +147,8 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
                 f"",
                 f"step0 : measure ref c2q at setup=hold= {t_stabilizing}",
                 f"  ref c2q   = {ref_c2q_display:.4g} {t_unit.str_spice()}",
-                f"  threshold = {threshold_display:.4g} {t_unit.str_spice()} (ref c2q * 1.2)",
+                f"  threshold = {threshold_display:.4g} {t_unit.str_spice()} "
+                f"(ref c2q * {1 + DELAY_GROWTH_THRESHOLD:g})",
             ]
         )
 
@@ -183,7 +194,7 @@ def find_setup_hold_for_path(cell, config, settings, variation, path, state_maps
         # Step 5: sweep the setup×hold boundary and plot the latched contour
         step5_debug_path = (state_debug_path / 'step5') if settings.debug else None
         ref_c2q = step_c2q(step4_setup_result, step2_hold_result, step5_debug_path)
-        c2q_threshold = ref_c2q * 1.2 if not math.isnan(ref_c2q) else math.inf
+        c2q_threshold = c2q_delay_limit(ref_c2q, DELAY_GROWTH_THRESHOLD)
 
         # latch_x : 2D numpy array, indexed by hold(first index) and setup(second index), stores a boolean that indicates whether such setup & hold combination meets requirement
         # c2q_x : 2D numpy array, indexed by hold(first index) and setup(second index), stores a number that indicates the c2q time for such setup & hold combination
