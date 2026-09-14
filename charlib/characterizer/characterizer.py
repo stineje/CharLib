@@ -74,13 +74,11 @@ class Characterizer:
             simulations += self.settings.simulation.sequential_delay(cell, config, self.settings)
         else:
             # Measure static leakage power for all input states
-            if self.settings.simulation.combinational_leakage:
-                simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
+            simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
             # Measure combinational propagation and transient delays
             simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
             # Measure dynamic switching energy for all input-to-output paths
-            if self.settings.simulation.combinational_dynamic_power:
-                simulations += self.settings.simulation.combinational_dynamic_power(cell, config, self.settings)
+            simulations += self.settings.simulation.combinational_dynamic_power(cell, config, self.settings)
         return simulations
 
     def characterize(self):
