@@ -287,11 +287,9 @@ class ConfigFile:
             Optional(
                 Literal(
                     'combinational_leakage_procedure',
-                    description='The name of a procedure used to measure static leakage power '
-                                'for each input state of a combinational cell. '
-                                'Defaults to null (disabled). '
-                                'Set to "combinational_leakage" to enable.' # TODO: Refer to docs for procedures
-                ), default=None
+                    description='The name of a procedure used to measure static leakage power ' \
+                                'for each input state of a combinational cell.' # TODO: Refer to docs for procedures
+                ), default='combinational_leakage'
             ) : Or(str, None),
             Optional(
                 Literal(
@@ -307,7 +305,7 @@ class ConfigFile:
                                 'for validated cell types and a known limitation on cells with '
                                 'internal fan-out to multiple output-producing gates '
                                 '(e.g. decoders, muxes).'
-                ), default=None
+                ), default='combinational_dynamic_power'
             ) : Or(str, None),
             Optional(
                 Literal(
