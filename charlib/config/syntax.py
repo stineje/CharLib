@@ -296,7 +296,7 @@ class ConfigFile:
                     'combinational_dynamic_power_procedure',
                     description='The name of a procedure used to measure switching energy '
                                 'for each input-to-output path through a combinational cell. '
-                                'Defaults to null (disabled). '
+                                'Defaults to combinational_dynamic_power. '
                                 'Set to "combinational_dynamic_power" for a raw settle-cutoff '
                                 'VDD-current measurement, or to '
                                 '"combinational_dynamic_power_charge_corrected" for a variant '
