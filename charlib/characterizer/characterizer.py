@@ -73,10 +73,10 @@ class Characterizer:
             # Measure sequential propagation and transient delays
             simulations += self.settings.simulation.sequential_delay(cell, config, self.settings)
         else:
-            # Measure static leakage power for all input states
-            simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
             # Measure combinational propagation and transient delays
             simulations += self.settings.simulation.combinational_delay(cell, config, self.settings)
+            # Measure static leakage power for all input states
+            simulations += self.settings.simulation.combinational_leakage(cell, config, self.settings)
             # Measure dynamic switching energy for all input-to-output paths
             simulations += self.settings.simulation.combinational_dynamic_power(cell, config, self.settings)
         return simulations
