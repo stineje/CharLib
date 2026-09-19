@@ -34,18 +34,21 @@ def find_config(config_path, quiet=True):
     if not quiet:
         print(f'Searching for YAML files at {str(config_path)}')
     config = None
+    errors = []
     for file in find_yaml_files(config_path):
         # Load the file
         try:
             with open(file) as f:
                 config = yaml.safe_load(f)
         except yaml.YAMLError as e:
+            errors.append(f'{file}: invalid YAML: {e}')
             if not quiet:
                 print(e)
                 print(f'Skipping "{str(file)}": file contains invalid YAML')
             continue
         # Ensure the file contains a config dictionary
         if not isinstance(config, dict):
+            errors.append(f'{file}: expected a configuration mapping')
             if not quiet:
                 print(f'Skipping "{str(file)}": file does not contain a config dict')
             continue
@@ -55,12 +58,14 @@ def find_config(config_path, quiet=True):
         try:
             config = ConfigFile.validate(config)
             break # Exit on success
-        except SchemaError:
+        except SchemaError as e:
+            errors.append(f'{file}: {e}')
             if not quiet:
-                print(f'Skipping "{str(file)}": file does not contain a valid CharLib config')
+                print(f'Skipping "{str(file)}": {e}')
             config = None
     if not isinstance(config, dict):
-        raise FileNotFoundError(f'No valid configuration found in {config_path}')
+        details = '\n' + '\n'.join(errors) if errors else ''
+        raise FileNotFoundError(f'No valid configuration found in {config_path}{details}')
     return config
 
 
