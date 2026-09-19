@@ -10,6 +10,7 @@ from charlib.characterizer import utils, plots
 from charlib.characterizer.cell import Cell, CellTestConfig
 from charlib.characterizer.units import UnitsSettings
 from charlib.characterizer.procedures import registered_procedures, ProcedureFailedException
+from charlib.config.syntax import ConfigFile
 from charlib.liberty.library import Library
 
 import charlib.characterizer.procedures.pin_capacitance.ac_sweep
@@ -33,6 +34,7 @@ class Characterizer:
 
     def add_cell(self, name: str, properties: dict):
         """Add a cell to be characterized"""
+        properties = ConfigFile.cell_syntax.validate(properties)
         # Get pg_pins from library settings, then construct the cell
         supply_pins = {self.settings.primary_power.name: 'primary_power',
                        self.settings.primary_ground.name: 'primary_ground',
