@@ -192,7 +192,14 @@ class Cell:
                 pin_group = liberty.Group('pin', pin.name)
                 pin_group.add_attribute('direction', pin.direction)
                 if pin.direction is Port.Direction.OUT:
-                    pin_group.add_attribute('function', str(self.functions[pin.name]))
+                    if self.functions[pin.name].state is None:
+                        pin_group.add_attribute('function', str(self.functions[pin.name]))
+                    else:
+                        # Sequential output: Liberty read-through function is the
+                        # storing state node (e.g. Q -> function : "IQ"); a
+                        # functionless output makes dfflibmap reject the cell
+                        # ("D flip-flops are not supported").
+                        pin_group.add_attribute('function', self.functions[pin.name].state)
                 elif pin.role == Port.Role.CLOCK:
                     pin_group.add_attribute('clock', "true")
             self.liberty.add_group(pin_group)
